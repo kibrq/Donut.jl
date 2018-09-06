@@ -1,6 +1,12 @@
 using Test
 include("../choochoo/surf.jl")
 
+@test_throws ErrorException Surface(-1)
+@test_throws ErrorException Surface(1, -1)
+@test_throws ErrorException Surface(0, 0, false)
+@test_throws ErrorException surface_from_euler_char(-1, 0)
+@test_throws ErrorException surface_from_euler_char(-6, 1)
+
 @test is_orientable(Surface(0)) == true
 @test is_orientable(Surface(1, 0, false)) == false
 
