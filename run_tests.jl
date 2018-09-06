@@ -8,7 +8,7 @@ using Test
 
 # tic()
 println("Test Surfaces")
-@time include("test/surf_test.jl")
-println("Test 2")
+@time include("test/surface_test.jl")
+# println("Test 2")
 # @time @test include("../surf.jl")
 # toc()
