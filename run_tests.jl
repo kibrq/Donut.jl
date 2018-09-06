@@ -9,6 +9,6 @@ using Test
 # tic()
 println("Test Surfaces")
 @time include("test/surface_test.jl")
-# println("Test 2")
-# @time @test include("../surf.jl")
+println("Test TrainTracks")
+@time include("test/train_track_test.jl")
 # toc()

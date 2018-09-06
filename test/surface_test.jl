@@ -1,5 +1,5 @@
 using Test
-include("../choochoo/surf.jl")
+include("../strudel/surface.jl")
 
 @test_throws ErrorException Surface(-1)
 @test_throws ErrorException Surface(1, -1)
