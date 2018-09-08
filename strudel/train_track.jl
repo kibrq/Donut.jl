@@ -72,7 +72,7 @@ struct TrainTrack
                 sgn = step == FORWARD ? 1 : -1
                 ls = gluing_list[2*i - 2 + step]
                 for br_idx in ls
-                    set_endpoint!(-br_idx, sgn*i, branches)
+                    _set_endpoint!(-br_idx, sgn*i, branches)
                 end
                 switches[i].num_outgoing_branches[step] = length(ls)
                 switches[i].outgoing_branch_indices[step][1:length(ls)] = ls
@@ -87,7 +87,7 @@ end
 #     branch_array[br_idx].endpoint[END] :
 #     branch_array[-br_idx].endpoint[START]
 
-set_endpoint!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
+_set_endpoint!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
     branch_array[br_idx].endpoint[END] = sw_idx :
     branch_array[-br_idx].endpoint[START] = sw_idx
 
@@ -102,8 +102,11 @@ branch_endpoint(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].endpoint
 num_outgoing_branches(tt::TrainTrack, switch::Int) =
     tt.switches[abs(switch)].num_outgoing_branches[switch > 0 ? FORWARD : BACKWARD]
 
-"""Tested"""
-set_num_outgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
+"""
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
+
+Tested"""
+_set_num_outgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
     tt.switches[abs(switch)].num_outgoing_branches[switch > 0 ? FORWARD : BACKWARD] = number
 
 
@@ -112,9 +115,11 @@ Inserts some outgoing branches to the specified switch a the specified position.
 
 Only the branch indices are inserted.
 
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
+TESTED
 """
-function splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, inserted_branches =
+function _splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, inserted_branches =
                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
     num_br = num_outgoing_branches(tt, switch)
     arr_view = outgoing_branches(tt, switch)
@@ -129,12 +134,6 @@ function splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::Uni
         end
     end
 
-    # cond1 = index_range.start <= 0
-    # cond2 = index_range.start > n+1
-    # cond3 = index_range.start == n+1 && index_range.stop != n
-    # cond4 = index_range.stop > n
-    # if cond1 || cond2 || cond3 || cond4
-
     direction = switch > 0 ? FORWARD : BACKWARD
     full_arr = tt.switches[abs(switch)].outgoing_branch_indices[direction]
 
@@ -148,47 +147,24 @@ function splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::Uni
     num_added_branches = length(inserted_branches)
     num_deleted_branches = index_range.stop - index_range.start + 1
     new_total = num_br + num_added_branches - num_deleted_branches
-    set_num_outgoing_branches!(tt, switch, new_total)
-
-    # arr_view = outgoing_branches(tt, switch)
-
-    # num_existing_branches = num_outgoing_branches(tt, switch)
-    # num_added_branches = length(inserted_branches)
-    # new_total = num_existing_branches + num_added_branches
-    # set_num_outgoing_branches!(tt, switch, new_total)
-
-    # # If not enough space, allocate more
-    # direction = switch > 0 ? FORWARD : BACKWARD
-    # full_arr = tt.switches[abs(switch)].outgoing_branch_indices[direction]
-    # missing = new_total - length(full_arr)
-    # if missing > 0
-    #     append!(full_arr, fill(0, missing))
-    # end
-
-    # if insert_after_pos < 0 || insert_after_pos > num_existing_branches
-    #     error("Position $(insert_after_pos) is out of range at switch $(switch).")
-    # end
-
-    # end_pos = start_side == LEFT ? insert_after_pos+1 : num_existing_branches+1-insert_after_pos
-
-    # for i in num_existing_branches:-1:end_pos
-    #     full_arr[i + num_added_branches] = full_arr[i]
-    # end
-
-    # oriented_ins_branches = start_side == LEFT ? inserted_branches : reverse(inserted_branches)
-    # full_arr[end_pos:end_pos + num_added_branches - 1] = oriented_ins_branches
-
+    _set_num_outgoing_branches!(tt, switch, new_total)
 end
 
-"""Tested"""
-function insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos, inserted_branches =
+"""
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
+
+Tested"""
+function _insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos, inserted_branches =
                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
-    splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
+    _splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
 end
 
-"""Tested"""
-function delete_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, start_side::Int=LEFT)
-    splice_outgoing_branches!(tt, switch, index_range, Int[], start_side)
+"""
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
+
+Tested"""
+function _delete_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, start_side::Int=LEFT)
+    _splice_outgoing_branches!(tt, switch, index_range, Int[], start_side)
 end
 
 """Tested"""
@@ -229,11 +205,19 @@ twist_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)].is_twiste
 """Tested"""
 switch_valence(tt::TrainTrack, switch::Int) = num_outgoing_branches(tt, switch) + num_outgoing_branches(tt, -switch)
 
-"""Tested"""
+"""
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
+
+Tested"""
 delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Branch())
 
-"""Tested"""
+
+"""
+WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
+
+Tested"""
 delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Switch())
+
 
 """
 Collapse a branch if possible.
@@ -276,13 +260,13 @@ function collapse_branch!(tt::TrainTrack, branch::Int)
         error("The specified branch is not collapsible: there are branches that block the collapse.")
     end
 
-    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_left)[1:positions[END][LEFT]-1], LEFT)
-    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_right)[1:positions[END][RIGHT]-1], RIGHT)
+    _insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_left)[1:positions[END][LEFT]-1], LEFT)
+    _insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_right)[1:positions[END][RIGHT]-1], RIGHT)
 
 
     insert_pos = outgoing_branch_index(tt, start_sw, branch)
     far_side_branches = outgoing_branches(tt, -end_sw, end_left)
-    splice_outgoing_branches!(tt, start_sw, insert_pos:insert_pos, far_side_branches)
+    _splice_outgoing_branches!(tt, start_sw, insert_pos:insert_pos, far_side_branches)
 
     if is_twisted(tt, branch)
         for br in far_side_branches
@@ -306,16 +290,81 @@ Delete a two-valent switch.
 If the switch is not two-valent, an error is thrown.
 
 Return: (br_kept, br_removed) -- the branch kept and the branched removed
+
+TESTED
 """
 function delete_two_valent_switch!(tt::TrainTrack, switch::Int)
-    assert(switch_valence(tt, switch) == 2)
+    @assert switch_valence(tt, switch) == 2
 
-    # Keep the forward branch and delete the backward branch
-    br_kept = outgoing_branch(tt, switch, 1)
-    br_removed = outgoing_brach(tt, -switch, 1)
-    if br_kept == -br_removed
-        error("A switch cannot be deleted if it is the only switch on a curve.")
+    br_removed = outgoing_branch(tt, switch, 1)
+    br_kept = outgoing_branch(tt, -switch, 1)
+    collapse_branch!(tt, -br_removed)
+    return (abs(br_kept), abs(br_removed))
+end
+
+
+"""Tested"""
+function is_switch_in_tt(tt::TrainTrack, switch::Int)
+    if abs(switch) == 0 || abs(switch) > length(tt.switches)
+        return false
     end
+    tt.switches[abs(switch)].num_outgoing_branches[1] > 0
+end
+
+
+"""Tested"""
+function is_branch_in_tt(tt::TrainTrack, branch::Int)
+    if abs(branch) == 0 || abs(branch) > length(tt.branches)
+        return false
+    end
+    tt.branches[abs(branch)].endpoint[START] != 0
+end
+
+
+
+""" Return a switch number with is suitable as a new switch.
+
+The new switch won't be connected to any branches just yet.
+If necessary, new space is allocated.
+
+"""
+function _create_switch!(tt::TrainTrack)
+    for i in eachindex(tt.switches)
+        if !is_switch_in_tt(tt, i)
+            return i
+        end
+    end
+    push!(tt.switches, Switch())
+    return length(tt.switches)
+end
+
+"""
+Return a positive integer suitable for an additional branch.
+
+The new branch won't be connected to any switches just yet. If
+necessary, new space is allocated.
+
+"""
+function _create_branch!(tt::TrainTrack)
+
+end
+
+
+"""
+Create a switch on a branch.
+
+The orientation of the new switch is the same as the orientation of the branch. We new branch is
+added after the switch. The new branch is always untwisted.
+
+RETURN: (new_switch, new_branch)
+"""
+function add_switch_on_branch!(tt::TrainTrack, branch::Int)
+    end_sw = branch_endpoint(tt, branch)
+    end_index = outgoing_branch_index(tt, end_sw, -branch)
+
+    sw = _create_switch!(tt)
+
+
 
 end
 
