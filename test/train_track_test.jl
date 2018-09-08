@@ -76,6 +76,13 @@ tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
 @test !is_switch_in_tt(tt, 1)
 @test _create_switch!(tt) == 1
 
+tt = TrainTrack([[1, 2], [-1, -2]])
+@test _create_branch!(tt) == 3
+
+tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+collapse_branch!(tt, 2)
+@test _create_branch!(tt) == 2
+
 
 @testset "twisted" begin
     tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]], [3, 5])
@@ -137,6 +144,10 @@ end
     @test collapse_branch!(tt, 3) == 1  # switch 1 is removed
     @test outgoing_branches(tt, 2) == [1, 2]
     @test outgoing_branches(tt, -2) == [-1, -2]
+    @test branch_endpoint(tt, -1) == 2
+    @test branch_endpoint(tt, -2) == 2
+    @test branch_endpoint(tt, 1) == -2
+    @test branch_endpoint(tt, 2) == -2
 
     tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
     @test collapse_branch!(tt, -3) == 2
