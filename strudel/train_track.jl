@@ -180,11 +180,16 @@ function splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::Uni
 
 end
 
+"""Tested"""
 function insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos, inserted_branches =
                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
     splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
 end
 
+"""Tested"""
+function delete_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, start_side::Int=LEFT)
+    splice_outgoing_branches!(tt, switch, index_range, Int[], start_side)
+end
 
 """Tested"""
 function outgoing_branches(tt::TrainTrack, switch::Int, start_side::Int=LEFT)
@@ -217,14 +222,18 @@ end
 """Tested"""
 is_twisted(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].is_twisted
 
-
+"""Tested"""
 twist_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)].is_twisted = !tt.branches[abs(branch)].is_twisted)
 
 
 """Tested"""
 switch_valence(tt::TrainTrack, switch::Int) = num_outgoing_branches(tt, switch) + num_outgoing_branches(tt, -switch)
 
+"""Tested"""
+delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Branch())
 
+"""Tested"""
+delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Switch())
 
 """
 Collapse a branch if possible.
@@ -234,10 +243,10 @@ branches emanating towards `b` from both the ending and the starting point of `b
 
 After the collapse, the two endpoints of `b` merge together and, as a result, one switch is removed.
 
-Return: switch_removed::Int.
+Return: switch_removed::Int in absolute value.
 
 """
-function collapse_branch(tt::TrainTrack, branch::Int)
+function collapse_branch!(tt::TrainTrack, branch::Int)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
     switch_removed = end_sw
@@ -255,58 +264,26 @@ function collapse_branch(tt::TrainTrack, branch::Int)
         end_right = RIGHT
     end
 
+    positions = ((outgoing_branch_index(tt, start_sw, branch, LEFT),
+                  outgoing_branch_index(tt, start_sw, branch, RIGHT)),
+                 (outgoing_branch_index(tt, end_sw, -branch, end_left),
+                  outgoing_branch_index(tt, end_sw, -branch, end_right)))
 
-    positions = ((outgoing_branch_index(tt, start_sw, -branch, side) for side=(LEFT, RIGHT)),
-                 outgoing_branch_index(tt, end_sw, branch, side) for side=(end_left, end_right))
-
-    #     positions = (positions[1], (positions[2][2], positions[2][1]))
-    # end
-
-    # if !is_twisted(tt, branch)
     left_side_fails = positions[START][LEFT] > 1 && positions[END][RIGHT] > 1
     right_side_fails = positions[START][RIGHT] > 1 && positions[END][LEFT] > 1
-    # else
-    #     left_side_fails = positions[START][LEFT] != 1 && positions[END][LEFT] != 1
-    #     right_side_fails = positions[START][RIGHT] != 1 && positions[END][RIGHT] != 1
-    # end
 
     if left_side_fails || right_side_fails
         error("The specified branch is not collapsible: there are branches that block the collapse.")
     end
 
-    # finding the empty sides
-    # empty_side = -100  # the point is: it is neither LEFT or RIGHT
-    # for side in (LEFT, RIGHT)
-    #     start_empty = outgoing_branch(tt, start_sw, 1, side) == branch
-    #     end_empty = outgoing_branch(tt, end_sw, 1, side)
-    #     if start_empty || end_empty
-    #         empty_side = side
-    #         break
-    #     end
-    # end
+    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_left)[1:positions[END][LEFT]-1], LEFT)
+    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_right)[1:positions[END][RIGHT]-1], RIGHT)
 
 
-
-    # Adding branches to the far side of start_sw.
-
-    # num_existing_branches = num_outgoing_branches(tt, -start_sw)
-    # num_added_branches = (positions[END][LEFT] - 1) + (positions[END][RIGHT] - 1)
-    # set_num_outgoing_branches!(tt, -start_sw, num_existing_branches + num_added_branches)
-
-    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, -end_sw, end_left), LEFT)
-    insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, -end_sw, end_right), RIGHT)
-
-    # Adding branches to the `branch`-side of start_sw.
-    # num_existing_branches = num_outgoing_branches(tt, start_sw)
-    # num_added_branches = num_outgoing_branches(tt, -end_sw)
-    # set_num_outgoing_branches!(tt, -start_sw, num_existing_branches + num_added_branches)
-
-    insert_pos = outgoing_branch_index(tt, start_sw, -branch)
+    insert_pos = outgoing_branch_index(tt, start_sw, branch)
     far_side_branches = outgoing_branches(tt, -end_sw, end_left)
-    insert_outgoing_branches!(tt, start_sw, insert_pos, far_side_branches)
-    # insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, -end_sw, end_right), RIGHT)
+    splice_outgoing_branches!(tt, start_sw, insert_pos:insert_pos, far_side_branches)
 
-    # if `branch` was twisted, we need to twist all branches on the far side of `end_sw`
     if is_twisted(tt, branch)
         for br in far_side_branches
             twist_branch!(tt, br)
@@ -314,7 +291,10 @@ function collapse_branch(tt::TrainTrack, branch::Int)
     end
 
     # delete `branch` and `end_sw`
+    delete_branch!(tt, branch)
+    delete_switch!(tt, end_sw)
 
+    return abs(switch_removed)
 end
 
 

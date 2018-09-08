@@ -44,6 +44,20 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test branch_endpoint(tt, 2) == -1
 @test branch_endpoint(tt, -2) == 1
 
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+delete_branch!(tt, 1)
+@test tt.branches[1].endpoint == Int[0, 0]
+@test tt.branches[1].is_twisted == false
+
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+delete_switch!(tt, 1)
+@test tt.switches[1].outgoing_branch_indices == [Int[], Int[]]
+@test tt.switches[1].num_outgoing_branches == [0, 0]
+
+
+
 @testset "twisted" begin
     tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]], [3, 5])
     @test is_twisted(tt, 1) == false
@@ -88,5 +102,37 @@ tt = TrainTrack([[1, 2], [-1, -2]])
     splice_outgoing_branches!(tt, 1, 2:3, [100, 101, 102])
     @test num_outgoing_branches(tt, 1) == 5
     @test outgoing_branches(tt, 1) == [7, 100, 101, 102, 4]
+
+    delete_outgoing_branches!(tt, 1, 1:1)
+    @test num_outgoing_branches(tt, 1) == 4
+    @test outgoing_branches(tt, 1) == [100, 101, 102, 4]
+
+    delete_outgoing_branches!(tt, 1, 3:4, RIGHT)
+    @test num_outgoing_branches(tt, 1) == 2
+    @test outgoing_branches(tt, 1) == [102, 4]
+
+    # tt = TrainTrack([[1, 2], [-1, -2]])
+    # delete_outgoing_branches!(tt, 1, 1:1)
+    # @test num_outgoing_branches(tt, 1) == 5
+    # @test outgoing_branches(tt, 1) == [7, 100, 101, 102, 4]
+end
+
+
+@testset "Collapsing branches" begin
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test collapse_branch!(tt, 3) == 1  # switch 1 is removed
+    @test outgoing_branches(tt, 2) == [1, 2]
+    @test outgoing_branches(tt, -2) == [-1, -2]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test collapse_branch!(tt, 1) == 2  # switch 1 is removed
+    @test outgoing_branches(tt, 1) == [3, 2]
+    @test outgoing_branches(tt, -1) == [-3, -2]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test collapse_branch!(tt, 2) == 2  # switch 1 is removed
+    @test outgoing_branches(tt, 1) == [1, 3]
+    @test outgoing_branches(tt, -1) == [-1, -3]
+    @test_throws ErrorException collapse_branch!(tt, 1)
 
 end
