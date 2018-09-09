@@ -14,7 +14,7 @@ mutable struct Branch
 end
 
 # Branch() = Branch(Int[0, 0], Bool[false, false])
-Branch() = Branch(Int[0, 0], false)
+Branch() = Branch([0, 0], false)
 is_phantom(br::Branch) = br.endpoint[1] == 0
 
 struct Switch
@@ -124,17 +124,17 @@ _set_num_outgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
 
 
 struct BranchPosition
-    switch::Integer
-    index::Integer
-    start_side::Integer
+    switch::Int
+    index::Int
+    start_side::Int
 end
 
 BranchPosition(sw, idx) = BranchPosition(sw, idx, LEFT)
 
 struct BranchRange
-    switch::Integer
-    index_range::UnitRange{Integer}
-    start_side::Integer
+    switch::Int
+    index_range::UnitRange{Int}
+    start_side::Int
 end
 
 BranchRange(sw, index_range) = BranchRange(sw, index_range, LEFT)
@@ -299,14 +299,32 @@ switch_valence(tt::TrainTrack, switch::Int) = num_outgoing_branches(tt, switch) 
 WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
 Tested"""
-delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Branch())
+_delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Branch())
 
 
 """
 WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
 Tested"""
-delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Switch())
+_delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Switch())
+
+
+
+function delete_branch!(tt::TrainTrack, branch::Int)
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+
+    for sw in (start_sw, end_sw)
+        if num_outgoing_branches(tt, sw) == 1
+            error("Branch $(branch) cannot be deleted, one of its endpoints has only one outgoing branches.")
+        end
+    end
+    start_pos = outgoing_branch_index(tt, start_sw, branch)
+    _delete_outgoing_branches!(tt, BranchRange(start_sw, start_pos:start_pos))
+    end_pos = outgoing_branch_index(tt, end_sw, -branch)
+    _delete_outgoing_branches!(tt, BranchRange(end_sw, end_pos:end_pos))
+    _delete_branch!(tt, branch)
+end
 
 
 """
@@ -378,8 +396,8 @@ function collapse_branch!(tt::TrainTrack, branch::Int)
         BranchPosition(start_sw, insert_pos-1))
 
     # delete `branch` and `end_sw`
-    delete_branch!(tt, branch)
-    delete_switch!(tt, end_sw)
+    _delete_branch!(tt, branch)
+    _delete_switch!(tt, end_sw)
 
     return abs(switch_removed)
 end
@@ -516,14 +534,118 @@ end
 
 
 """
+Inverse of collapsing a branch.
 
-The old switch number is inherited by the "tip" of the split, that is, the resulting 3-valent
-switch. The three resulting switches are oriented in the same way as the original switch. The two
-new branches are oriented in the same direction as the switches
-
-Return: (sw_left, sw_right, br_left, br_right) -- the two new switch numbers, to the left and right
-of the split, and the two new branch numbers, to the left and right of the split.
+RETURN: (new_switch, new_branch)
 """
-function split_slightly!(tt::TrainTrack, switch::Int, cusp_idx::Int, split_br_idx::Int)
+function pull_switch_apart!(tt::TrainTrack,
+                           front_positions_moved::BranchRange,
+                           back_positions_stay::BranchRange)
+    if front_positions_moved.switch != -back_positions_stay.switch
+        error("The switches in the two BranchRanges should be negatives of each other.")
+    end
 
+    # front and back ranges cannot be empty
+    for rang in (front_positions_moved.index_range,
+                 back_positions_stay.index_range)
+        if rang.start > rang.stop
+            error("At least one branch has to move on the front side and stay on the back side.")
+        end
+    end
+
+    sw = front_positions_moved.switch
+    new_sw = _find_new_switch_number!(tt)
+
+    # println(front_positions_moved)
+    # println(new_sw)
+    _reglue_outgoing_branches!(
+        tt, front_positions_moved,
+        BranchPosition(new_sw, 0, front_positions_moved.start_side))
+
+    r = back_positions_stay.index_range
+    back_side = back_positions_stay.start_side
+    back_positions_moved1 = BranchRange(-sw, 1:r.start-1, back_side)
+    back_positions_moved2 = BranchRange(-sw, r.stop+1:num_outgoing_branches(tt, -sw), back_side)
+
+    _reglue_outgoing_branches!(
+        tt, back_positions_moved2, BranchPosition(-new_sw, 0, back_side))
+
+    _reglue_outgoing_branches!(
+        tt, back_positions_moved1, BranchPosition(-new_sw, 0, back_side))
+
+    #     BranchRange(-sw, 1:num_outgoing_branches(tt, -sw)),
+    #     BranchPosition(-new_sw, 0))
+    # _reglue_outgoing_branches!(
+    # tt,
+    front_side = front_positions_moved.start_side
+
+    new_br = add_branch!(
+        tt,
+        BranchPosition(sw, front_positions_moved.index_range.start-1, front_side),
+        BranchPosition(-new_sw, back_positions_stay.index_range.start-1, back_side)
+    )
+
+    (new_sw, new_br)
+end
+
+
+# """
+
+# The old switch number is inherited by the "tip" of the split, that is, the resulting 3-valent
+# switch. The three resulting switches are oriented in the same way as the original switch. The two
+# new branches are oriented in the same direction as the switches
+
+# Return: (sw_left, sw_right, br_left, br_right) -- the two new switch numbers, to the left and right
+# of the split, and the two new branch numbers, to the left and right of the split.
+# """
+# function split_slightly!(tt::TrainTrack,
+#                          split_cusp_pos::BranchPosition,
+#                          split_branch_pos::BranchPosition)
+
+# end
+
+# TODO: This could return an interator instead.
+switches(tt::TrainTrack) = [i for i in 1:length(tt.switches) if is_switch_in_tt(tt, i)]
+
+# TODO: This could return an interator instead.
+branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if is_branch_in_tt(tt, i)]
+
+is_trivalent(tt::TrainTrack) = all(switch_valence(tt, sw) == 3 for sw in switches(tt))
+
+
+"""
+
+"""
+function is_branch_large(tt::TrainTrack, branch::Int)
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+    num_outgoing_branches(tt, end_sw) == 1 && num_outgoing_branches(tt, start_sw) == 1
+end
+
+
+CENTRAL = 3
+"""
+Left split: central brach is turning left after the splitting.
+"""
+function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
+    if !is_branch_large(branch)
+        error("The split branch should be a large branch.")
+    end
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+    if switch_valence(tt, start_sw) != 3 && switch_valence(tt, end_sw) != 3
+        error("The endpoints of the split branch should be trivalent.")
+    end
+    @assert left_or_right_split in (LEFT, RIGHT, CENTRAL)
+
+    collapse_branch!(tt, branch)
+    side = left_right_or_central == CENTRAL ? LEFT : left_right_or_central
+    new_sw, new_br = pull_switch_apart!(tt, BranchRange(start_sw, 1:1, side),
+                       BranchRange(-start_sw, 1:1, side))
+
+    if left_right_or_central == CENTRAL
+        delete_branch!(tt, new_br)  # TODO: delete endpoints, too
+        delete_two_valent_switch!(tt, new_sw)
+        delete_two_valent_switch!(tt, sw)
+    end
 end

@@ -25,6 +25,8 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test !is_switch_in_tt(tt, -2)
 @test !is_switch_in_tt(tt, 0)
 
+@test switches(tt) == [1]
+
 @test is_branch_in_tt(tt, 1)
 @test is_branch_in_tt(tt, -1)
 @test is_branch_in_tt(tt, 2)
@@ -56,17 +58,27 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test branch_endpoint(tt, 2) == -1
 @test branch_endpoint(tt, -2) == 1
 
+tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+@test !is_branch_large(tt, 1)
+@test !is_branch_large(tt, 2)
+@test is_branch_large(tt, 3)
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-delete_branch!(tt, 1)
+_delete_branch!(tt, 1)
 @test tt.branches[1].endpoint == Int[0, 0]
 @test tt.branches[1].is_twisted == false
 @test !is_branch_in_tt(tt, 1)
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-delete_switch!(tt, 1)
+_delete_switch!(tt, 1)
 @test tt.switches[1].outgoing_branch_indices == [Int[], Int[]]
 @test tt.switches[1].num_outgoing_branches == [0, 0]
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+delete_branch!(tt, 1)
+@test outgoing_branches(tt, 1) == [2]
+@test outgoing_branches(tt, -1) == [-2]
+@test branches(tt) == [2]
 
 tt = TrainTrack([[1, 2], [-1, -2]])
 @test _find_new_switch_number!(tt) == 2
@@ -74,6 +86,7 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
 @test collapse_branch!(tt, 3) == 1  # switch 1 is removed
 @test !is_switch_in_tt(tt, 1)
+@test switches(tt) == [2]
 @test _find_new_switch_number!(tt) == 1
 
 tt = TrainTrack([[1, 2], [-1, -2]])
@@ -204,6 +217,34 @@ end
 
 end
 
+@testset "Pulling switches apart" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test pull_switch_apart!(
+        tt, BranchRange(1, 1:2), BranchRange(-1, 1:2)) == (2, 3)
+    @test outgoing_branches(tt, 1) == [3]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+    @test outgoing_branches(tt, 2) == [1, 2]
+    @test outgoing_branches(tt, -2) == [-3]
+
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test pull_switch_apart!(
+        tt, BranchRange(1, 1:1, RIGHT), BranchRange(-1, 1:1, RIGHT)) == (2, 3)
+    @test outgoing_branches(tt, 1) == [1, 3]
+    @test outgoing_branches(tt, -1) == [-2]
+    @test outgoing_branches(tt, 2) == [2]
+    @test outgoing_branches(tt, -2) == [-1, -3]
+
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test_throws ErrorException pull_switch_apart!(
+        tt, BranchRange(1, 2:2), BranchRange(-1, 1:0))
+    @test_throws ErrorException pull_switch_apart!(
+        tt, BranchRange(1, 2:1), BranchRange(-1, 1:1))
+    @test_throws ErrorException pull_switch_apart!(
+        tt, BranchRange(1, 1:1), BranchRange(1, 1:1))
+
+end
+
+
 
 @testset "Deleting two-valent switch" begin
     tt = TrainTrack([[1, 2], [-3], [3], [-4], [4], [-1, -2]])
@@ -217,3 +258,10 @@ end
 
     @test_throws AssertionError delete_two_valent_switch!(tt, 1)
 end
+
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+@test !is_trivalent(tt)
+
+tt = TrainTrack([[1, 2], [3], [-3], [-1, -2]])
+@test is_trivalent(tt)
