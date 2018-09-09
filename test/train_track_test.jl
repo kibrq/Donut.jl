@@ -69,19 +69,44 @@ delete_switch!(tt, 1)
 @test tt.switches[1].num_outgoing_branches == [0, 0]
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-@test _create_switch!(tt) == 2
+@test _find_new_switch_number!(tt) == 2
 
 tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
 @test collapse_branch!(tt, 3) == 1  # switch 1 is removed
 @test !is_switch_in_tt(tt, 1)
-@test _create_switch!(tt) == 1
+@test _find_new_switch_number!(tt) == 1
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-@test _create_branch!(tt) == 3
+@test _find_new_branch_number!(tt) == 3
 
 tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
 collapse_branch!(tt, 2)
-@test _create_branch!(tt) == 2
+@test _find_new_branch_number!(tt) == 2
+
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+@test add_branch!(tt, 1, 0, LEFT, -1, 0, RIGHT) == 3
+@test outgoing_branches(tt, 1) == [3, 1, 2]
+@test outgoing_branches(tt, -1) == [-1, -2, -3]
+@test branch_endpoint(tt, 3) == -1
+@test branch_endpoint(tt, -3) == 1
+@test !is_twisted(tt, 3)
+
+@test add_branch!(tt, 1, 2, LEFT, 1, 3, RIGHT, true) == 4
+@test outgoing_branches(tt, 1) == [3, -4, 1, 4, 2]
+@test is_twisted(tt, 4)
+
+
+tt = TrainTrack([[1, 2], [-1, -2]])
+@test add_switch_on_branch!(tt, 1) == (2, 3)
+@test outgoing_branches(tt, 1) == [1, 2]
+@test outgoing_branches(tt, -1) == [-3, -2]
+@test outgoing_branches(tt, 2) == [3]
+@test outgoing_branches(tt, -2) == [-1]
+@test branch_endpoint(tt, 1) == -2
+@test branch_endpoint(tt, -1) == 1
+@test branch_endpoint(tt, 3) == -1
+@test branch_endpoint(tt, -3) == 2
 
 
 @testset "twisted" begin

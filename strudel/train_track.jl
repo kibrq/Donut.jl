@@ -113,6 +113,20 @@ _set_num_outgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
     tt.switches[abs(switch)].num_outgoing_branches[switch > 0 ? FORWARD : BACKWARD] = number
 
 
+# function !insert_branch(tt::TrainTrack, switch::Int, insert_pos::Int,
+#                         branch::Int, start_side=LEFT)
+
+
+#     _set_num_outgoing_branches!(tt, switch, num_outgoing_branches(tt, switch)+1)
+# end
+
+
+
+
+
+
+
+
 """
 Inserts some outgoing branches to the specified switch a the specified position.
 
@@ -163,7 +177,7 @@ end
 WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
 Tested"""
-function _insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos, inserted_branches =
+function _insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos::Int, inserted_branches =
                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
     _splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
 end
@@ -381,7 +395,7 @@ If necessary, new space is allocated.
 
 TESTED
 """
-function _create_switch!(tt::TrainTrack)
+function _find_new_switch_number!(tt::TrainTrack)
     for i in eachindex(tt.switches)
         if !is_switch_in_tt(tt, i)
             return i
@@ -399,7 +413,7 @@ necessary, new space is allocated.
 
 TESTED
 """
-function _create_branch!(tt::TrainTrack)
+function _find_new_branch_number!(tt::TrainTrack)
     for i in eachindex(tt.branches)
         if !is_branch_in_tt(tt, i)
             return i
@@ -411,10 +425,38 @@ end
 
 
 
+
+
+"""
+Create a new branch with the specified start and end switches.
+
+In case ``start_switch`` equals ``end_switch``, keep in mind for
+specifying indices that the start is inserted first, and the end
+second. So if ``start_idx == 0`` and ``end_idx == 0``, then the end
+will be to the left of start. If ``end_idx == 1`` instead, then the end
+will be on the right of start.
+
+TESTED
+"""
+function add_branch!(tt::TrainTrack, start_sw, start_idx, start_start_side,
+                     end_sw, end_idx, end_start_side=LEFT, is_twisted=false)
+    br = _find_new_branch_number!(tt)
+
+    _insert_outgoing_branches!(tt, start_sw, start_idx, [br], start_start_side)
+    _insert_outgoing_branches!(tt, end_sw, end_idx, [-br], end_start_side)
+    _set_endpoint!(tt, br, end_sw)
+    _set_endpoint!(tt, -br, start_sw)
+    if is_twisted
+        twist_branch!(tt, br)
+    end
+    return br
+end
+
+
 """
 Create a switch on a branch.
 
-The orientation of the new switch is the same as the orientation of the branch. We new branch is
+The orientation of the new switch is the same as the orientation of the branch. The new branch is
 added after the switch. The new branch is always untwisted.
 
 RETURN: (new_switch, new_branch)
@@ -423,10 +465,13 @@ function add_switch_on_branch!(tt::TrainTrack, branch::Int)
     end_sw = branch_endpoint(tt, branch)
     end_index = outgoing_branch_index(tt, end_sw, -branch)
 
-    sw = _create_switch!(tt)
+    new_sw = _find_new_switch_number!(tt)
 
+    _reglue_outgoing_branches!(tt, end_sw, end_index:end_index, LEFT,
+                               -new_sw, 0)
 
-
+    new_br = add_branch!(tt, new_sw, 0, LEFT, end_sw, end_index-1)
+    (new_sw, new_br)
 end
 
 
