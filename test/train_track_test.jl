@@ -85,29 +85,34 @@ collapse_branch!(tt, 2)
 
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-@test add_branch!(tt, 1, 0, LEFT, -1, 0, RIGHT) == 3
+@test add_branch!(tt, BranchPosition(1, 0, LEFT), BranchPosition(-1, 0, RIGHT)) == 3
 @test outgoing_branches(tt, 1) == [3, 1, 2]
 @test outgoing_branches(tt, -1) == [-1, -2, -3]
 @test branch_endpoint(tt, 3) == -1
 @test branch_endpoint(tt, -3) == 1
 @test !is_twisted(tt, 3)
 
-@test add_branch!(tt, 1, 2, LEFT, 1, 3, RIGHT, true) == 4
+@test add_branch!(tt, BranchPosition(1, 2, LEFT), BranchPosition(1, 3, RIGHT), true) == 4
 @test outgoing_branches(tt, 1) == [3, -4, 1, 4, 2]
 @test is_twisted(tt, 4)
 
+@testset "Adding a switch on a branch" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test add_switch_on_branch!(tt, 1) == (2, 3)
+    @test outgoing_branches(tt, 1) == [1, 2]
+    @test outgoing_branches(tt, -1) == [-3, -2]
+    @test outgoing_branches(tt, 2) == [3]
+    @test outgoing_branches(tt, -2) == [-1]
+    @test branch_endpoint(tt, 1) == -2
+    @test branch_endpoint(tt, -1) == 1
+    @test branch_endpoint(tt, 3) == -1
+    @test branch_endpoint(tt, -3) == 2
 
-tt = TrainTrack([[1, 2], [-1, -2]])
-@test add_switch_on_branch!(tt, 1) == (2, 3)
-@test outgoing_branches(tt, 1) == [1, 2]
-@test outgoing_branches(tt, -1) == [-3, -2]
-@test outgoing_branches(tt, 2) == [3]
-@test outgoing_branches(tt, -2) == [-1]
-@test branch_endpoint(tt, 1) == -2
-@test branch_endpoint(tt, -1) == 1
-@test branch_endpoint(tt, 3) == -1
-@test branch_endpoint(tt, -3) == 2
-
+    tt = TrainTrack([[1, 2], [-1, -2]], [1])
+    @test add_switch_on_branch!(tt, 1) == (2, 3)
+    @test is_twisted(tt, 1)
+    @test !is_twisted(tt, 3)
+end
 
 @testset "twisted" begin
     tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]], [3, 5])
@@ -133,32 +138,32 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @testset "Inserting and deleting branches" begin
     tt = TrainTrack([[1, 2], [-1, -2]])
 
-    _insert_outgoing_branches!(tt, 1, 0, [3, -3])
+    _insert_outgoing_branches!(tt, BranchPosition(1, 0), [3, -3])
     @test num_outgoing_branches(tt, 1) == 4
     @test outgoing_branches(tt, 1) == [3, -3, 1, 2]
 
-    _insert_outgoing_branches!(tt, 1, 3, [100, 101, 102, 103], RIGHT)
+    _insert_outgoing_branches!(tt, BranchPosition(1, 3, RIGHT), [100, 101, 102, 103])
     @test num_outgoing_branches(tt, 1) == 8
     @test outgoing_branches(tt, 1) == [3, 103, 102, 101, 100, -3, 1, 2]
 
-    _insert_outgoing_branches!(tt, -1, 0, [200, 201])
+    _insert_outgoing_branches!(tt, BranchPosition(-1, 0), [200, 201])
     @test num_outgoing_branches(tt, -1) == 4
     @test outgoing_branches(tt, -1) == [200, 201, -1, -2]
 
     tt = TrainTrack([[1, 2], [-1, -2]])
-    _splice_outgoing_branches!(tt, 1, 1:2, [4, 5, 6, 7], RIGHT)
+    _splice_outgoing_branches!(tt, BranchRange(1, 1:2, RIGHT), [4, 5, 6, 7])
     @test num_outgoing_branches(tt, 1) == 4
     @test outgoing_branches(tt, 1) == [7, 6, 5, 4]
 
-    _splice_outgoing_branches!(tt, 1, 2:3, [100, 101, 102])
+    _splice_outgoing_branches!(tt, BranchRange(1, 2:3), [100, 101, 102])
     @test num_outgoing_branches(tt, 1) == 5
     @test outgoing_branches(tt, 1) == [7, 100, 101, 102, 4]
 
-    _delete_outgoing_branches!(tt, 1, 1:1)
+    _delete_outgoing_branches!(tt, BranchRange(1, 1:1))
     @test num_outgoing_branches(tt, 1) == 4
     @test outgoing_branches(tt, 1) == [100, 101, 102, 4]
 
-    _delete_outgoing_branches!(tt, 1, 3:4, RIGHT)
+    _delete_outgoing_branches!(tt, BranchRange(1, 3:4, RIGHT))
     @test num_outgoing_branches(tt, 1) == 2
     @test outgoing_branches(tt, 1) == [102, 4]
 end

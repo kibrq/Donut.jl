@@ -123,6 +123,21 @@ _set_num_outgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
 
 
 
+struct BranchPosition
+    switch::Integer
+    index::Integer
+    start_side::Integer
+end
+
+BranchPosition(sw, idx) = BranchPosition(sw, idx, LEFT)
+
+struct BranchRange
+    switch::Integer
+    index_range::UnitRange{Integer}
+    start_side::Integer
+end
+
+BranchRange(sw, index_range) = BranchRange(sw, index_range, LEFT)
 
 
 
@@ -136,10 +151,15 @@ WARNING: Only for internal use! It leaves the TrainTrack object in an inconsiste
 
 TESTED
 """
-function _splice_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, inserted_branches =
-                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
+function _splice_outgoing_branches!(tt::TrainTrack,
+                                    insert_range::BranchRange,
+                                    inserted_branches = AbstractArray{Int, 1})
 
     # WARNING: This shouldn't use branch_endpoint, since that could break the reglue branches function.
+
+    switch = insert_range.switch
+    index_range = insert_range.index_range
+    start_side = insert_range.start_side
 
     num_br = num_outgoing_branches(tt, switch)
     arr_view = outgoing_branches(tt, switch)
@@ -177,9 +197,17 @@ end
 WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
 Tested"""
-function _insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos::Int, inserted_branches =
-                                   AbstractArray{Int, 1}, start_side::Int=LEFT)
-    _splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
+# function _insert_outgoing_branches!(tt::TrainTrack, switch::Int, insert_pos::Int, inserted_branches =
+#                                    AbstractArray{Int, 1}, start_side::Int=LEFT)
+#     _splice_outgoing_branches!(tt, switch, insert_pos+1:insert_pos, inserted_branches, start_side)
+# end
+function _insert_outgoing_branches!(tt::TrainTrack,
+                                    insert_pos::BranchPosition,
+                                    inserted_branches = AbstractArray{Int, 1})
+    range = BranchRange(insert_pos.switch,
+                                insert_pos.index+1:insert_pos.index,
+                                insert_pos.start_side)
+    _splice_outgoing_branches!(tt, range, inserted_branches)
 end
 
 
@@ -189,8 +217,12 @@ end
 WARNING: Only for internal use! It leaves the TrainTrack object in an inconsistent state.
 
 Tested"""
-function _delete_outgoing_branches!(tt::TrainTrack, switch::Int, index_range::UnitRange{Int}, start_side::Int=LEFT)
-    _splice_outgoing_branches!(tt, switch, index_range, Int[], start_side)
+function _delete_outgoing_branches!(tt::TrainTrack,
+                                    delete_range::BranchRange)
+    # switch = delete_range.switch
+    # index_range = delete_range.index_range
+    # start_side = delete_range.start_side
+    _splice_outgoing_branches!(tt, delete_range, Int[])
 end
 
 
@@ -204,21 +236,23 @@ It updates both the the outgoing branches of switches and endpoints of branches.
 """
 function _reglue_outgoing_branches!(
     tt::TrainTrack,
-    from_switch::Int, index_range::UnitRange{Int}, from_start_side::Int,
-    to_switch::Int, insert_pos::Int, to_start_side::Int=LEFT)
+    from_range::BranchRange,
+    to_position::BranchPosition)
+    # from_switch::Int, index_range::UnitRange{Int}, from_start_side::Int,
+    # to_switch::Int, insert_pos::Int, to_start_side::Int=LEFT)
 
-    if from_switch == to_switch
+    if from_range.switch == to_position.switch
         error("Regluing is not yet implemented when the two switches are the same.")
     end
 
-    for idx in index_range
-        br = outgoing_branch(tt, from_switch, idx, from_start_side)
-        _set_endpoint!(tt, -br, to_switch)
+    for idx in from_range.index_range
+        br = outgoing_branch(tt, from_range.switch, idx, from_range.start_side)
+        _set_endpoint!(tt, -br, to_position.switch)
     end
 
-    inserted_branches = view(outgoing_branches(tt, from_switch, from_start_side), index_range)
-    _insert_outgoing_branches!(tt, to_switch, insert_pos, inserted_branches, to_start_side)
-    _delete_outgoing_branches!(tt, from_switch, index_range, from_start_side)
+    inserted_branches = view(outgoing_branches(tt, from_range.switch, from_range.start_side), from_range.index_range)
+    _insert_outgoing_branches!(tt, to_position, inserted_branches)
+    _delete_outgoing_branches!(tt, from_range)
 end
 
 
@@ -318,27 +352,30 @@ function collapse_branch!(tt::TrainTrack, branch::Int)
     # _insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches( tt, end_sw,
     #     end_left)[1:positions[END][LEFT]-1], LEFT)
 
-    _reglue_outgoing_branches!(tt, end_sw, 1:positions[END][LEFT]-1, end_left,
-                               -start_sw, 0, LEFT)
+    from_range = BranchRange(end_sw, 1:positions[END][LEFT]-1, end_left)
+    to_position = BranchPosition(-start_sw, 0, LEFT)
+    _reglue_outgoing_branches!(tt, from_range, to_position)
 
     # _insert_outgoing_branches!(tt, -start_sw, 0, outgoing_branches(tt, end_sw, end_right)[1:positions[END][RIGHT]-1], RIGHT)
 
-    _reglue_outgoing_branches!(tt, end_sw, 1:positions[END][RIGHT]-1, end_right,
-                               -start_sw, 0, RIGHT)
+    from_range = BranchRange(end_sw, 1:positions[END][RIGHT]-1, end_right)
+    to_position = BranchPosition(-start_sw, 0, RIGHT)
+    _reglue_outgoing_branches!(tt, from_range, to_position)
 
     insert_pos = outgoing_branch_index(tt, start_sw, branch)
     # far_side_branches = outgoing_branches(tt, -end_sw, end_left)
     # _splice_outgoing_branches!(tt, start_sw, insert_pos:insert_pos, far_side_branches)
-    _delete_outgoing_branches!(tt, start_sw, insert_pos:insert_pos)
+    _delete_outgoing_branches!(tt, BranchRange(start_sw, insert_pos:insert_pos))
     if is_twisted(tt, branch)
         for br in outgoing_branches(tt, -end_sw)
             twist_branch!(tt, br)
         end
     end
 
-    _reglue_outgoing_branches!(tt,
-                               -end_sw, 1:num_outgoing_branches(tt, -end_sw), end_left,
-                               start_sw, insert_pos-1)
+    _reglue_outgoing_branches!(
+        tt,
+        BranchRange(-end_sw, 1:num_outgoing_branches(tt, -end_sw), end_left),
+        BranchPosition(start_sw, insert_pos-1))
 
     # delete `branch` and `end_sw`
     delete_branch!(tt, branch)
@@ -438,14 +475,14 @@ will be on the right of start.
 
 TESTED
 """
-function add_branch!(tt::TrainTrack, start_sw, start_idx, start_start_side,
-                     end_sw, end_idx, end_start_side=LEFT, is_twisted=false)
+function add_branch!(tt::TrainTrack, start_branch_pos::BranchPosition,
+                     end_branch_pos::BranchPosition, is_twisted=false)
     br = _find_new_branch_number!(tt)
 
-    _insert_outgoing_branches!(tt, start_sw, start_idx, [br], start_start_side)
-    _insert_outgoing_branches!(tt, end_sw, end_idx, [-br], end_start_side)
-    _set_endpoint!(tt, br, end_sw)
-    _set_endpoint!(tt, -br, start_sw)
+    _insert_outgoing_branches!(tt, start_branch_pos, [br])
+    _insert_outgoing_branches!(tt, end_branch_pos, [-br])
+    _set_endpoint!(tt, br, end_branch_pos.switch)
+    _set_endpoint!(tt, -br, start_branch_pos.switch)
     if is_twisted
         twist_branch!(tt, br)
     end
@@ -467,10 +504,12 @@ function add_switch_on_branch!(tt::TrainTrack, branch::Int)
 
     new_sw = _find_new_switch_number!(tt)
 
-    _reglue_outgoing_branches!(tt, end_sw, end_index:end_index, LEFT,
-                               -new_sw, 0)
+    _reglue_outgoing_branches!(tt,
+                               BranchRange(end_sw, end_index:end_index),
+                               BranchPosition(-new_sw, 0))
 
-    new_br = add_branch!(tt, new_sw, 0, LEFT, end_sw, end_index-1)
+    new_br = add_branch!(tt, BranchPosition(new_sw, 0),
+                         BranchPosition(end_sw, end_index-1))
     (new_sw, new_br)
 end
 
