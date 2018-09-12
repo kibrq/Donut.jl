@@ -1,5 +1,3 @@
-# using Test
-# include("../src/surface.jl")
 
 @test_throws ErrorException Surface(-1)
 @test_throws ErrorException Surface(1, -1)

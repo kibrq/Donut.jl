@@ -2,8 +2,11 @@ module Donut
 
 
 # Submodules
+include("constants.jl")
 include("surface.jl")
 include("pantsdecomposition.jl")
-include("traintrack.jl")
-include("traintrackops.jl")
+include("traintracks/definition.jl")
+include("traintracks/operations.jl")
+include("traintracks/measure.jl")
+
 end

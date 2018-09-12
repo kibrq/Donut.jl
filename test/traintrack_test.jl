@@ -1,5 +1,4 @@
-# using Test
-# include("../strudel/train_tracks/all.jl")
+
 
 @test_throws ErrorException TrainTrack([[1, 2], [-2], [-1]])
 @test_throws ErrorException TrainTrack([[1, 2], [2, -1]])

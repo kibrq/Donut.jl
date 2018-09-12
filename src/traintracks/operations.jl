@@ -486,7 +486,6 @@ end
 
 
 
-CENTRAL = 3
 """
 Left split: central brach is turning left after the splitting.
 """

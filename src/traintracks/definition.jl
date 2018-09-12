@@ -1,11 +1,5 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, switch_valence, isswitch, isbranch, switches, branches, istrivalent, is_branch_large, LEFT, RIGHT, START, END, FORWARD, BACKWARD
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, switch_valence, isswitch, isbranch, switches, branches, istrivalent, is_branch_large
 
-const START = 1
-const END = 2
-const LEFT = 1
-const RIGHT = 2
-const FORWARD = 1
-const BACKWARD = 2
 
 mutable struct Branch
     endpoint::Array{Int,1}  # dim: (2), indexed by START, END
