@@ -3,7 +3,6 @@ export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, out
 
 mutable struct Branch
     endpoint::Array{Int,1}  # dim: (2), indexed by START, END
-    # or_rev::Array{Bool,1}  # dim: (2), indexed by START, END
     istwisted::Bool
 end
 
@@ -75,36 +74,21 @@ struct TrainTrack
     end
 end
 
-# branch_endpoint(br_idx::Int, branch_array::Array[Branch]) = br_idx > 0 ?
-#     branch_array[br_idx].endpoint[END] :
-#     branch_array[-br_idx].endpoint[START]
-
 _setendpoint!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
     branch_array[br_idx].endpoint[END] = sw_idx :
     branch_array[-br_idx].endpoint[START] = sw_idx
 
 
-"""Tested"""
 otherside(side::Int) = (@assert side in (1,2); side == 1 ? 2 : 1)
 
-"""Tested"""
 branch_endpoint(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].endpoint[
     branch > 0 ? END : START]
 
-# TODO: possibly
-# num_branches(tt)
-# num_switches(tt)
-# copy(tt)
-# change_switch_orientation(tt, switch)
-# swap_branch_numbers(tt, br1, br2)
 
-
-"""Tested"""
 numoutgoing_branches(tt::TrainTrack, switch::Int) =
     tt.switches[abs(switch)].numoutgoing_branches[switch > 0 ? FORWARD : BACKWARD]
 
 
-"""Tested"""
 function outgoing_branches(tt::TrainTrack, switch::Int, start_side::Int=LEFT)
     n = numoutgoing_branches(tt, switch)
     direction = switch > 0 ? FORWARD : BACKWARD
@@ -112,7 +96,6 @@ function outgoing_branches(tt::TrainTrack, switch::Int, start_side::Int=LEFT)
     return start_side == LEFT ? arr_view : reverse(arr_view)
 end
 
-"""Tested"""
 function outgoing_branch(tt::TrainTrack, switch::Int, index::Int, start_side::Int=LEFT)
     n = numoutgoing_branches(tt, switch)
     if index <= 0 || index > n
@@ -122,7 +105,6 @@ function outgoing_branch(tt::TrainTrack, switch::Int, index::Int, start_side::In
     branches[index]
 end
 
-"""Tested"""
 function outgoing_branch_index(tt::TrainTrack, switch::Int, branch::Int, start_side::Int=LEFT)
     branches = outgoing_branches(tt, switch, start_side)
     index = findfirst(isequal(branch), branches)
@@ -132,19 +114,14 @@ function outgoing_branch_index(tt::TrainTrack, switch::Int, branch::Int, start_s
     index
 end
 
-"""Tested"""
 istwisted(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].istwisted
 
-
-
-"""Tested"""
 switch_valence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
 
 
 
 
-"""Tested"""
 function isswitch(tt::TrainTrack, switch::Int)
     if abs(switch) == 0 || abs(switch) > length(tt.switches)
         return false
@@ -153,7 +130,6 @@ function isswitch(tt::TrainTrack, switch::Int)
 end
 
 
-"""Tested"""
 function isbranch(tt::TrainTrack, branch::Int)
     if abs(branch) == 0 || abs(branch) > length(tt.branches)
         return false
@@ -173,11 +149,17 @@ branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 istrivalent(tt::TrainTrack) = all(switch_valence(tt, sw) == 3 for sw in switches(tt))
 
 
-"""
-
-"""
 function is_branch_large(tt::TrainTrack, branch::Int)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
     numoutgoing_branches(tt, end_sw) == 1 && numoutgoing_branches(tt, start_sw) == 1
 end
+
+
+
+# TODO: possibly
+# num_branches(tt)
+# num_switches(tt)
+# copy(tt)
+# change_switch_orientation(tt, switch)
+# swap_branch_numbers(tt, br1, br2)
