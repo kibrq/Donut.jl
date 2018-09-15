@@ -1,7 +1,7 @@
 
-module UtilitiesTest
+module UtilsTest
 
-using Donut.Utilities: otherside
+using Donut.Utils: otherside
 
 @test otherside(LEFT) == RIGHT
 @test otherside(RIGHT) == LEFT

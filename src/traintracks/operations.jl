@@ -8,7 +8,7 @@ using Donut.TrainTracks
 using Donut.TrainTracks: _setend!
 using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
-using Donut.Utilities: otherside
+using Donut.Utils: otherside
 
 _setendpoint!(tt::TrainTrack, branch::Int, switch::Int) =
     _setend!(branch, switch, tt.branches)

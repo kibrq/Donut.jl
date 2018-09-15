@@ -1,4 +1,4 @@
-module Utilities
+module Utils
 
 otherside(side::Int) = (@assert side in (1,2); side == 1 ? 2 : 1)
 
