@@ -8,3 +8,11 @@ const FORWARD = 1
 const BACKWARD = 2
 const CENTRAL = 3
 
+
+# elementary move types
+BOUNDARY = 0
+TYPE1 = 1
+TYPE2 = 2
+
+PANTSCURVE_GLUED_TO_SELF = -1
+NOPANT_THISSIDE = 0

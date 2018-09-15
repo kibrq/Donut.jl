@@ -4,7 +4,7 @@ using Donut
 using Test
 
 
-println("Test Surfaces")
-@time include("surface_test.jl")
-println("Test TrainTracks")
-@time include("traintrack_test.jl")
+# @time include("surface_test.jl")
+# @time include("traintrack_test.jl")
+# @time include("pantsdecomposition_test.jl")
+@time include("measure_test.jl")
