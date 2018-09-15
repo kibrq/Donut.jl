@@ -1,5 +1,6 @@
+module Constants
 
-export LEFT, RIGHT, START, END, FORWARD, BACKWARD, CENTRAL
+# export LEFT, RIGHT, START, END, FORWARD, BACKWARD, CENTRAL
 const START = 1
 const END = 2
 const LEFT = 1
@@ -14,5 +15,7 @@ BOUNDARY = 0
 TYPE1 = 1
 TYPE2 = 2
 
-PANTSCURVE_GLUED_TO_SELF = -1
-NOPANT_THISSIDE = 0
+
+
+
+end

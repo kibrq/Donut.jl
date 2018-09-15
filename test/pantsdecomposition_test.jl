@@ -1,4 +1,8 @@
+module PantsTest
 
+using Test
+using Donut.Pants
+using Donut.Constants: LEFT, RIGHT
 
 @test_throws ErrorException PantsDecomposition([[1, 2, 3], [-2, -2, -1]])
 @test_throws ErrorException PantsDecomposition([[1, 2, 3, -3], [-2, -1]])
@@ -51,4 +55,6 @@ end
     @test istwosided_pantscurve(pd, -4)
     @test isonesided_pantscurve(pd, -1)
     @test !isonesided_pantscurve(pd, -6)
+end
+
 end

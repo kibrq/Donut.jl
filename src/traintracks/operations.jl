@@ -1,8 +1,17 @@
-export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, split_trivalent!, peel!, add_switch_on_branch!, twist_branch!
 
+module Operations
+
+export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, peel!, add_switch_on_branch!, twist_branch!, add_branch!
+
+
+using Donut.TrainTracks
+using Donut.TrainTracks: _setend!
+using Donut
+using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
+using Donut.Utilities: otherside
 
 _setendpoint!(tt::TrainTrack, branch::Int, switch::Int) =
-    _setendpoint!(branch, switch, tt.branches)
+    _setend!(branch, switch, tt.branches)
 
 
 _set_numoutgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
@@ -154,13 +163,13 @@ twist_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)].istwisted
 """
 WARNING: It leaves the TrainTrack object in an inconsistent state.
 """
-_delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Branch())
+_delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Donut.TrainTracks.Branch())
 
 
 """
 WARNING: It leaves the TrainTrack object in an inconsistent state.
 """
-_delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Switch())
+_delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Donut.TrainTracks.Switch())
 
 
 
@@ -279,7 +288,7 @@ function _find_new_switch_number!(tt::TrainTrack)
             return i
         end
     end
-    push!(tt.switches, Switch())
+    push!(tt.switches, Donut.TrainTracks.Switch())
     return length(tt.switches)
 end
 
@@ -295,7 +304,7 @@ function _find_new_branch_number!(tt::TrainTrack)
             return i
         end
     end
-    push!(tt.branches, Branch())
+    push!(tt.branches, Donut.TrainTracks.Branch())
     return length(tt.branches)
 end
 
@@ -441,33 +450,5 @@ end
 
 
 
-"""
-Left split: central brach is turning left after the splitting.
-"""
-function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
-    if left_right_or_central == CENTRAL
-        error("Central splittings are not yet implemented")
-    end
 
-    if !is_branch_large(tt, branch)
-        error("The split branch should be a large branch.")
-    end
-    start_sw = branch_endpoint(tt, -branch)
-    end_sw = branch_endpoint(tt, branch)
-    if switch_valence(tt, start_sw) != 3 && switch_valence(tt, end_sw) != 3
-        error("The endpoints of the split branch should be trivalent.")
-    end
-    @assert left_right_or_central in (LEFT, RIGHT, CENTRAL)
-
-    collapse_branch!(tt, branch)
-    side = left_right_or_central == CENTRAL ? LEFT : left_right_or_central
-    new_sw, new_br = pull_switch_apart!(tt, BranchRange(start_sw, 1:1, side),
-                       BranchRange(-start_sw, 1:1, side))
-
-    if left_right_or_central == CENTRAL
-        delete_branch!(tt, new_br)
-        delete_two_valent_switch!(tt, new_sw)
-        delete_two_valent_switch!(tt, sw)
-        # TODO: What do we do when this would remove the last switch of the train track?
-    end
 end

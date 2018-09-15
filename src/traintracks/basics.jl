@@ -1,5 +1,6 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, switch_valence, isswitch, isbranch, switches, branches, istrivalent, is_branch_large
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switch_valence
 
+using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 
 mutable struct Branch
     endpoint::Array{Int,1}  # dim: (2), indexed by START, END
@@ -63,7 +64,10 @@ struct TrainTrack
                 sgn = step == FORWARD ? 1 : -1
                 ls = gluinglist[2*i - 2 + step]
                 for br_idx in ls
-                    _setendpoint!(-br_idx, sgn*i, branches)
+                    # br_idx < 0 ?
+                    # branches[-br_idx].endpoint[END] = sgn*i :
+                    # branches[br_idx].endpoint[START] = sgn*i
+                    _setend!(-br_idx, sgn*i, branches)
                 end
                 switches[i].numoutgoing_branches[step] = length(ls)
                 switches[i].outgoing_branch_indices[step][1:length(ls)] = ls
@@ -74,12 +78,11 @@ struct TrainTrack
     end
 end
 
-_setendpoint!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
+_setend!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
     branch_array[br_idx].endpoint[END] = sw_idx :
     branch_array[-br_idx].endpoint[START] = sw_idx
 
 
-otherside(side::Int) = (@assert side in (1,2); side == 1 ? 2 : 1)
 
 branch_endpoint(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].endpoint[
     branch > 0 ? END : START]
@@ -116,7 +119,7 @@ end
 
 istwisted(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].istwisted
 
-switch_valence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
+
 
 
 
@@ -146,14 +149,11 @@ switches(tt::TrainTrack) = [i for i in 1:length(tt.switches) if isswitch(tt, i)]
 # TODO: This could return an interator instead.
 branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 
-istrivalent(tt::TrainTrack) = all(switch_valence(tt, sw) == 3 for sw in switches(tt))
+switch_valence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
 
-function is_branch_large(tt::TrainTrack, branch::Int)
-    start_sw = branch_endpoint(tt, -branch)
-    end_sw = branch_endpoint(tt, branch)
-    numoutgoing_branches(tt, end_sw) == 1 && numoutgoing_branches(tt, start_sw) == 1
-end
+
+
 
 
 

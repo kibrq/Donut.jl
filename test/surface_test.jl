@@ -1,3 +1,7 @@
+module SurfaceTest
+
+using Test
+using Donut: Surface, isorientable, numpunctures, genus, eulerchar, surface_from_eulerchar, homologydim, teichspacedim
 
 @test_throws ErrorException Surface(-1)
 @test_throws ErrorException Surface(1, -1)
@@ -54,3 +58,6 @@
 @test teichspacedim(Surface(2, 1, false)) == 2
 @test teichspacedim(Surface(2, 2, false)) == 4
 @test teichspacedim(Surface(3, 0, false)) == 3
+
+
+end

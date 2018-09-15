@@ -1,5 +1,14 @@
+module Pants
+
 export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve
 
+
+using Donut: AbstractSurface
+using Donut.Constants: LEFT, RIGHT
+using Donut.Utilities: otherside
+
+PANTSCURVE_GLUED_TO_SELF = -1
+NOPANT_THISSIDE = 0
 
 struct Pant
     boundaries::Array{Int, 1}  # length 3
@@ -239,4 +248,7 @@ function pantsdecomposition_humphries(genus::Int)
     end
     push!(a, [-3*genus+3, -3*genus+4, 3*genus-3])
     a
+end
+
+
 end
