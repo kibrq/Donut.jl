@@ -3,6 +3,6 @@
 using Test
 
 
-@time include("surface_test.jl")
-@time include("traintracks/traintrack_test.jl")
-@time include("pants/pantsdecomposition_test.jl")
+# @time include("surface_test.jl")
+# @time include("traintracks/all.jl")
+@time include("pants/all.jl")

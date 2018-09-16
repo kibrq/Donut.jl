@@ -1,4 +1,4 @@
-
+using Donut.Constants: FORWARD, BACKWARD, LEFT, RIGHT
 
 
 function ispathtight(arc1::ArcInPants, arc2::ArcInPants)
@@ -31,13 +31,10 @@ using Donut.Pants
 Decide if a bridge goes from boundary i to i+1 (forward) or i+1 to i
 (backward).
 """
-function isbridgeforward(pd, arc2)
-    # inward: FIGURE 2, 4
-    return [ArcInPants(v0, g0, v1, g1),
-            (pd::PantsDecomposition, bridge::ArcInPants)
+function isbridgeforward(pd::PantsDecomposition, bridge::ArcInPants)
     @assert isbridge(bridge)
-    index1 = pantend_nextto_pantscurve(pd, bridge.startvertex, bridge.startgate).bdyindex
-    index2 = pantend_nextto_pantscurve(pd, bridge.endvertex, bridge.endgate).bdyindex
+    index1 = bdyindex_nextto_pantscurve(pd, bridge.startvertex, bridge.startgate)
+    index2 = bdyindex_nextto_pantscurve(pd, bridge.endvertex, bridge.endgate)
     @assert pant_nextto_pantscurve(pd, bridge.startvertex, bridge.startgate) == pant_nextto_pantscurve(pd, bridge.endvertex, bridge.endgate)
 
     if index2 % 3 == (index1 + 1) % 3
@@ -68,9 +65,9 @@ reversedpath(path::Array{ArcInPants,1}) = [reversed(arc) for arc in reverse(path
 function simplifypath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants)
     @assert !ispathtight(arc1, arc2)
     v0 = arc1.startvertex
-    g0 = arc2.startgate
-    v1 = arc1.endvertex
-    v2 = arc2.endgate
+    g0 = arc1.startgate
+    v1 = arc2.endvertex
+    g1 = arc2.endgate
 
     # Backtracking
     if arc1 == reversed(arc2)
@@ -86,7 +83,7 @@ function simplifypath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants
         if isbridgeforward(pd, arc2)
             # inward: FIGURE 2, 4
             return [ArcInPants(v0, g0, v1, g1),
-                    construct_pantscurvearc(v1, g1, arc1.direction)]
+                    construct_pantscurvearc(pd, v1, g1, arc1.direction)]
         else
             # outward
             if arc1.direction == LEFT
@@ -94,9 +91,9 @@ function simplifypath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants
                 error("Simplification should first be somewhere else")
             else
                 # FIGURE 3
-                return [construct_pantscurvearc(v0, g0, LEFT),
+                return [construct_pantscurvearc(pd, v0, g0, LEFT),
                         ArcInPants(v0, g0, v1, g1),
-                        construct_pantscurvearc(v1, g2, LEFT)]
+                        construct_pantscurvearc(pd, v1, g1, LEFT)]
             end
         end
     elseif isselfconnecting(arc2) && isbridge(arc1)
@@ -120,7 +117,7 @@ end
 
 function simplifypath(pd::PantsDecomposition, 
         arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
-    @assert !ispathtight(pd, arc1, arc2, arc3)
+    @assert !ispathtight(arc1, arc2, arc3)
 
     v0 = arc1.startvertex
     g0 = arc1.startgate
@@ -135,9 +132,9 @@ function simplifypath(pd::PantsDecomposition,
     if isbridge(arc3)
         if v0 != v2
             # Figure 5: V-shape (same result as for Figure 3)
-            return [construct_pantscurvearc(v0, g0, LEFT),
+            return [construct_pantscurvearc(pd, v0, g0, LEFT),
                     ArcInPants(v0, g0, v2, g2),
-                    construct_pantscurvearc(v2, v2, LEFT)]
+                    construct_pantscurvearc(pd, v2, v2, LEFT)]
         else
             if isbridgeforward(pd, arc1)
                 # FIGURE 6
@@ -150,7 +147,7 @@ function simplifypath(pd::PantsDecomposition,
             end
         end
     elseif isselfconnecting(arc3)
-        if !isbridgeforward(arc1)
+        if !isbridgeforward(pd, arc1)
             # FIGURE 8.1, 8.2
             error("Simplification should first be somewhere else")
         end
@@ -160,7 +157,7 @@ function simplifypath(pd::PantsDecomposition,
         end
 
         # FIGURE 8
-        return [construct_pantscurvearc(v0, g0, LEFT), arc1]
+        return [construct_pantscurvearc(pd, v0, g0, LEFT), arc1]
     else
         @assert false
     end

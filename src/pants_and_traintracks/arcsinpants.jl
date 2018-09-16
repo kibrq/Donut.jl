@@ -42,3 +42,4 @@ end
 
 isselfconnecting(arc::ArcInPants) = arc.startvertex == arc.endvertex && arc.startgate == arc.endgate && arc.startgate != MIDDLE
     
+

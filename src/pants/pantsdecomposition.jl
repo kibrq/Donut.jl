@@ -1,6 +1,6 @@
 module Pants
 
-export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve
+export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving
 
 
 using Donut: AbstractSurface
@@ -133,7 +133,9 @@ end
 
 pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantend_nextto_pantscurve(pd, curveindex, side).pantnumber
 
-pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Int, bdyindex::Int) = pd.pants[pantindex][bdyindex]
+bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantend_nextto_pantscurve(pd, curveindex, side).bdyindex
+
+pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Int, bdyindex::Int) = pd.pants[pantindex].boundaries[bdyindex]
 
 function ispantscurve(pd::PantsDecomposition, curveindex::Int)
     if 1 <= abs(curveindex) <= length(pd.pantscurves)
