@@ -1,6 +1,5 @@
-module Pants
 
-export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving
+export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving, pantscurve_nextto_pant, ispantend_orientationpreserving, pantend_to_pantscurveside, pantscurveside_to_pantend
 
 
 using Donut: AbstractSurface
@@ -14,7 +13,7 @@ struct Pant
     boundaries::Array{Int, 1}  # length 3
     # isorientation_reversing::Array{Bool, 1}  # length 3
 end
-
+exists(pant::Pant) = pant.boundaries[1] != 0
 
 mutable struct PantEnd
     pantnumber::Int
@@ -26,15 +25,15 @@ exists(pantend::PantEnd) = pantend.pantnumber != NOPANT_THISSIDE
 
 
 struct PantsCurve
-    neighboring_pantsends::Array{PantEnd, 1}  # length 2
+    neighboring_pantends::Array{PantEnd, 1}  # length 2
 end
 
 
 
 PantsCurve() = PantsCurve([PantEnd(), PantEnd()])
 
-occupiedsides(pantscurve::PantsCurve) = [side for side in (LEFT, RIGHT) 
-    if exists(pantscurve.neighboring_pantsends[side])]
+occupiedsides(pantscurve::PantsCurve) = [side for side in (LEFT, RIGHT)
+    if exists(pantscurve.neighboring_pantends[side])]
 
 exists(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) != 0
 isboundary(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) == 1
@@ -96,11 +95,11 @@ struct PantsDecomposition <: AbstractSurface
                     # pant.isorientation_reversing[bdyindex] = true
                     newside = otherside(newside)
                 end
-                pantscurve.neighboring_pantsends[newside] =
+                pantscurve.neighboring_pantends[newside] =
                         PantEnd(pantindex, bdyindex)
             end
         end
-        
+
         for i in onesided_curves
             pantscurve = pantscurves[abs(i)]
             if !isboundary(pantscurve)
@@ -109,7 +108,7 @@ struct PantsDecomposition <: AbstractSurface
             @assert length(occupiedsides(pantscurve)) == 1
             occupiedside = occupiedsides(pantscurve)[1]
             emptyside = otherside(occupiedside)
-            pantend = pantscurve.neighboring_pantsends[emptyside]
+            pantend = pantscurve.neighboring_pantends[emptyside]
             pantend.pantnumber = PANTSCURVE_GLUED_TO_SELF
         end
         new(pants, pantscurves)
@@ -117,11 +116,11 @@ struct PantsDecomposition <: AbstractSurface
 end
 
 
-function pantend_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) 
+function pantscurveside_to_pantend(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT)
     if curveindex < 0
         side = otherside(side)
     end
-    _pantscurve(pd, curveindex).neighboring_pantsends[side]
+    _pantscurve(pd, curveindex).neighboring_pantends[side]
 end
 
 function _pantscurve(pd::PantsDecomposition, curveindex::Int)
@@ -131,16 +130,47 @@ function _pantscurve(pd::PantsDecomposition, curveindex::Int)
     pd.pantscurves[abs(curveindex)]
 end
 
-pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantend_nextto_pantscurve(pd, curveindex, side).pantnumber
+function _getpant(pd::PantsDecomposition, pantindex::Int)
+    if !ispant(pd, pantindex)
+        error("There is no pant with index $(pantindex).")
+    end
+    pd.pants[pantindex]
+end
 
-bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantend_nextto_pantscurve(pd, curveindex, side).bdyindex
+pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantscurveside_to_pantend(pd, curveindex, side).pantnumber
+
+bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Int=LEFT) = pantscurveside_to_pantend(pd, curveindex, side).bdyindex
 
 pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Int, bdyindex::Int) = pd.pants[pantindex].boundaries[bdyindex]
+
+function pantend_to_pantscurveside(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
+    pant = _getpant(pd, pantindex)
+    curveindex = pant.boundaries[bdyindex]
+
+    for side in (LEFT, RIGHT)
+        pantend = pantscurveside_to_pantend(pd, curveindex, side)
+        if pantend.pantnumber == pantindex && pantend.bdyindex == bdyindex
+            return (curveindex, side)
+        end
+    end
+    @assert false
+end
+
 
 function ispantscurve(pd::PantsDecomposition, curveindex::Int)
     if 1 <= abs(curveindex) <= length(pd.pantscurves)
         pantscurve = pd.pantscurves[abs(curveindex)]
         if exists(pantscurve)
+            return true
+        end
+    end
+    false
+end
+
+function ispant(pd::PantsDecomposition, pantindex::Int)
+    if 1 <= pantindex <= length(pd.pants)
+        pant = pd.pants[pantindex]
+        if exists(pant)
             return true
         end
     end
@@ -156,7 +186,7 @@ curveindices(pd::PantsDecomposition) = [i for i in eachindex(pd.pantscurves) if 
 
 innercurveindices(pd::PantsDecomposition) = filter(x -> isinner_pantscurve(pd, x), curveindices(pd))
 
-boundarycurveindices(pd::PantsDecomposition) = filter(x -> isboundary_pantscurve(pd, x), 
+boundarycurveindices(pd::PantsDecomposition) = filter(x -> isboundary_pantscurve(pd, x),
 curveindices(pd))
 
 numboundarycurves(pd::PantsDecomposition) = length(boundarycurveindices(pd))
@@ -174,9 +204,9 @@ function isonesided_pantscurve(pd::PantsDecomposition, curveindex::Int)
         return false
     end
     pantscurve = _pantscurve(pd, curveindex)
-    pantsends = pantscurve.neighboring_pantsends
+    pantsends = pantscurve.neighboring_pantends
     any(pantsends[side].pantnumber == PANTSCURVE_GLUED_TO_SELF for side in (LEFT, RIGHT))
-end 
+end
 
 istwosided_pantscurve(pd::PantsDecomposition, curveindex::Int) = isinner_pantscurve(pd, curveindex) && !isonesided_pantscurve(pd, curveindex)
 
@@ -184,7 +214,7 @@ gluinglist(pd::PantsDecomposition) = [pant.boundaries for pant in pd.pants]
 
 
 function ispantscurveside_orientationpreserving(pd::PantsDecomposition, curveindex::Int, side::Int)
-    pantend = pantend_nextto_pantscurve(pd, curveindex, side)
+    pantend = pantscurveside_to_pantend(pd, curveindex, side)
     curveindex2 = pantscurve_nextto_pant(pd, pantend.pantnumber, pantend.bdyindex)
     if side == LEFT
         return curveindex == curveindex2
@@ -193,17 +223,12 @@ function ispantscurveside_orientationpreserving(pd::PantsDecomposition, curveind
     end
 end
 
-# function _repr(pd::PantsDecomposition)
-#     s = "PantsDecomposition with gluing list "
-#     s *= "$(gluinglist(pd))"
-#     onesided_curves = filter(x -> isonesided_pantscurve(pd, x), pantscurves(pd))
-#     if length(onesided_curves) > 0
-#         s *= " and one-sided curves $(onesided_curves)"
-#     end
-#     s
-# end
+function ispantend_orientationpreserving(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
+    curveindex, side = pantend_to_pantscurveside(pd, pantindex, bdyindex)
+    ispantscurveside_orientationpreserving(curveindex, side)
+end
 
-function Base.show(io::IO, pd::PantsDecomposition) 
+function Base.show(io::IO, pd::PantsDecomposition)
     print(io, "PantsDecomposition with gluing list [")
     for ls in gluinglist(pd)
         print(io, "[$(ls[1]), $(ls[2]), $(ls[3])]")
@@ -216,43 +241,7 @@ function Base.show(io::IO, pd::PantsDecomposition)
     end
 end
 
-function elementarymove_type(pd::PantsDecomposition, curveindex::Int)
-    if isboundary_pantscurve(pd, curveindex)
-        return 
-    end
-end
 
-function applymove_type2!(pd::PantsDecomposition, curveindex::Int)
-    @assert istwosided_pantscurve(pd, curveindex)
-    @assert pant_nextto_pantscurve(pd, curveindex, LEFT) != pant_nextto_pantscurve(pd, curveindex, RIGHT)
-
-end
-
-
-function applymove_type1!(pd::PantsDecomposition, curveindex::Int)
-    @assert istwosided_pantscurve(pd, curveindex)
-    @assert pant_nextto_pantscurve(pd, curveindex, LEFT) != pant_nextto_pantscurve(pd, curveindex, RIGHT)
-
-end
-
-
-function applymove_onesided_to_onesided(pd::PantsDecomposition, curveindex::Int)
-    @assert isonesided_pantscurve(pd, curveindex)
-
-end
-
-function applymove_twoonesided_to_twosided(pd::PantsDecomposition, curveindex1::Int, curveindex2::Int)
-
-end
-
-function applymove_twosided_to_twoonesided(pd::PantsDecomposition, curve)
-
-end
-
-
-function twist_marking!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
-
-end
 
 
 function pantsdecomposition_humphries(genus::Int)
@@ -266,4 +255,4 @@ function pantsdecomposition_humphries(genus::Int)
 end
 
 
-end
+

@@ -2,6 +2,7 @@ module PantsTest
 
 using Test
 using Donut.Pants
+using Donut.Pants: PantEnd
 using Donut.Constants: LEFT, RIGHT
 
 @test_throws ErrorException PantsDecomposition([[1, 2, 3], [-2, -2, -1]])
@@ -39,6 +40,20 @@ using Donut.Constants: LEFT, RIGHT
     @test pant_nextto_pantscurve(pd, 3, RIGHT) == 2
     @test pant_nextto_pantscurve(pd, -3, LEFT) == 2
     @test pant_nextto_pantscurve(pd, -3, RIGHT) == 1
+    pantend = pantscurveside_to_pantend(pd, 1, LEFT)
+    @test (pantend.pantnumber, pantend.bdyindex) == (1, 1)
+    pantend = pantscurveside_to_pantend(pd, 1, RIGHT)
+    @test (pantend.pantnumber, pantend.bdyindex) == (2, 3)
+    pantend = pantscurveside_to_pantend(pd, -1, LEFT)
+    @test (pantend.pantnumber, pantend.bdyindex) == (2, 3)
+    pantend = pantscurveside_to_pantend(pd, -1, RIGHT)
+    @test (pantend.pantnumber, pantend.bdyindex) == (1, 1)
+    @test pantend_to_pantscurveside(pd, 1, 1) == (1, LEFT)
+    @test pantend_to_pantscurveside(pd, 1, 2) == (2, LEFT)
+    @test pantend_to_pantscurveside(pd, 1, 3) == (3, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 1) == (-3, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 2) == (-2, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 3) == (-1, LEFT)
 end
 
 @testset "Pants decomposition with one-sided curves, boundary, and orientation-reversing gluings" begin
@@ -55,6 +70,16 @@ end
     @test istwosided_pantscurve(pd, -4)
     @test isonesided_pantscurve(pd, -1)
     @test !isonesided_pantscurve(pd, -6)
+    @test pantend_to_pantscurveside(pd, 1, 1) == (1, LEFT)
+    @test pantend_to_pantscurveside(pd, 1, 2) == (2, LEFT)
+    @test pantend_to_pantscurveside(pd, 1, 3) == (3, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 1) == (-3, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 2) == (4, LEFT)
+    @test pantend_to_pantscurveside(pd, 2, 3) == (5, LEFT)
+    @test pantend_to_pantscurveside(pd, 3, 1) == (4, RIGHT)
+    @test pantend_to_pantscurveside(pd, 3, 2) == (6, LEFT)
+    @test pantend_to_pantscurveside(pd, 3, 3) == (6, RIGHT)
+
 end
 
 end
