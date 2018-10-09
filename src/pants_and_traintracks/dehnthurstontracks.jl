@@ -1,6 +1,6 @@
 # module DehnThurstonTracks
 
-export dehnthurstontrack
+export dehnthurstontrack, branchencodings
 
 using Donut.Pants
 using Donut.TrainTracks
@@ -9,6 +9,18 @@ using Donut.Constants: LEFT, RIGHT
 
 doubledindex(x) = x > 0 ? 2*x-1 : -2*x
 
+
+"""
+
+The following conventions are used for constructing the branches:
+    - bridges are oriented from boundary index i to i+1
+    - self-connecting branches start on the right and come back on the left (i.e., they go around in counterclockwise order)
+    - pants curves branches start at the positive end of the switch and end and the negative end of the switch.
+
+The branches of the constructed train track are number from 1 to N for some N. The pants curve branches have the smallest numbers, then the bridges, finally the self-connecting branches.
+
+
+"""
 function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, turnings::Array{Int, 1})
     ipc = innercurveindices(pd)
     # TODO: handle one-sided pants curves
@@ -31,7 +43,9 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
     end
 
 
-    nextbranchindex = length(ipc) + 1
+    bridgeindex = length(ipc) + 1
+    numbranches = length(ipc) + 3*numpants(pd) - length(boundarycurveindices(pd))
+    selfconnindex = numbranches + 1 - count(x->x>0, pantstypes)
     for pant in 1:numpants(pd)
         typ = pantstypes[pant]
 
@@ -69,27 +83,27 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
 
             if bdyturnings[idx1] == RIGHT
                 x = gluinglist[doubledindex(switches[idx1])]
-                splice!(x, length(x):length(x)-1, nextbranchindex)
+                splice!(x, length(x):length(x)-1, bridgeindex)
             elseif bdyturnings[idx1] == LEFT
                 x = gluinglist[doubledindex(-switches[idx1])]
-                push!(x, nextbranchindex)
+                push!(x, bridgeindex)
             else
                 @assert false
             end
 
             if bdyturnings[idx2] == RIGHT
                 x = gluinglist[doubledindex(switches[idx2])]
-                pushfirst!(x, -nextbranchindex)
+                pushfirst!(x, -bridgeindex)
             elseif bdyturnings[idx2] == LEFT
                 x = gluinglist[doubledindex(-switches[idx2])]
-                splice!(x, 2:1, -nextbranchindex)
+                splice!(x, 2:1, -bridgeindex)
             else
                 @assert false
             end
             if isreversingend[idx1] != isreversingend[idx2]
-                push!(twistedbranches, nextbranchindex)
+                push!(twistedbranches, bridgeindex)
             end
-            nextbranchindex += 1
+            bridgeindex += 1
             push!(addedbranches, idx1)
         end
 
@@ -116,18 +130,48 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
         end
         if bdyturnings[typ] == RIGHT
             x = gluinglist[doubledindex(sw)]
-            splice!(x, length(x):length(x)-1, -nextbranchindex) 
+            splice!(x, length(x):length(x)-1, -selfconnindex) 
             insertpos = previndex(typ, 3) in addedbranches ? -3 : -2
         else
             x = gluinglist[doubledindex(-sw)]
-            push!(x, -nextbranchindex)
+            push!(x, -selfconnindex)
             insertpos = previndex(typ, 3) in addedbranches ? -2 : -1
         end
-        splice!(x, length(x)+insertpos+1:length(x)+insertpos, nextbranchindex)
-        nextbranchindex += 1
+        splice!(x, length(x)+insertpos+1:length(x)+insertpos, selfconnindex)
+        selfconnindex += 1
     end
-    TrainTrack(gluinglist, twistedbranches)
+    tt = TrainTrack(gluinglist, twistedbranches)
+    @assert length(branches(tt)) == numbranches
+    tt
 end
 
+
+
+function branchencodings(dttraintrack::TrainTrack, turnings::Array{Int, 1}, numselfconnects::Int)
+    encodings = ArcInPants[]
+    numinnercurves = length(turnings)
+    for br in branches(dttraintrack)
+        startvertex = branch_endpoint(dttraintrack, -br)
+        endvertex = branch_endpoint(dttraintrack, br)
+        function gate(vertex)
+            g = turnings[abs(vertex)]
+            return vertex > 0 ? otherside(g) : g
+        end
+        if br <= numinnercurves
+            # Pants curve branch
+            push!(encodings, pantscurvearc(abs(startvertex), FORWARD))
+        elseif br <= length(branches(dttraintrack)) - numselfconnects
+            # bridge
+            startgate = gate(startvertex)
+            endgate = gate(endvertex)
+            push!(encodings, ArcInPants(abs(startvertex), startgate, abs(endvertex), endgate))
+        else
+            # self-connecting
+            startgate = gate(startvertex)
+            push!(encodings, selfconnarc(abs(startvertex), startgate, RIGHT))
+        end
+    end
+    encodings
+end
 
 # end

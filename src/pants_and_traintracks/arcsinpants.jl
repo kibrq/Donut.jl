@@ -3,6 +3,9 @@ using Donut.Utils: otherside
 
 const MIDDLE = 0
 
+"""
+    For a self-connecting arc, the direction is LEFT is the arc starts on the left and returns on the right (i.e. the arc goes around in the clockwise direction)
+"""
 struct ArcInPants
     startvertex::Int
     startgate::Int
