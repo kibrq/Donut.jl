@@ -10,6 +10,48 @@ using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
 
+
+function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
+    @assert 1 <= newlabel <= length(tt.branches)
+    @assert !isbranch(tt, newlabel)
+    signdiff = -1 if sign(branch) != sign(newlabel) else 1
+    for sign in (-1, 1)
+        orbranch = sign*branch
+        sw = branch_endpoint(tt, orbranch)
+        for i in numoutgoing_branches(tt, sw)
+            br = outgoing_branch(tt, sw, i)
+            if abs(br) == abs(branch)
+                _setoutgoing_branch!(tt, BranchPosition(sw, i), signdiff*sign(br)*newlabel)
+            end
+        end
+    end
+    copy(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
+    zeroout(tt.branches[abs(branch)])
+    if signdiff == -1
+        reversebranch!(newlabel)
+    end
+end
+
+
+function reversebranch!(tt::TrainTrack, branch::Int)
+    @assert isbranch(tt, branch)
+    # When the starting and ending points are the same, we don't want to change the signs twice.
+    signs = branch_endpoint(tt, branch) == branch_endpoint(tt, -branch) ? (1,) : (1, -1)
+    for sign in signs
+        orbranch = sign*branch
+        sw = branch_endpoint(tt, orbranch)
+        for i in numoutgoing_branches(tt, sw)
+            br = outgoing_branch(tt, sw, i)
+            if abs(br) == abs(branch)
+                _setoutgoing_branch!(tt, BranchPosition(sw, i), -br)
+            end
+        end
+    end
+    ends = tt.branches[abs(branch)].endpoint
+    ends[START], ends[END] = ends[END], ends[START]
+end
+
+
 _setendpoint!(tt::TrainTrack, branch::Int, switch::Int) =
     _setend!(branch, switch, tt.branches)
 
@@ -84,7 +126,11 @@ function _splice_outgoing_branches!(tt::TrainTrack,
 end
 
 
-
+function _setoutgoing_branch!(tt::TrainTrack, 
+    pos::BranchPosition, newvalue::Int)
+    _splice_outgoing_branches(tt, 
+        BranchRange(pos.switch, [pos.index], pos.start_side), [newvalue])
+end
 
 """
 WARNING: It leaves the TrainTrack object in an inconsistent state!

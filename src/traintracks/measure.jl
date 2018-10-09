@@ -6,6 +6,9 @@ export Measure, branchmeasure, zeromeasure
 
 using Donut.TrainTracks
 
+"""
+Notexisting branches should have 0 in the corresponding index. This assumption is used by some utility functions, e.g. updating the measure when pulling apart.
+"""
 struct Measure{T}
     values::Array{T, 1}
 
@@ -48,11 +51,41 @@ function branchmeasure(measure::Measure, branchindex::Int)
     measure.values[abs(branchindex)]
 end
 
+function outgoingmeasure(tt::TrainTrack, measure::Measure, switch::Int)
+    sum(branchmeasure(br) for br in outgoing_branches(tt, switch))
+end
+
 """
 Can mess up switch conditions.
 """
-function _setmeasure(measure::Measure, branchindex::Int, newvalue)
+function _setmeasure!(measure::Measure, branchindex::Int, newvalue)
     measure.values[abs(branchindex)] = newvalue 
 end
 
+"""
+Allocate a larger array internally and fills it with zeros.
+"""
+function _allocatemore!(measure::Measure, newlength::Int)
+    len = length(measure.values)
+    resize!(measure.values, newlength)
+    for i in len+1:newlength
+        measure.values[i] = 0
+    end
+end
+
+
+function updatemeasure_pullswitchapart(tt_afterop::TrainTrack,
+    measure::Measure, newbranch::Int)
+    if newbranch > length(measure.values)
+        _allocatemore!(measure, newbranch)
+    end
+    sw = branch_endpoint(tt_afterop, -newbranch)
+    newvalue = outgoingmeasure(tt_afterop, measure, -switch) - outgoingmeasure(tt_afterop, measure, switch)
+    _setmeasure!(measure, newbranch, newvalue)
+end
+
+
+function updatemeasure_collapse!(tt_afterop::TrainTrack,
+    measure::Measure, collapsedbranch::Int)
+    _setmeasure(measure, collapsedbranch, 0)
 end

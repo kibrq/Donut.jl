@@ -9,6 +9,21 @@ end
 
 Branch() = Branch([0, 0], false)
 
+function zeroout(br::Branch)
+    for i in (1, 2)
+        br.endpoint[i] = 0
+    end
+    br.istwisted = false
+end
+
+function copy(frombranch::Branch, tobranch::Branch)
+    for i in (1, 2)
+        tobranch.endpoint[i] = frombranch.endpoint[i]
+    end
+    tobranch.istwisted = frombranch.istwisted    
+end
+
+
 struct Switch
     outgoing_branch_indices::Array{Array{Int,1},1}  # dim: (2, max_num_branches)
     numoutgoing_branches::Array{Int,1}  # dim: (2), indexed by FORWARD, BACKWARD
