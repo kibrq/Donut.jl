@@ -16,9 +16,9 @@ using Donut.Constants: LEFT, RIGHT
     @test numpunctures(pd) == 0
     @test numboundarycurves(pd) == 0
     @test eulerchar(pd) == -2
-    @test ispantscurve(pd, -2)
-    @test ispantscurve(pd, 3)
-    @test !ispantscurve(pd, 5)
+    @test isvalidcurveindex(pd, -2)
+    @test isvalidcurveindex(pd, 3)
+    @test !isvalidcurveindex(pd, 5)
     @test boundarycurveindices(pd) == Int[]
     @test innercurveindices(pd) == [1, 2, 3]
     @test curveindices(pd) == [1, 2, 3]
@@ -80,6 +80,13 @@ end
     @test pantend_to_pantscurveside(pd, 3, 2) == (6, LEFT)
     @test pantend_to_pantscurveside(pd, 3, 3) == (6, RIGHT)
 
+    @test ispantend_orientationpreserving(pd, 3, 2) != ispantend_orientationpreserving(pd, 3, 3)
+    @test ispantend_orientationpreserving(pd, 2, 2) != ispantend_orientationpreserving(pd, 3, 1)
+    @test ispantend_orientationpreserving(pd, 1, 3) == ispantend_orientationpreserving(pd, 2, 1)
+
+    @test ispantscurveside_orientationpreserving(pd, 3, LEFT)
+    @test ispantscurveside_orientationpreserving(pd, 3, RIGHT)
+    @test ispantscurveside_orientationpreserving(pd, 6, LEFT) != ispantscurveside_orientationpreserving(pd, 6, RIGHT)
 end
 
 end

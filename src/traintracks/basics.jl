@@ -1,4 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switch_valence
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 
@@ -149,7 +149,7 @@ switches(tt::TrainTrack) = [i for i in 1:length(tt.switches) if isswitch(tt, i)]
 # TODO: This could return an interator instead.
 branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 
-switch_valence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
+switchvalence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
 
 

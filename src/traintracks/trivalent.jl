@@ -8,7 +8,7 @@ using Donut.Constants: LEFT, RIGHT, CENTRAL
 using Donut.TrainTracks.Operations
 using Donut.TrainTracks.Operations: BranchRange
 
-istrivalent(tt::TrainTrack) = all(switch_valence(tt, sw) == 3 for sw in switches(tt))
+istrivalent(tt::TrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
 
     function is_branch_large(tt::TrainTrack, branch::Int)
         start_sw = branch_endpoint(tt, -branch)
@@ -30,7 +30,7 @@ istrivalent(tt::TrainTrack) = all(switch_valence(tt, sw) == 3 for sw in switches
         end
         start_sw = branch_endpoint(tt, -branch)
         end_sw = branch_endpoint(tt, branch)
-        if switch_valence(tt, start_sw) != 3 && switch_valence(tt, end_sw) != 3
+        if switchvalence(tt, start_sw) != 3 && switchvalence(tt, end_sw) != 3
             error("The endpoints of the split branch should be trivalent.")
         end
         @assert left_right_or_central in (LEFT, RIGHT, CENTRAL)

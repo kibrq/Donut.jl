@@ -1,5 +1,5 @@
 
-export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, ispantscurve, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving, pantscurve_nextto_pant, ispantend_orientationpreserving, pantend_to_pantscurveside, pantscurveside_to_pantend
+export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, isvalidcurveindex, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving, pantscurve_nextto_pant, ispantend_orientationpreserving, pantend_to_pantscurveside, pantscurveside_to_pantend
 
 
 using Donut: AbstractSurface
@@ -124,7 +124,7 @@ function pantscurveside_to_pantend(pd::PantsDecomposition, curveindex::Int, side
 end
 
 function _pantscurve(pd::PantsDecomposition, curveindex::Int)
-    if !ispantscurve(pd, curveindex)
+    if !isvalidcurveindex(pd, curveindex)
         error("There is no pants curve with index $(curveindex).")
     end
     pd.pantscurves[abs(curveindex)]
@@ -157,7 +157,7 @@ function pantend_to_pantscurveside(pd::PantsDecomposition, pantindex::Int, bdyin
 end
 
 
-function ispantscurve(pd::PantsDecomposition, curveindex::Int)
+function isvalidcurveindex(pd::PantsDecomposition, curveindex::Int)
     if 1 <= abs(curveindex) <= length(pd.pantscurves)
         pantscurve = pd.pantscurves[abs(curveindex)]
         if exists(pantscurve)
@@ -177,9 +177,9 @@ function ispant(pd::PantsDecomposition, pantindex::Int)
     false
 end
 
-isinner_pantscurve(pd::PantsDecomposition, curveindex::Int) = ispantscurve(pd, curveindex) && isinner(_pantscurve(pd, curveindex))
+isinner_pantscurve(pd::PantsDecomposition, curveindex::Int) = isvalidcurveindex(pd, curveindex) && isinner(_pantscurve(pd, curveindex))
 
-isboundary_pantscurve(pd::PantsDecomposition, curveindex::Int) = ispantscurve(pd, curveindex) && isboundary(_pantscurve(pd, curveindex))
+isboundary_pantscurve(pd::PantsDecomposition, curveindex::Int) = isvalidcurveindex(pd, curveindex) && isboundary(_pantscurve(pd, curveindex))
 
 # this could return an iterator
 curveindices(pd::PantsDecomposition) = [i for i in eachindex(pd.pantscurves) if exists(pd.pantscurves[i])]
@@ -225,7 +225,7 @@ end
 
 function ispantend_orientationpreserving(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
     curveindex, side = pantend_to_pantscurveside(pd, pantindex, bdyindex)
-    ispantscurveside_orientationpreserving(curveindex, side)
+    ispantscurveside_orientationpreserving(pd, curveindex, side)
 end
 
 function Base.show(io::IO, pd::PantsDecomposition)

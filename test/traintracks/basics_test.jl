@@ -32,8 +32,8 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test !isbranch(tt, 0)
 
 
-@test switch_valence(tt, 1) == 4
-@test switch_valence(tt, -1) == 4
+@test switchvalence(tt, 1) == 4
+@test switchvalence(tt, -1) == 4
 
 @test outgoing_branches(tt, 1) == [1, 2]
 @test outgoing_branches(tt, -1) == [-1, -2]

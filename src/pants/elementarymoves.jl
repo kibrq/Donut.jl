@@ -77,7 +77,7 @@ end
 
 function applymove_type1!(pd::PantsDecomposition, curveindex::Int)
     @assert istwosided_pantscurve(pd, curveindex)
-    @assert pant_nextto_pantscurve(pd, curveindex, LEFT) != pant_nextto_pantscurve(pd, curveindex, RIGHT)
+    @assert pant_nextto_pantscurve(pd, curveindex, LEFT) == pant_nextto_pantscurve(pd, curveindex, RIGHT)
 
     return
 end

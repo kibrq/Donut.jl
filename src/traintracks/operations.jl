@@ -267,7 +267,7 @@ If the switch is not two-valent, an error is thrown.
 Return: (br_kept, br_removed) -- the branch kept and the branched removed
 """
 function delete_two_valent_switch!(tt::TrainTrack, switch::Int)
-    @assert switch_valence(tt, switch) == 2
+    @assert switchvalence(tt, switch) == 2
 
     br_removed = outgoing_branch(tt, switch, 1)
     br_kept = outgoing_branch(tt, -switch, 1)
