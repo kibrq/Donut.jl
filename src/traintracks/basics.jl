@@ -31,6 +31,32 @@ end
 
 Switch() = Switch([Int[], Int[]], Int[0, 0])
 
+function zeroout(sw::Switch)
+    for side in 1:2
+        x = sw.outgoing_branch_indices[side]
+        for i in eachindex(x)
+            x[i] = 0
+        end
+        sw.numoutgoing_branches[side] = 0
+    end
+end
+
+function copy(fromswitch::Switch, toswitch::Switch)
+    for side in 1:2
+        x = fromswitch.outgoing_branch_indices[side]
+        y = toswitch.outgoing_branch_indices[side]
+        if length(x) > length(y)
+            resize!(y, length(x))
+            for i in length(y)+1:length(x)
+                y[i] = 0
+            end
+        end
+        for i in eachindex(x)
+            y[i] = x[i]
+        end
+        toswitch.numoutgoing_branches[side] = fromswitch.numoutgoing_branches[side]
+    end    
+end
 
 
 struct TrainTrack

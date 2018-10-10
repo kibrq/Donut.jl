@@ -26,13 +26,50 @@ using Donut.Constants: LEFT, RIGHT
     @test branch_endpoint(tt, -2) == -1
 end
 
-@testset "Revering branches" begin
+@testset "Reversing branches" begin
     tt = TrainTrack([[1, 2], [-1, -2]])
     reversebranch!(tt, 1)
     @test outgoing_branches(tt, 1) == [-1, 2]
     @test outgoing_branches(tt, -1) == [1, -2]
     @test branch_endpoint(tt, 1) == 1
     @test branch_endpoint(tt, -1) == -1
+end
+
+@testset "Renaming switches" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    x = Donut.TrainTracks.Operations._find_new_switch_number!(tt)
+    @test !isswitch(tt, 2)
+    @test x == 2
+    renameswitch!(tt, 1, 2)
+    @test !isswitch(tt, 1)
+    @test isswitch(tt, 2)
+    @test outgoing_branches(tt, 2) == [1, 2]
+    @test outgoing_branches(tt, -2) == [-1, -2]
+    @test branch_endpoint(tt, 1) == -2
+    @test branch_endpoint(tt, -1) == 2
+    @test branch_endpoint(tt, 2) == -2
+    @test branch_endpoint(tt, -2) == 2
+
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    x = Donut.TrainTracks.Operations._find_new_switch_number!(tt)
+    renameswitch!(tt, 1, -2)
+    @test outgoing_branches(tt, -2) == [1, 2]
+    @test outgoing_branches(tt, 2) == [-1, -2]
+    @test branch_endpoint(tt, 1) == 2
+    @test branch_endpoint(tt, -1) == -2
+    @test branch_endpoint(tt, 2) == 2
+    @test branch_endpoint(tt, -2) == -2
+end
+
+@testset "Reversing switches" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    reverseswitch!(tt, 1)
+    @test outgoing_branches(tt, -1) == [1, 2]
+    @test outgoing_branches(tt, 1) == [-1, -2]
+    @test branch_endpoint(tt, 1) == 1
+    @test branch_endpoint(tt, -1) == -1
+    @test branch_endpoint(tt, 2) == 1
+    @test branch_endpoint(tt, -2) == -1 
 end
 
 tt = TrainTrack([[1, 2], [-1, -2]])

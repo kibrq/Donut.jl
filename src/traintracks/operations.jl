@@ -1,11 +1,11 @@
 
 module Operations
 
-export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, peel!, add_switch_on_branch!, twist_branch!, add_branch!, renamebranch!, reversebranch!
+export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, peel!, add_switch_on_branch!, twist_branch!, add_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitch!
 
 
 using Donut.TrainTracks
-using Donut.TrainTracks: _setend!, Branch, copy, zeroout
+using Donut.TrainTracks: _setend!, Branch, Switch, copy, zeroout
 using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
@@ -26,10 +26,10 @@ function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
             end
         end
     end
-    tempbranch = Branch()
-    copy(tt.branches[abs(branch)], tempbranch)
-    zeroout(tt.branches[abs(branch)])
-    copy(tempbranch, tt.branches[abs(newlabel)])
+    if abs(branch) != abs(newlabel)
+        copy(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
+        zeroout(tt.branches[abs(branch)])
+    end
     if sign(branch) != sign(newlabel)
         ends = tt.branches[abs(newlabel)].endpoint
         ends[START], ends[END] = ends[END], ends[START]
@@ -39,6 +39,39 @@ end
 
 function reversebranch!(tt::TrainTrack, branch::Int)
     renamebranch!(tt, branch, -branch)
+end
+
+
+function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
+    @assert 1 <= abs(newlabel) <= length(tt.switches)
+    @assert !isswitch(tt, newlabel) || abs(newlabel) == abs(switch)
+
+    # When the starting and ending points are the same, we don't want to make changes twice.
+
+    for sgn in (1, -1)
+        signedsw = sgn*switch
+        for br in outgoing_branches(tt, signedsw)
+            _setendpoint!(tt, -br, sgn*newlabel)
+        end
+    end
+
+    if abs(switch) != abs(newlabel)
+        copy(tt.switches[abs(switch)], tt.switches[abs(newlabel)])
+        zeroout(tt.switches[abs(switch)])
+    end
+
+    if sign(switch) != sign(newlabel)
+        sw = tt.switches[abs(newlabel)]
+        outgoing = sw.outgoing_branch_indices
+        num = sw.numoutgoing_branches
+        outgoing[START], outgoing[END] = outgoing[END], outgoing[START]
+        num[START], num[END] = num[END], num[START]
+    end
+
+end
+
+function reverseswitch!(tt::TrainTrack, switch::Int)
+    renameswitch!(tt, switch, -switch)
 end
 
 
