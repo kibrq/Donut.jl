@@ -1,54 +1,44 @@
 
 module Operations
 
-export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, peel!, add_switch_on_branch!, twist_branch!, add_branch!
+export collapse_branch!, pull_switch_apart!, delete_branch!, delete_two_valent_switch!, peel!, add_switch_on_branch!, twist_branch!, add_branch!, renamebranch!, reversebranch!
 
 
 using Donut.TrainTracks
-using Donut.TrainTracks: _setend!
+using Donut.TrainTracks: _setend!, Branch, copy, zeroout
 using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
 
 
 function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
-    @assert 1 <= newlabel <= length(tt.branches)
-    @assert !isbranch(tt, newlabel)
-    signdiff = -1 if sign(branch) != sign(newlabel) else 1
-    for sign in (-1, 1)
-        orbranch = sign*branch
+    @assert 1 <= abs(newlabel) <= length(tt.branches)
+    @assert !isbranch(tt, newlabel) || abs(newlabel) == abs(branch)
+
+    # When the starting and ending points are the same, we don't want to make changes twice.
+    orbranches = branch_endpoint(tt, branch) == branch_endpoint(tt, -branch) ? (branch) : (branch, -branch)
+    for orbranch in orbranches
         sw = branch_endpoint(tt, orbranch)
-        for i in numoutgoing_branches(tt, sw)
+        for i in 1:numoutgoing_branches(tt, sw)
             br = outgoing_branch(tt, sw, i)
             if abs(br) == abs(branch)
-                _setoutgoing_branch!(tt, BranchPosition(sw, i), signdiff*sign(br)*newlabel)
+                _setoutgoing_branch!(tt, BranchPosition(sw, i), sign(br)*newlabel)
             end
         end
     end
-    copy(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
+    tempbranch = Branch()
+    copy(tt.branches[abs(branch)], tempbranch)
     zeroout(tt.branches[abs(branch)])
-    if signdiff == -1
-        reversebranch!(newlabel)
+    copy(tempbranch, tt.branches[abs(newlabel)])
+    if sign(branch) != sign(newlabel)
+        ends = tt.branches[abs(newlabel)].endpoint
+        ends[START], ends[END] = ends[END], ends[START]
     end
 end
 
 
 function reversebranch!(tt::TrainTrack, branch::Int)
-    @assert isbranch(tt, branch)
-    # When the starting and ending points are the same, we don't want to change the signs twice.
-    signs = branch_endpoint(tt, branch) == branch_endpoint(tt, -branch) ? (1,) : (1, -1)
-    for sign in signs
-        orbranch = sign*branch
-        sw = branch_endpoint(tt, orbranch)
-        for i in numoutgoing_branches(tt, sw)
-            br = outgoing_branch(tt, sw, i)
-            if abs(br) == abs(branch)
-                _setoutgoing_branch!(tt, BranchPosition(sw, i), -br)
-            end
-        end
-    end
-    ends = tt.branches[abs(branch)].endpoint
-    ends[START], ends[END] = ends[END], ends[START]
+    renamebranch!(tt, branch, -branch)
 end
 
 
@@ -128,8 +118,8 @@ end
 
 function _setoutgoing_branch!(tt::TrainTrack, 
     pos::BranchPosition, newvalue::Int)
-    _splice_outgoing_branches(tt, 
-        BranchRange(pos.switch, [pos.index], pos.start_side), [newvalue])
+    _splice_outgoing_branches!(tt, 
+        BranchRange(pos.switch, pos.index:pos.index, pos.start_side), [newvalue])
 end
 
 """

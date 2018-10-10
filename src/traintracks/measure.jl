@@ -87,5 +87,9 @@ end
 
 function updatemeasure_collapse!(tt_afterop::TrainTrack,
     measure::Measure, collapsedbranch::Int)
-    _setmeasure(measure, collapsedbranch, 0)
+    _setmeasure!(measure, collapsedbranch, 0)
 end
+
+
+
+end # module

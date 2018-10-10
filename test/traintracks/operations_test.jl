@@ -7,6 +7,34 @@ using Donut.TrainTracks.Operations: BranchPosition, BranchRange
 using Donut
 using Donut.Constants: LEFT, RIGHT
 
+@testset "Renaming branches" begin
+    tt = TrainTrack([[1, 3], [-1, -3]])
+    @test !isbranch(tt, 2)
+    renamebranch!(tt, 3, 2)
+    @test outgoing_branches(tt, 1) == [1, 2]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+    @test isbranch(tt, 2)
+    @test !isbranch(tt, 3)
+    @test branch_endpoint(tt, 2) == -1
+    @test branch_endpoint(tt, -2) == 1
+
+    tt = TrainTrack([[1, 3], [-1, -3]])
+    renamebranch!(tt, 3, -2)
+    @test outgoing_branches(tt, 1) == [1, -2]
+    @test outgoing_branches(tt, -1) == [-1, 2]
+    @test branch_endpoint(tt, 2) == 1
+    @test branch_endpoint(tt, -2) == -1
+end
+
+@testset "Revering branches" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    reversebranch!(tt, 1)
+    @test outgoing_branches(tt, 1) == [-1, 2]
+    @test outgoing_branches(tt, -1) == [1, -2]
+    @test branch_endpoint(tt, 1) == 1
+    @test branch_endpoint(tt, -1) == -1
+end
+
 tt = TrainTrack([[1, 2], [-1, -2]])
 Donut.TrainTracks.Operations._delete_branch!(tt, 1)
 @test tt.branches[1].endpoint == Int[0, 0]
