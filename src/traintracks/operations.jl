@@ -98,7 +98,7 @@ struct BranchRange
 end
 
 BranchRange(sw, index_range) = BranchRange(sw, index_range, LEFT)
-
+BranchRange() = BranchRange(0, 0:0)
 
 
 
@@ -265,7 +265,7 @@ Collapse a branch if possible.
 Collapsing a branch `b` is not possible if and only if either the left or right side of `b` has
 branches emanating towards `b` from both the ending and the starting point of `b`.
 
-After the collapse, the two endpoints of `b` merge together and, as a result, one switch is removed.
+After the collapse, the two endpoints of `b` merge together and, as a result, one switch is removed. The starting switch is kept and the ending switch is deleted.
 
 Return: switch_removed::Int in absolute value.
 
@@ -433,6 +433,8 @@ end
 """
 Inverse of collapsing a branch.
 
+The new switch is the endpoint of the newly created branch and the moved branches are attached to the new switch.
+
 RETURN: (new_switch, new_branch)
 """
 function pull_switch_apart!(tt::TrainTrack,
@@ -517,7 +519,177 @@ function peel!(tt::TrainTrack, switch::Int, side::Int)
 end
 
 
+# abstract type ElementaryTTOperation end 
+
+# struct PullingApart <: ElementaryTTOperation
+#     front_positions_moved::BranchRange
+#     back_positions_stay::BranchRange
+# end
 
 
+# struct Collapsing <: ElementaryTTOperation
+#     collapsedbranch::Int  # If 0, that is a reference to the new branch added by the last pulling apart operation.
+# end
 
+# struct RenamingBranch <: ElementaryTTOperation
+#     oldlabel::Int  # If 0, that is a reference to the new branch added by the last pulling apart operation.
+#     newlabel::Int
+# end
+
+# struct RenamingSwitch <: ElementaryTTOperation
+#     oldlabel::Int  # If 0, that is a reference to the new switch added by the last pulling apart operation.
+#     newlabel::Int
+# end
+
+const PULLING = 0
+const COLLASPING = 1
+const RENAME_BRANCH = 2
+const RENAME_SWITCH = 3
+const DELETE_BRANCH = 4
+
+struct ElementaryTTOperation
+    optype::Int
+    label1::Int
+    label2::Int
+    front_positions_moved::BranchRange
+    back_positions_stay::BranchRange    
+end
+
+pulling_op(front_positions_moved::BranchRange, back_positions_stay::BranchRange) = ElementaryTTOperation(PULLING, 0, 0, front_positions_moved, back_positions_stay)
+
+collapsing_op(collapsedbranch::Int) = ElementaryTTOperation(COLLASPING, collapsedbranch, 0, BranchRange(), BranchRange())
+
+renaming_branch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel, BranchRange(), BranchRange())
+
+renaming_switch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel, BranchRange(), BranchRange())
+
+delete_branch_op(label::Int) = ElementaryTTOperation(DELETE_BRANCH, label, 0, BranchRange(), BranchRange())
+
+"""
+We stand at switch, looking forward, take the left-most or the right-most branch and peel it off the branch emanating from the switch backwards.
+"""
+function peeling_to_elementaryops(tt::TrainTrack, switch::Int, side::Int)
+    front_positions_moved = BranchRange(-switch, 1:1, otherside(side))
+    num = numoutgoing_branches(tt, switch)
+    back_positions_stay = BranchRange(switch, 2:num, side)
+    # op1 = PullingApart(front_positions_moved, back_positions_stay)
+    op1 = pulling_op(front_positions_moved, back_positions_stay)
+
+    collapsedbranch = outgoing_branch(tt, -switch, 1, otheride(side))
+    # op2 = Collapsing(-collapsedbranch)  # negate so the newly added switch gets salvaged.
+    op2 = collapsing_op(-collapsedbranch)  # negate so the newly added switch gets salvaged.
+
+    # op3 = renaming_branch_op(0, collapsedbranch)
+    op3 = renaming_branch_op(0, collapsedbranch)
+    [op1, op2, op3]
+end
+
+"""
+We stand at switch, looking forward and consider either the left of the right side of the switch. We consider the extremal backward branch on that side, find its other endpoint (back_sw) and fold the branch that is neighboring at back_sw onto our backward branch. (This is the inverse of peeling.)
+"""
+function folding_to_elementaryops(tt::TrainTrack, switch::Int, side::Int)
+    
+end
+
+"""
+Left split: central brach is turning left after the splitting.
+"""
+function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int, left_right_or_central::Int)
+    if !is_branch_large(tt, branch)
+        error("The split branch should be a large branch.")
+    end
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+    if switchvalence(tt, start_sw) != 3 && switchvalence(tt, end_sw) != 3
+        error("The endpoints of the split branch should be trivalent.")
+    end
+    @assert left_right_or_central in (LEFT, RIGHT, CENTRAL)
+
+    ops = ElementaryTTOperation[]
+    push!(ops, collapsing_op(branch))  # end_sw and branch are deleted
+    side = left_right_or_central == CENTRAL ? LEFT : left_right_or_central
+    push!(ops, pulling_op(BranchRange(start_sw, 1:1, side), BranchRange(-start_sw, 1:1, side)))  # creates new_br (same direction as branch) and new_sw (opposite direction of end_sw)
+    push!(ops, renaming_branch_op(branch, 0))  # 0 is the placeholder for new_br
+    push!(ops, renaming_switch_op(-end_sw, 0))  # 0 is the placeholder to new_sw
+
+    if left_right_or_central == CENTRAL
+        push!(ops, delete_branch_op(0))  # 0 is the placeholder for new_br
+        back_br = outgoing_branch(tt, -start_sw, 1, LEFT)
+        push!(ops, collapsing_op(-back_br))
+        front_br = outgoing_branch(tt, -end_sw, 1, LEFT)
+        push!(ops, collapsing_op(-front_br))
+        # TODO: What do we do when this would remove the last switch of the train track?
+    end
+
+    ops
+end
+
+    
+
+function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
+    last_sw, last_br = 0, 0
+    if op.optype == PULLING
+        last_sw, last_br = pull_switch_apart!(tt, op.front_positions_moved, op.back_positions_stay)
+    elseif op.optype == COLLASPING
+        collapse_branch!(tt, op.label1)
+    elseif op.optype == RENAME_BRANCH
+        renamebranch!(tt, op.label1, op.label2)
+    elseif op.optype == RENAME_SWITCH
+        renameswitch!(tt, op.label1, op.label2)
+    else
+        @assert false
+    end
+    (last_sw, last_br)
+end
+
+
+function substitute_zero_inop(op::ElementaryTTOperation, last_sw::Int, last_br::Int)
+    # typ = typeof(op)
+    if op.optype == COLLASPING
+        if op.label1 == 0
+            return collapsing_op(last_br)
+        end
+    elseif op.optype == RENAME_BRANCH
+        if op.label1 == 0
+            return renaming_branch_op(last_br, op.label2)
+        end
+    elseif op.optype == RENAME_SWITCH
+        if op.label1 == 0
+            return renaming_switch_op(last_sw, op.label2)
+        end
+    elseif op.optype == PULLING
+        nothing
+    else
+        @assert false
+    end
+    return op
+end
+
+
+function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
+    last_added_switch = 0
+    last_added_branch = 0
+    for op in ops
+        subbed_op = substitute_zero_inop(op, last_added_switch, last_added_branch)
+        sw, br = execute_elementaryop!(tt, subbed_op)
+        if sw != 0
+            @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
+            last_added_switch = sw
+            last_added_branch = br
+        end
+    end
+end
+
+
+function peel2!(tt::TrainTrack, switch::Int, side::Int)
+    ops = peeling_to_elementaryops(tt::TrainTrack, switch::Int, side::Int)
+    execute_elementaryops!(tt, ops)
+end
+
+"""
+Left split: central brach is turning left after the splitting.
+"""
+function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
+    ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
+    execute_elementaryops!(tt, ops)
 end
