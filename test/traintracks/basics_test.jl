@@ -57,6 +57,18 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test branch_endpoint(tt, -2) == 1
 
 
+@testset "Trivalent" begin
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test !is_branch_large(tt, 1)
+    @test !is_branch_large(tt, 2)
+    @test is_branch_large(tt, 3)
+
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test !istrivalent(tt)
+
+    tt = TrainTrack([[1, 2], [3], [-3], [-1, -2]])
+    @test istrivalent(tt)
+end
 
 end
 

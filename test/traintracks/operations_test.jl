@@ -3,7 +3,7 @@ module TrainTrackOperationsTest
 using Test
 using Donut.TrainTracks
 using Donut.TrainTracks.Operations
-using Donut.TrainTracks.Operations: BranchPosition, BranchRange
+using Donut.TrainTracks: BranchPosition, BranchRange
 using Donut
 using Donut.Constants: LEFT, RIGHT
 
@@ -120,23 +120,6 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test outgoing_branches(tt, 1) == [3, -4, 1, 4, 2]
 @test istwisted(tt, 4)
 
-@testset "Adding a switch on a branch" begin
-    tt = TrainTrack([[1, 2], [-1, -2]])
-    @test add_switch_on_branch!(tt, 1) == (2, 3)
-    @test outgoing_branches(tt, 1) == [1, 2]
-    @test outgoing_branches(tt, -1) == [-3, -2]
-    @test outgoing_branches(tt, 2) == [3]
-    @test outgoing_branches(tt, -2) == [-1]
-    @test branch_endpoint(tt, 1) == -2
-    @test branch_endpoint(tt, -1) == 1
-    @test branch_endpoint(tt, 3) == -1
-    @test branch_endpoint(tt, -3) == 2
-
-    tt = TrainTrack([[1, 2], [-1, -2]], [1])
-    @test add_switch_on_branch!(tt, 1) == (2, 3)
-    @test istwisted(tt, 1)
-    @test !istwisted(tt, 3)
-end
 
 @testset "twisted" begin
     tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]], [3, 5])
@@ -255,13 +238,28 @@ end
 
 end
 
+@testset "Adding a switch on a branch" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    @test add_switch_on_branch!(tt, 1) == (2, 3)
+    @test outgoing_branches(tt, 1) == [3, 2]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+    @test outgoing_branches(tt, 2) == [1]
+    @test outgoing_branches(tt, -2) == [-3]
+    @test branch_endpoint(tt, 3) == -2
+    @test branch_endpoint(tt, -3) == 1
+    @test branch_endpoint(tt, 1) == -1
+    @test branch_endpoint(tt, -1) == 2
+
+    tt = TrainTrack([[1, 2], [-1, -2]], [1])
+    @test add_switch_on_branch!(tt, 1) == (2, 3)
+    @test istwisted(tt, 1)
+    @test !istwisted(tt, 3)
+end
 
 
 @testset "Deleting two-valent switch" begin
-    tt = TrainTrack([[1, 2], [-3], [3], [-4], [4], [-1, -2]])
-    br_kept, br_removed = delete_two_valent_switch!(tt, 2)
-    @test br_kept == 4
-    @test br_removed == 3
+    tt = TrainTrack([[1, 2], [-4], [4], [-3], [3], [-1, -2]])
+    delete_two_valent_switch!(tt, 2)
     @test outgoing_branches(tt, 1) == [1, 2]
     @test outgoing_branches(tt, -1) == [-4]
     @test outgoing_branches(tt, 3) == [4]
@@ -279,7 +277,85 @@ end
     peel!(tt, 1, LEFT)
     @test outgoing_branches(tt, 1) == [1, 2]
     @test outgoing_branches(tt, -1) == [-1, -2]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test_throws ErrorException peel!(tt, -1, RIGHT)  # there is only one outgoing branch
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    peel!(tt, -2, RIGHT)
+    @test outgoing_branches(tt, 1) == [1, 2]
+    @test outgoing_branches(tt, -1) == [-3, -2]
+    @test outgoing_branches(tt, 2) == [3]
+    @test outgoing_branches(tt, -2) == [-1]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]], [3])
+    peel!(tt, 1, RIGHT)
+    @test outgoing_branches(tt, 1) == [1]
+    @test outgoing_branches(tt, -1) == [-3]
+    @test outgoing_branches(tt, 2) == [2, 3]
+    @test outgoing_branches(tt, -2) == [-1, -2]    
 end
 
+
+@testset "Folding" begin
+    tt = TrainTrack([[1, 2], [-1, -2]])
+    fold!(tt, 1, LEFT)
+    @test outgoing_branches(tt, 1) == [1, 2]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+    fold!(tt, -1, RIGHT)
+    @test outgoing_branches(tt, 1) == [1, 2]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test_throws ErrorException fold!(tt, 1, RIGHT)
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    fold!(tt, 2, RIGHT)
+    @test outgoing_branches(tt, 1) == [1]
+    @test outgoing_branches(tt, -1) == [-3]
+    @test outgoing_branches(tt, 2) == [3, 2]
+    @test outgoing_branches(tt, -2) == [-1, -2]
+
+    tt = TrainTrack([[1, 2], [-3], [3, 4], [-4, -1, -2]], [3])
+    fold!(tt, 1, LEFT)
+    @test outgoing_branches(tt, 1) == [4, 1, 2]
+    @test outgoing_branches(tt, -1) == [-3]
+    @test outgoing_branches(tt, 2) == [3]
+    @test outgoing_branches(tt, -2) == [-4, -1, -2]
+    @test istwisted(tt, 3)
+    @test istwisted(tt, 4)
+end
+
+
+@testset "Trivalent splittings" begin
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    @test_throws ErrorException split_trivalent!(tt, 1, LEFT)
+    @test_throws ErrorException split_trivalent!(tt, 2, LEFT)
+
+    split_trivalent!(tt, 3, LEFT)
+    @test outgoing_branches(tt, 1) == [1]
+    @test outgoing_branches(tt, -1) == [-3, -2]
+    @test outgoing_branches(tt, 2) == [3, 2]
+    @test outgoing_branches(tt, -2) == [-1]
+
+    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
+    split_trivalent!(tt, 3, RIGHT)
+    @test outgoing_branches(tt, 1) == [2]
+    @test outgoing_branches(tt, -1) == [-1, -3]
+    @test outgoing_branches(tt, 2) == [1, 3]
+    @test outgoing_branches(tt, -2) == [-2]
+end
+
+
+@testset "Trivalent foldings" begin
+    tt = TrainTrack([[1, 3], [-2], [2], [-1, -3]])
+    @test_throws ErrorException fold_trivalent!(tt, 2)
+
+    fold_trivalent!(tt, 3)
+    @test outgoing_branches(tt, 1) == [3]
+    @test outgoing_branches(tt, -1) == [-1, -2]
+    @test outgoing_branches(tt, 2) == [1, 2]
+    @test outgoing_branches(tt, -2) == [-3]
+end
 
 end

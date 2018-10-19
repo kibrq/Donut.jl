@@ -1,4 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 
@@ -140,6 +140,24 @@ function outgoing_branches(tt::TrainTrack, switch::Int, start_side::Int=LEFT)
     return start_side == LEFT ? arr_view : reverse(arr_view)
 end
 
+struct BranchPosition
+    switch::Int
+    index::Int
+    start_side::Int
+end
+
+BranchPosition(sw, idx) = BranchPosition(sw, idx, LEFT)
+
+struct BranchRange
+    switch::Int
+    index_range::UnitRange{Int}
+    start_side::Int
+end
+
+BranchRange(sw, index_range) = BranchRange(sw, index_range, LEFT)
+BranchRange() = BranchRange(0, 0:0)
+
+
 function outgoing_branch(tt::TrainTrack, switch::Int, index::Int, start_side::Int=LEFT)
     n = numoutgoing_branches(tt, switch)
     if index <= 0 || index > n
@@ -147,6 +165,10 @@ function outgoing_branch(tt::TrainTrack, switch::Int, index::Int, start_side::In
     end
     branches = outgoing_branches(tt, switch, start_side)
     branches[index]
+end
+
+function outgoing_branch(tt::TrainTrack, pos::BranchPosition)
+    outgoing_branch(tt, pos.switch, pos.index, pos.side)
 end
 
 function outgoing_branch_index(tt::TrainTrack, switch::Int, branch::Int, start_side::Int=LEFT)
@@ -158,9 +180,9 @@ function outgoing_branch_index(tt::TrainTrack, switch::Int, branch::Int, start_s
     index
 end
 
+
+
 istwisted(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].istwisted
-
-
 
 
 
@@ -193,14 +215,34 @@ branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 switchvalence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
 
+istrivalent(tt::TrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
+
+function is_branch_large(tt::TrainTrack, branch::Int)
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+    numoutgoing_branches(tt, end_sw) == 1 && numoutgoing_branches(tt, start_sw) == 1
+end
 
 
-
+function is_branch_small_foldable(tt::TrainTrack, branch::Int)
+    start_sw = branch_endpoint(tt, -branch)
+    end_sw = branch_endpoint(tt, branch)
+    if switchvalence(tt, start_sw) != 3 || switchvalence(tt, end_sw) != 3
+        return false
+    end
+    if numoutgoing_branches(tt, start_sw) != 2 || numoutgoing_branches(tt, end_sw) != 2
+        return false
+    end
+    start_side = outgoing_branch(tt, start_sw, 1, LEFT) == branch ? LEFT : RIGHT
+    end_side = outgoing_branch(tt, end_sw, 1, LEFT) == -branch ? LEFT : RIGHT
+    if istwisted(tt, branch)
+        end_side = otherside(end_side)
+    end
+    return start_side == end_side
+end
 
 
 # TODO: possibly
 # num_branches(tt)
 # num_switches(tt)
 # copy(tt)
-# change_switch_orientation(tt, switch)
-# swap_branch_numbers(tt, br1, br2)
