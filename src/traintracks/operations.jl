@@ -496,19 +496,38 @@ function substitute_zero_inop(op::ElementaryTTOperation, last_sw::Int, last_br::
 end
 
 
-function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
-    last_added_switch = 0
-    last_added_branch = 0
-    for op in ops
-        subbed_op = substitute_zero_inop(op, last_added_switch, last_added_branch)
-        sw, br = execute_elementaryop!(tt, subbed_op)
-        if sw != 0
-            @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
-            last_added_switch = sw
-            last_added_branch = br
-        end
+struct TTOperationIterator
+    tt::TrainTrack
+    operations::Array{ElementaryTTOperation}
+end
+
+# TTOperationIterator(tt::TrainTrack, ops::Array{ElementaryTTOperation}) = TTOperationIterator(tt, ops, 0, 0)
+
+function Base.iterate(ttopiter::TTOperationIterator, state=(0, 0, 0))
+    count, last_sw, last_br = state
+    count += 1
+    if count > length(ttopiter.operations)
+        return nothing
     end
-    (last_added_switch, last_added_branch)
+    op = ttopiter.operations[count]
+    subbed_op = substitute_zero_inop(op, last_sw, last_br)
+    ttopiter.operations[count] = subbed_op
+    sw, br = execute_elementaryop!(ttopiter.tt, subbed_op)
+    if sw != 0
+        @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
+        last_sw = sw
+        last_br = br
+    end
+    return ((ttopiter.tt, subbed_op, last_sw, last_br), (count, last_sw, last_br))
+end
+
+
+function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
+    sw, br = 0, 0
+    for (tt_afterop, lastop, last_added_switch, last_added_branch) in TTOperationIterator(tt, ops)
+        sw, br = last_added_switch, last_added_branch
+    end
+    sw, br
 end
 
 
