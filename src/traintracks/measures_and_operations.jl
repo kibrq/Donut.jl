@@ -1,12 +1,15 @@
 
 module MeasuresAndOperations
 
+export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!
+
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.TrainTracks.Measures: _allocatemore!, _setmeasure!
 using Donut.TrainTracks: BranchRange
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
+using Donut.TrainTracks.Operations: TTOperationIterator
 
 function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
     measure::Measure, newbranch::Int)
@@ -14,7 +17,7 @@ function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
         _allocatemore!(measure, newbranch)
     end
     sw = branch_endpoint(tt_afterop, -newbranch)
-    newvalue = outgoingmeasure(tt_afterop, measure, -switch) - outgoingmeasure(tt_afterop, measure, switch)
+    newvalue = outgoingmeasure(tt_afterop, measure, -sw) - outgoingmeasure(tt_afterop, measure, sw)
     _setmeasure!(measure, newbranch, newvalue)
 end
 
@@ -50,6 +53,10 @@ function pull_switch_apart!(tt::TrainTrack,
     updatemeasure_pullswitchapart!(tt, measure, br)
 end
 
+function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int, measure::Measure)
+    renamebranch!(tt, branch, newlabel)
+    updatemeasure_renamebranch!(measure, branch, newlabel)
+end
 
 # function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
 #     last_sw, last_br = 0, 0
@@ -68,7 +75,7 @@ end
 # end
 
 
-function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOperation, last_added_br::Int)
+function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOperation, last_added_br::Int, measure::Measure)
     if op.optype == PULLING
         updatemeasure_pullswitchapart!(tt_afterop, measure, last_added_br)
         # need to know the last added branch
@@ -84,14 +91,50 @@ function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOpe
     end
 end
 
-
-function peel!(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
-    ops = peeling_to_elementaryops(tt, switch, side)
-    for (tt_afterop, lastop, _, last_added_br) in TTOperationIterator(tt, ops)
-        updatemeasure_elementaryop!(tt_afterop, lastop, last_added_br) 
+function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation}, measure::Measure)
+    sw, br = 0, 0
+    for (tt_afterop, lastop, last_added_sw, last_added_br) in TTOperationIterator(tt, ops)
+        sw, br = last_added_sw, last_added_br
+        updatemeasure_elementaryop!(tt_afterop, lastop, last_added_br, measure) 
     end
+    sw, br
 end
 
+function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
+    ops = peeling_to_elementaryops(tt, switch, side)
+    execute_elementaryops!(tt, ops, measure)
+    nothing
+end
+
+function fold!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
+    ops = folding_to_elementaryops(tt, switch, side)
+    execute_elementaryops!(tt, ops, measure)
+    nothing
+end
+
+function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int, measure::Measure)
+    ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
+    execute_elementaryops!(tt, ops, measure)
+    nothing
+end
+
+function fold_trivalent!(tt::TrainTrack, branch::Int, measure::Measure)
+    ops = fold_trivalent_to_elementaryops(tt, branch)
+    execute_elementaryops!(tt, ops, measure)
+    nothing
+end
+
+function add_switch_on_branch!(tt::TrainTrack, branch::Int, measure::Measure)
+    ops = add_switch_on_branch_to_elementaryops(tt, branch)
+    added_sw, added_br = execute_elementaryops!(tt, ops, measure)
+    (added_sw, added_br)
+end
+
+function delete_two_valent_switch!(tt::TrainTrack, switch::Int, measure::Measure)
+    ops = delete_two_valent_switch_to_elementaryops(tt, switch)
+    execute_elementaryops!(tt, ops, measure)
+    nothing
+end
 
 """
 Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we can peel either the branch going forward or the branch going backward. This function returns FORWARD or BACKWARD, indicating which branch is peeled according to the measure (the one that has smaller measure).
@@ -99,7 +142,7 @@ Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we c
 function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
     br1 = outgoing_branch(tt, switch, 1, side)
     br2 = outgoing_branch(tt, -switch, 1, otherside(side))
-    branchmeasure(br1) < branchmeasure(br2) ? FORWARD : BACKWARD
+    branchmeasure(measure, br1) < branchmeasure(measure, br2) ? FORWARD : BACKWARD
 end
 
 

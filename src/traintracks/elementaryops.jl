@@ -2,7 +2,7 @@
 
 module ElementaryOps
 
-export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, add_switch_on_branch_to_elementaryops, peeling_to_elementaryops, folding_to_elementaryops, split_trivalent_to_elementaryops, fold_trivalent_to_elementaryops
+export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, add_switch_on_branch_to_elementaryops, peeling_to_elementaryops, folding_to_elementaryops, split_trivalent_to_elementaryops, fold_trivalent_to_elementaryops, PULLING, COLLAPSING, RENAME_BRANCH, RENAME_SWITCH, DELETE_BRANCH
 
 using Donut.TrainTracks
 using Donut.TrainTracks: BranchRange

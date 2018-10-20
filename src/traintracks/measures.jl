@@ -2,7 +2,7 @@
 
 module Measures
 
-export Measure, branchmeasure, zeromeasure
+export Measure, branchmeasure, zeromeasure, outgoingmeasure
 
 using Donut.TrainTracks
 
@@ -52,7 +52,7 @@ function branchmeasure(measure::Measure, branchindex::Int)
 end
 
 function outgoingmeasure(tt::TrainTrack, measure::Measure, switch::Int)
-    sum(branchmeasure(br) for br in outgoing_branches(tt, switch))
+    sum(branchmeasure(measure, br) for br in outgoing_branches(tt, switch))
 end
 
 """

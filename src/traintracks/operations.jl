@@ -10,7 +10,6 @@ using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
-using Donut.TrainTracks.ElementaryOps: PULLING, COLLAPSING, RENAME_BRANCH, RENAME_SWITCH, DELETE_BRANCH
 
 # ------------------------------------
 # Utility methods
