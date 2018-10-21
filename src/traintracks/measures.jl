@@ -14,7 +14,7 @@ struct Measure{T}
 
     function Measure{T}(tt::TrainTrack, valuearray::Array{T, 1}, allownegatives::Bool=false) where {T}
         if length(valuearray) != length(branches(tt))
-            error("The length of the values array should equal the number of branches")
+            error("The length of the values array ($(valuearray)) should equal the number of branches ($(length(branches(tt))))")
         end
         if !allownegatives
             for value in valuearray

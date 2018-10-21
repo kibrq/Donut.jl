@@ -1,5 +1,5 @@
 
-export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, isvalidcurveindex, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving, pantscurve_nextto_pant, ispantend_orientationpreserving, pantend_to_pantscurveside, pantscurveside_to_pantend
+export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, boundarycurveindices, innercurveindices, curveindices, isvalidcurveindex, isboundary_pantscurve, isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, istwosided_pantscurve, isonesided_pantscurve, ispantscurveside_orientationpreserving, pantscurve_nextto_pant, ispantend_orientationpreserving, pantend_to_pantscurveside, pantscurveside_to_pantend, pantboundaries
 
 
 using Donut: AbstractSurface
@@ -212,6 +212,7 @@ istwosided_pantscurve(pd::PantsDecomposition, curveindex::Int) = isinner_pantscu
 
 gluinglist(pd::PantsDecomposition) = [pant.boundaries for pant in pd.pants]
 
+pantboundaries(pd::PantsDecomposition, pantindex::Int) = pd.pants[pantindex].boundaries
 
 function ispantscurveside_orientationpreserving(pd::PantsDecomposition, curveindex::Int, side::Int)
     pantend = pantscurveside_to_pantend(pd, curveindex, side)
