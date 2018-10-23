@@ -348,6 +348,9 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
     elseif branchtype == BRIDGE
         fn = isbridge
         idx = nextindex(bdyindex, 3)
+    elseif branchtype == PANTSCURVE
+        curveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
+        return pantscurve_to_branch(pd, curveindex, dttraintrack, branchencodings)
     else
         @assert false
     end
@@ -359,47 +362,6 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
     return nothing
 end
 
-
-
-function encodings_after_halftwist(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Array{ArcInPants})
-    long_encodings = [[enc] for enc in branchencodings]
-
-    # pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
-    # pantsbr = pantscurve_to_branch(pd, pantscurveindex, dttraintrack, branchencodings)
-
-    idx1, idx2, idx3 = bdyindex, nextindex(bdyindex, 3), previndex(bdyindex, 3)
-    replacements = [
-        [],
-        # SELFCONN
-        [
-            [(PANTSCURVE, -idx1), (SELFCONN, -idx1)], # idx1
-            [(SELFCONN, -idx3), (PANTSCURVE, -idx3)], # idx2
-            [(SELFCONN, idx2), (PANTSCURVE, -idx2)]  # idx3
-        ], 
-        # BRIDGES
-        [
-            [(PANTSCURVE, idx3), (BRIDGE, -idx1)], # idx1
-            [(PANTSCURVE, idx2), (BRIDGE, -idx3), (PANTSCURVE, idx1)], # idx2
-            [(BRIDGE, -idx2)]  # idx3
-        ]
-    ]
-    for branchtype in (SELFCONN, BRIDGE)
-        for i in 1:3
-            reps = replacements[branchtype][i]
-            idx = (idx1, idx2, idx3)[i]
-            br = findbranch(dttraintrack, pd, pantindex, idx, branchtype, branchencodings)
-            if br != nothing
-                long_encodings[br] = [arc_in_pantsdecomposition(pd, pantindex, idxx, typ) for (typ, idxx) in reps]
-            end
-        end
-    end
-
-    return long_encodings
-end
-
-# function pantend_togate(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
-#     ispantend_orientationpreserving(pd, pantindex, bdyindex) == (pantscurve_nextto_pant(pd, pantindex, bdyindex) > 0) ? LEFT : RIGHT
-# end
 
 """
 bdyindex can be -3, -2, -1, 1, 2, 3. If it is negative, the constructed arc is reversed.
@@ -420,16 +382,12 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyin
         if curve1 < 0
             side1 = otherside(side1)
         end
-        # println(v1)
-        # println(g1)
 
         idx2 = previndex(abs(bdyindex), 3)
         curve2, side2 = pantend_to_pantscurveside(pd, pantindex, abs(idx2))
         if curve2 < 0
             side2 = otherside(side2)
         end
-        # println(v2)
-        # println(g2)
         newarc = ArcInPants(abs(curve1), side1, abs(curve2), side2)
         if bdyindex < 0
             newarc = reversed(newarc)
@@ -439,4 +397,10 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyin
         @assert false
     end
 end
+
+
+
+
+
+
 

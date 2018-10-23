@@ -54,6 +54,12 @@ encoding = branchencodings(tt, turnings, branchdata)
 @test findbranch(tt, pd, 2, 1, BRIDGE, encoding) != nothing
 @test findbranch(tt, pd, 2, 2, BRIDGE, encoding) != nothing
 @test findbranch(tt, pd, 2, 3, BRIDGE, encoding) != nothing
+@test findbranch(tt, pd, 1, 1, PANTSCURVE, encoding) == 1
+@test findbranch(tt, pd, 1, 2, PANTSCURVE, encoding) == 2
+@test findbranch(tt, pd, 1, 3, PANTSCURVE, encoding) == 3
+@test findbranch(tt, pd, 2, 1, PANTSCURVE, encoding) == -3
+@test findbranch(tt, pd, 2, 2, PANTSCURVE, encoding) == -2
+@test findbranch(tt, pd, 2, 3, PANTSCURVE, encoding) == -1
 
 pd = PantsDecomposition([[1, 2, 3], [-2, -3, 4]])
 # dehnthurstontrack(pd, [1, 1], [LEFT, LEFT])
@@ -128,7 +134,6 @@ selfconn, pairs = selfconn_and_bridge_measures(13, 10, 7)
     tt, measure, encoding = dehnthurstontrack(pd, dtcoords)
 
 
-
     pd = PantsDecomposition([[1, 2, 3], [-3, 4, 5]])
     dtcoords = DehnThurstonCoordinates([4], [-3])
     tt, measure, encoding = dehnthurstontrack(pd, dtcoords)
@@ -165,7 +170,89 @@ end
 
     @test arc_in_pantsdecomposition(pd, 3, 2, PANTSCURVE) == Donut.PantsAndTrainTracks.pantscurvearc(6, FORWARD)
     @test arc_in_pantsdecomposition(pd, 3, 3, PANTSCURVE) == Donut.PantsAndTrainTracks.pantscurvearc(6, FORWARD)
+end
 
+
+@testset "Dehn twists" begin
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_dehntwist!(tt, pd, 2, 1, LEFT, encoding)
+    @test gluinglist(pd) == [[1, 2, 3], [-3, -2, -1]]
+    # 9 branches total, ther are two extras
+    @test sum(length(item) for item in newencodings) == 11
+
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_dehntwist!(tt, pd, 1, 1, RIGHT, encoding)
+    @test gluinglist(pd) == [[1, 2, 3], [-3, -2, -1]]
+    # 9 branches total, ther are four extras
+    @test sum(length(item) for item in newencodings) == 13
+end
+
+
+@testset "Half twists" begin
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_halftwist!(tt, pd, 2, 3, encoding)
+    @test gluinglist(pd) == [[1, 2, 3], [-2, -3, -1]]
+    # 9 branches total, there are 3 extras
+    @test sum(length(item) for item in newencodings) == 12
+
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_halftwist!(tt, pd, 1, 1, encoding)
+    @test gluinglist(pd) == [[1, 3, 2], [-3, -2, -1]]
+    # 9 branches total, ther are 3 extras
+    @test sum(length(item) for item in newencodings) == 12 
+end
+
+
+@testset "First move" begin
+    pd = PantsDecomposition([[1, -1, 2], [-2, 3, -3]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [3, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_firstmove!(tt, pd, 1, encoding)
+    @test gluinglist(pd) == [[1, -1, 2], [-2, 3, -3]]
+    # 9 branches total, there are 3 extras
+    @test sum(length(item) for item in newencodings) == 12
+
+    pd = PantsDecomposition([[1, -1, 2], [-2, 3, -3]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [3, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_firstmove!(tt, pd, 3, encoding)
+    @test gluinglist(pd) == [[1, -1, 2], [-2, 3, -3]]
+    # 9 branches total, there are 1 extras
+    @test sum(length(item) for item in newencodings) == 10
+end
+
+@testset "Second move" begin
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_secondmove!(tt, pd, 1, encoding)
+    @test gluinglist(pd) == [[1, 3, -3], [-1, -2, 2]]
+    # 9 branches total, there are 4 extras
+    @test sum(length(item) for item in newencodings) == 13 
+
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    turnings = [LEFT, RIGHT, LEFT]
+    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    newencodings = encodings_after_secondmove!(tt, pd, 2, encoding)
+    @test gluinglist(pd) == [[2, 1, -1], [-2, -3, 3]]
+    # 9 branches total, ther are 8 extras
+    @test sum(length(item) for item in newencodings) == 17
 end
 
 end

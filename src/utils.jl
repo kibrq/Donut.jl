@@ -12,6 +12,9 @@ function previndex(index::Int, modulo::Int)
     index == 1 ? modulo : index - 1
 end
 
-
+# function addmodulo(index1::Int, index2::Int, modulo::Int)
+#     x = (index1 + index2) % modulo
+#     x == 0 ? modulo : x
+# end
 
 end

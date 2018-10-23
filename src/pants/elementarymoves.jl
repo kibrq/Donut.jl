@@ -1,6 +1,6 @@
 module ElementaryMoves
 
-export applymove_type1!, applymove_type2!, applymove_onesided_to_onesided!, applymove_twoonesided_to_twosided!, applymove_twosided_to_twoonesided!
+export apply_firstmove!, apply_secondmove!, applymove_onesided_to_onesided!, applymove_twoonesided_to_twosided!, applymove_twosided_to_twoonesided!, apply_halftwist!, apply_dehntwist!
 
 
 using Donut.Pants
@@ -30,7 +30,7 @@ function _setboundarycurves(pd::PantsDecomposition, pantindex::Int, bdy1::Int, b
     pant.boundaries[3] = bdy3
 end
 
-function applymove_type2!(pd::PantsDecomposition, curveindex::Int)
+function apply_secondmove!(pd::PantsDecomposition, curveindex::Int)
     @assert istwosided_pantscurve(pd, curveindex)
     leftpant = pant_nextto_pantscurve(pd, curveindex, LEFT)
     leftindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
@@ -52,10 +52,10 @@ function applymove_type2!(pd::PantsDecomposition, curveindex::Int)
         topright, bottomright = (-bottomright[1], otherside(bottomright[2])), (-topright[1], otherside(topright[2]))
     end
 
-    println("Topleft: ", topleft)
-    println("Bottomleft: ", bottomleft)
-    println("Topright: ", topright)
-    println("Bottomright: ", bottomright)
+    # println("Topleft: ", topleft)
+    # println("Bottomleft: ", bottomleft)
+    # println("Topright: ", topright)
+    # println("Bottomright: ", bottomright)
 
 
     # turning the middle curve left by 90 degrees
@@ -75,11 +75,11 @@ function applymove_type2!(pd::PantsDecomposition, curveindex::Int)
 end
 
 
-function applymove_type1!(pd::PantsDecomposition, curveindex::Int)
+function apply_firstmove!(pd::PantsDecomposition, curveindex::Int)
     @assert istwosided_pantscurve(pd, curveindex)
     @assert pant_nextto_pantscurve(pd, curveindex, LEFT) == pant_nextto_pantscurve(pd, curveindex, RIGHT)
-
-    return
+    # nothing to do, the gluing list does not change.
+    # TODO: shall we permute the boundaries so that the boundary of the torus has index 1?
 end
 
 
@@ -97,9 +97,23 @@ function applymove_twosided_to_twoonesided(pd::PantsDecomposition, curve)
 end
 
 
-function twist_marking!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
+function apply_halftwist!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
+    boundaries = pantboundaries(pd, pantindex)
+    idx1 = bdyindex
+    idx2 = nextindex(bdyindex, 3)
+    idx3 = previndex(bdyindex, 3)
 
+    curve2, side2 = pantend_to_pantscurveside(pd, pantindex, idx2)
+    curve3, side3 = pantend_to_pantscurveside(pd, pantindex, idx3)
+
+    boundaries[idx2], boundaries[idx3] = boundaries[idx3], boundaries[idx2]
+    _setboundarycurves(pd, pantindex, boundaries...)
+    _setpantscurveside_to_pantend(pd, curve2, side2, pantindex, idx3)
+    _setpantscurveside_to_pantend(pd, curve3, side3, pantindex, idx2)
 end
 
+function apply_dehntwist!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int, direction::Int)
+    # The gluing list remains the same, nothing to do.
+end
 
 end
