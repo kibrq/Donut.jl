@@ -95,13 +95,14 @@ end
 
 """
 We stand at switch, looking forward and consider either the left of the right side of the switch. We consider the extremal backward branch on that side, find its other endpoint (back_sw) and fold the branch that is neighboring at back_sw onto our backward branch. (This is the inverse of peeling.)
-"""
+"""   
+# TODO if branches are twisted, this function may not be correct
 function folding_to_elementaryops(tt::TrainTrack, switch::Int, side::Int)
     back_br = outgoing_branch(tt, -switch, 1, otherside(side))
     back_sw = branch_endpoint(tt, back_br)
-    # TODO if branches are twisted, this need modifications
     back_side = istwisted(tt, back_br) ? otherside(side) : side
     index = outgoing_branch_index(tt, back_sw, -back_br, back_side)
+    # println(switch, side, back_br, back_sw, back_side, index)
     if index == 1
         error("Folding on the $(side==LEFT ? "left" : "right") side of switch $(switch) is not possible.")
     end

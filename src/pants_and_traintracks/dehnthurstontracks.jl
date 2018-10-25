@@ -182,7 +182,7 @@ function branchencodings(dttraintrack::TrainTrack, turnings::Array{Int, 1}, bran
             @assert false
         end
     end
-    encodings
+    [[enc] for enc in encodings]
 end
 
 
@@ -306,28 +306,28 @@ function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Int)
     return sign(pantscurveindex) * sw
 end
 
-function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Array{ArcInPants})
+function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Array{Array{ArcInPants,1},1})
     for side in (LEFT, RIGHT)
         br = outgoing_branch(dttraintrack, sw, 1, side)
-        if ispantscurve(branchencodings[abs(br)])
+        if ispantscurve(branchencodings[abs(br)][1])
             return side
         end
     end
     @assert false
 end
 
-function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Array{ArcInPants})
+function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Array{Array{ArcInPants,1},1})
     sw = pantscurve_toswitch(pd, pantscurveindex)
     for side in (LEFT, RIGHT)
         br = outgoing_branch(dttraintrack, sw, 1, side)
-        if ispantscurve(branchencodings[abs(br)])
+        if ispantscurve(branchencodings[abs(br)][1])
             return br
         end
     end
     @assert false
 end
 
-function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Array{ArcInPants})
+function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Array{Array{ArcInPants,1},1})
     pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
     sw = pantscurve_toswitch(pd, pantscurveindex)
     turning = switch_turning(dttraintrack, sw, branchencodings)
@@ -341,7 +341,7 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, p
     brs[2:length(brs)]
 end
 
-function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{ArcInPants})
+function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{Array{ArcInPants,1},1})
     if branchtype == SELFCONN
         fn = isselfconnecting
         idx = bdyindex
@@ -355,7 +355,7 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
         @assert false
     end
     for br in branches_at_pantend(dttraintrack, pd, pantindex, idx, branchencodings)
-        if br > 0 && fn(branchencodings[br])
+        if br > 0 && fn(branchencodings[br][1])
             return br
         end
     end
@@ -367,6 +367,7 @@ end
 bdyindex can be -3, -2, -1, 1, 2, 3. If it is negative, the constructed arc is reversed.
 """
 function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int)
+    # println("arc_in_pantsdecomposition", pantindex, ", ", bdyindex, ", ", branchtype)
     if branchtype == PANTSCURVE
         bdycurve = pantscurve_nextto_pant(pd, pantindex, abs(bdyindex))
         return pantscurvearc(abs(bdycurve), bdycurve * bdyindex > 0 ? FORWARD : BACKWARD)
@@ -378,13 +379,13 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyin
         return selfconnarc(abs(bdycurve), side, bdyindex > 0 ? LEFT : RIGHT)
     elseif branchtype == BRIDGE
         idx1 = nextindex(abs(bdyindex), 3)
-        curve1, side1 = pantend_to_pantscurveside(pd, pantindex, abs(idx1))
+        curve1, side1 = pantend_to_pantscurveside(pd, pantindex, idx1)
         if curve1 < 0
             side1 = otherside(side1)
         end
 
         idx2 = previndex(abs(bdyindex), 3)
-        curve2, side2 = pantend_to_pantscurveside(pd, pantindex, abs(idx2))
+        curve2, side2 = pantend_to_pantscurveside(pd, pantindex, idx2)
         if curve2 < 0
             side2 = otherside(side2)
         end

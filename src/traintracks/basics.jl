@@ -1,4 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 
@@ -241,6 +241,9 @@ function is_branch_small_foldable(tt::TrainTrack, branch::Int)
     return start_side == end_side
 end
 
+function tt_gluinglist(tt::TrainTrack)
+    [outgoing_branches(tt, sg*sw) for sw in switches(tt) for sg in (1, -1)]
+end
 
 # TODO: possibly
 # num_branches(tt)

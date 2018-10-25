@@ -6,7 +6,7 @@ using Donut.Pants
 using Donut.PantsAndTrainTracks
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
 using Donut.TrainTracks
-using Donut.PantsAndTrainTracks: ispantscurve, isbridge, isselfconnecting, ArcInPants, selfconn_and_bridge_measures, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, SELFCONN, BRIDGE, PANTSCURVE, arc_in_pantsdecomposition
+using Donut.PantsAndTrainTracks: ispantscurve, isbridge, isselfconnecting, ArcInPants, selfconn_and_bridge_measures, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, SELFCONN, BRIDGE, PANTSCURVE, arc_in_pantsdecomposition, peel_to_remove_illegalturns!, peel_fold_secondmove!
 using Donut.Pants.DTCoordinates
 using Donut.TrainTracks.Measures
 
@@ -107,7 +107,7 @@ encoding = branchencodings(tt, turnings, branchdata)
     turnings = [LEFT, RIGHT, LEFT]
     tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
     enc = branchencodings(tt, turnings, branchdata)
-    @test all(ispantscurve(enc[i]) for i in 1:3)
+    @test all(ispantscurve(enc[i][1]) for i in 1:3)
 end
 
 
@@ -172,87 +172,123 @@ end
     @test arc_in_pantsdecomposition(pd, 3, 3, PANTSCURVE) == Donut.PantsAndTrainTracks.pantscurvearc(6, FORWARD)
 end
 
+function tt_and_encodings(pd, panttypes, turnings)
+    tt, branchdata = dehnthurstontrack(pd, panttypes, turnings)
+    encoding = branchencodings(tt, turnings, branchdata)
+    # longencodings = [[enc] for enc in encoding]
+    tt, encoding
+end
 
 @testset "Dehn twists" begin
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_dehntwist!(tt, pd, 2, 1, LEFT, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_dehntwist!(tt, pd, 2, 1, LEFT, longencodings)
     @test gluinglist(pd) == [[1, 2, 3], [-3, -2, -1]]
-    # 9 branches total, ther are two extras
-    @test sum(length(item) for item in newencodings) == 11
+    @test sum(length(item) for item in longencodings) == 11
 
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_dehntwist!(tt, pd, 1, 1, RIGHT, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_dehntwist!(tt, pd, 1, 1, RIGHT, longencodings)
     @test gluinglist(pd) == [[1, 2, 3], [-3, -2, -1]]
-    # 9 branches total, ther are four extras
-    @test sum(length(item) for item in newencodings) == 13
+    @test sum(length(item) for item in longencodings) == 13
+
 end
 
 
 @testset "Half twists" begin
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_halftwist!(tt, pd, 2, 3, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_halftwist!(tt, pd, 2, 3, longencodings)
     @test gluinglist(pd) == [[1, 2, 3], [-2, -3, -1]]
-    # 9 branches total, there are 3 extras
-    @test sum(length(item) for item in newencodings) == 12
+    @test sum(length(item) for item in longencodings) == 12
 
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_halftwist!(tt, pd, 1, 1, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_halftwist!(tt, pd, 1, 1, longencodings)
     @test gluinglist(pd) == [[1, 3, 2], [-3, -2, -1]]
-    # 9 branches total, ther are 3 extras
-    @test sum(length(item) for item in newencodings) == 12 
+    @test sum(length(item) for item in longencodings) == 12 
 end
 
 
 @testset "First move" begin
     pd = PantsDecomposition([[1, -1, 2], [-2, 3, -3]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [3, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_firstmove!(tt, pd, 1, encoding)
+    tt, longencodings = tt_and_encodings(pd, [3, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_firstmove!(tt, pd, 1, longencodings)
     @test gluinglist(pd) == [[1, -1, 2], [-2, 3, -3]]
-    # 9 branches total, there are 3 extras
-    @test sum(length(item) for item in newencodings) == 12
+    @test sum(length(item) for item in longencodings) == 12
 
     pd = PantsDecomposition([[1, -1, 2], [-2, 3, -3]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [3, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_firstmove!(tt, pd, 3, encoding)
+    tt, longencodings = tt_and_encodings(pd, [3, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_firstmove!(tt, pd, 3, longencodings)
     @test gluinglist(pd) == [[1, -1, 2], [-2, 3, -3]]
-    # 9 branches total, there are 1 extras
-    @test sum(length(item) for item in newencodings) == 10
+    @test sum(length(item) for item in longencodings) == 10
 end
 
 @testset "Second move" begin
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_secondmove!(tt, pd, 1, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_secondmove!(tt, pd, 1, longencodings)
     @test gluinglist(pd) == [[1, 3, -3], [-1, -2, 2]]
-    # 9 branches total, there are 4 extras
-    @test sum(length(item) for item in newencodings) == 13 
+    @test sum(length(item) for item in longencodings) == 13 
 
     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-    turnings = [LEFT, RIGHT, LEFT]
-    tt, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
-    encoding = branchencodings(tt, turnings, branchdata)
-    newencodings = encodings_after_secondmove!(tt, pd, 2, encoding)
+    tt, longencodings = tt_and_encodings(pd, [1, 0], [LEFT, RIGHT, LEFT])
+    update_encodings_after_secondmove!(tt, pd, 2, longencodings)
     @test gluinglist(pd) == [[2, 1, -1], [-2, -3, 3]]
-    # 9 branches total, ther are 8 extras
-    @test sum(length(item) for item in newencodings) == 17
+    @test sum(length(item) for item in longencodings) == 17
 end
 
+
+
+@testset "Peel to remove illegal turns" begin
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    update_encodings_after_dehntwist!(tt, pd, 1, 3, RIGHT, longencodings)
+    @test sum(length(item) for item in longencodings) == 10
+    # the switch was right turning before and we twist to right, so no illegal turns.
+    peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [3])
+    @test sum(length(item) for item in longencodings) == 9
+
+    # Same thing, but twisting left. Now there are no illegal turns.
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    update_encodings_after_dehntwist!(tt, pd, 1, 3, LEFT, longencodings)
+    @test sum(length(item) for item in longencodings) == 10
+    # the switch was right turning before and we twist to right, so no illegal turns.
+    peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [1, 2, 3])
+    @test sum(length(item) for item in longencodings) == 10
+
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    update_encodings_after_secondmove!(tt, pd, 2, longencodings)
+    @test sum(length(item) for item in longencodings) == 13
+    # the switch was right turning before and we twist to right, so no illegal turns.
+    peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [1, 2, 3])
+    # @test sum(length(item) for item in longencodings) == 15  # TODO: check that this is 16.
+
+end
+
+pd = PantsDecomposition([[1, -1, 2], [-2, -3, 3]])
+dtcoords = DehnThurstonCoordinates([11, 14, 8], [-100, 20, 30])
+tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+# println(tt)
+peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
+@test all(length(enc) == 1 for enc in longencodings)
+@test sort(measure.values[1:length(branches(tt))]) == [8, 8, 11, 11, 13, 13, 20, 37, 93]
+
+# >>> from macaw.train_tracks.dehn_thurston.dehn_thurston_tt import DehnThurstonTT
+# >>> tt = DehnThurstonTT([[1, 6, 5], [-1, 4, -6], [-5, -4, 2], [-8, -7, -2], [7, 9, 3], [-9, 8, -3]], [100, 20, 30, 7, 7, 4, 7, 7, 1])
+# >>> tt.unzip_fold_second_move(2)
+# >>> tt.gluing_list()
+# [[1, 6], [-1, 4], [-8, -4, -5, 9, 5], [8, -7, -2, -6, 2], [7, 3], [-9, -3]]
+# >>> tt.measure()
+# [93, 13, 37, 11, 13, 11, 8, 20, 8]
+# >>> tt.unzip_fold_second_move(2)
+# >>> tt.gluing_list()
+# [[1, 6, -8], [-1, 4, -6], [8, -4, -5], [-2, -7, 5], [7, 9, 3], [-9, 2, -3]]
+# >>> tt.measure()
+# [100, 7, 30, 7, 20, 4, 7, 7, 1]
 end

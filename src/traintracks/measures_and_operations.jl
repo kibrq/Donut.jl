@@ -1,7 +1,7 @@
 
 module MeasuresAndOperations
 
-export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!
+export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!, whichside_to_peel
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
@@ -10,6 +10,7 @@ using Donut.TrainTracks: BranchRange
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
 using Donut.TrainTracks.Operations: TTOperationIterator
+using Donut.Constants: FORWARD, BACKWARD
 
 function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
     measure::Measure, newbranch::Int)

@@ -1,12 +1,15 @@
 using Donut.Constants: FORWARD, BACKWARD, LEFT, RIGHT
 
+export ispathtight!, simplifypath!, reversedpath
 
 function ispathtight(arc1::ArcInPants, arc2::ArcInPants)
+    # println(arc1)
+    # println(arc2)
     @assert arc1.endvertex == arc2.startvertex
     if arc1 == reversed(arc2)
         return false
     end
-    arc1.endgate != arc2.startgate
+    arc1.endgate != arc2.startgate || (arc1 == arc2 && ispantscurve(arc1))
 end
 
 
@@ -14,6 +17,9 @@ end
 Does not check subpaths of length 2.
 """
 function ispathtight(arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
+    # println(arc1)
+    # println(arc2)
+    # println(arc3)
     @assert arc1.endvertex == arc2.startvertex
     @assert arc2.endvertex == arc3.startvertex
 
@@ -58,16 +64,18 @@ function construct_pantscurvearc(pd::PantsDecomposition, vertex::Int,
     pantscurvearc(vertex, wrapdirection)
 end
 
-
+# this could return an iterator for better speed
 reversedpath(path::Array{ArcInPants,1}) = [reversed(arc) for arc in reverse(path)]
 
 
-function simplifypath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants)
+function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants)
     @assert !ispathtight(arc1, arc2)
     v0 = arc1.startvertex
     g0 = arc1.startgate
     v1 = arc2.endvertex
     g1 = arc2.endgate
+    # println(arc1)
+    # println(arc2)
 
     # Backtracking
     if arc1 == reversed(arc2)
@@ -97,7 +105,7 @@ function simplifypath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants
             end
         end
     elseif isselfconnecting(arc2) && isbridge(arc1)
-        return reversedpath(simplifypath(pd, reversed(arc2), reversed(arc1)))
+        return reversedpath(simplifiedpath(pd, reversed(arc2), reversed(arc1)))
     else
         @assert false
     end
@@ -115,7 +123,7 @@ function directionof_pantscurvearc(pd, pantscurvearc::ArcInPants, lookingfromgat
 end
 
 
-function simplifypath(pd::PantsDecomposition, 
+function simplifiedpath(pd::PantsDecomposition, 
         arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
     @assert !ispathtight(arc1, arc2, arc3)
 
@@ -126,7 +134,7 @@ function simplifypath(pd::PantsDecomposition,
     g2 = arc3.endgate
 
     if !isbridge(arc1)
-        return reversedpath(simplifypath(pd, reversed(arc3), reversed(arc2), reversed(arc1)))
+        return reversedpath(simplifiedpath(pd, reversed(arc3), reversed(arc2), reversed(arc1)))
     end
 
     if isbridge(arc3)
@@ -165,7 +173,32 @@ function simplifypath(pd::PantsDecomposition,
 end
 
 
-
 function simplifypath!(pd::PantsDecomposition, path::Array{ArcInPants, 1})
-
+    count = 0
+    while count < 1000
+        count += 1
+        illegalturn_found = false
+        for i in 1:length(path)-1
+            if !ispathtight(path[i], path[i+1])
+                illegalturn_found = true
+                replacement = simplifiedpath(pd, path[i], path[i+1])
+                splice!(path, i:i+1, replacement)
+                break
+            end
+        end
+        for i in 1:length(path)-2
+            if !ispathtight(path[i], path[i+1], path[i+2])
+                illegalturn_found = true
+                replacement = simplifiedpath(pd, path[i], path[i+1], path[i+2])
+                splice!(path, i:i+2, replacement)
+                break
+            end
+        end
+        if !illegalturn_found
+            break
+        end
+    end
+    if count == 1000
+        error("Infinite loop when pulling a path tight.")
+    end
 end
