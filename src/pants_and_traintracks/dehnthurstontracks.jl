@@ -351,6 +351,24 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, p
     end
 end
 
+function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
+    x = 0
+    for br in outgoing_branches(tt, sw)
+        if !ispantscurve(branchencodings[abs(br)][1])
+            x += branchmeasure(measure, br)
+        end
+    end
+    x
+end
+
+function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
+    for br in outgoing_branches(tt, sw)
+        if ispantscurve(branchencodings[abs(br)][1])
+            return branchmeasure(measure, br)
+        end
+    end
+end
+
 function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{Array{ArcInPants,1},1})
     if branchtype == SELFCONN
         # The self-connecting branch with the positive orientation starts on the left and ends at the right, so it is the first self-connecting branch we find scanning from left to right.

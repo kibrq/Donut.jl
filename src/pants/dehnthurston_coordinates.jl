@@ -37,7 +37,6 @@ function dtcoords_of_pantscurve(pd::PantsDecomposition, pantscurve::Int)
         [0 for c in innercurveindices(pd)],
         [abs(pantscurve) != abs(c) ? 0 : 1 for c in innercurveindices(pd)]
     )
-    
 end
 
 function dtcoords_of_transversal(pd::PantsDecomposition, pantscurve::Int)

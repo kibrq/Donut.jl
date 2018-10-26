@@ -267,3 +267,11 @@ function peel_fold_dehntwist!(tt::TrainTrack, measure::Measure, pd::PantsDecompo
     peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_dehntwist!(tt, pd, pantindex, bdyindex, otherside(twistdirection), encodings), encodings)
     # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
 end
+
+
+function peel_fold_halftwist!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1}, twistdirection::Int)
+    pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
+    bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
+    peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_halftwist!(tt, pd, pantindex, bdyindex, otherside(twistdirection), encodings), encodings)
+    # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
+end
