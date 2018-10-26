@@ -329,6 +329,9 @@ function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttr
     @assert false
 end
 
+"""
+The branches are always returned left to right. So for a self-connecting branch the beginning of the branch would come before the end of the branch.
+"""
 function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Array{Array{ArcInPants,1},1})
     pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
     sw = pantscurve_toswitch(pd, pantscurveindex)
@@ -340,7 +343,12 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, p
         sw = -sw
     end
     brs = outgoing_branches(dttraintrack, sw, turning)
-    brs[2:length(brs)]
+    branches = brs[2:length(brs)]
+    if (turning == LEFT) == ispantend_orientationpreserving(pd, pantindex, bdyindex)
+        return branches
+    else
+        return reverse(branches)
+    end
 end
 
 function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{Array{ArcInPants,1},1})

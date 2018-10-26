@@ -31,6 +31,14 @@ const REPLACEMENT_RULES_FIRSTMOVE = [
     ((SELFCONN, 1), [(BRIDGE, 3), (BRIDGE, 2), (PANTSCURVE, -1)])
 ]
 
+const REPLACEMENT_RULES_FIRSTMOVE_INVERSE = [
+    ((BRIDGE, 1), [(PANTSCURVE, -2)]),
+    ((BRIDGE, 2), [(PANTSCURVE, 2), (BRIDGE, 2)]),
+    ((BRIDGE, 3), [(BRIDGE, -2)]),
+    ((PANTSCURVE, 2), [(BRIDGE, 1)]),
+    ((SELFCONN, 1), [(BRIDGE, -2), (BRIDGE, -3)])
+]
+
 const REPLACEMENT_RULES_SECONDMOVE_UPPER = [
     ((BRIDGE, 1), [(BRIDGE, 2, RIGHT), (BRIDGE, 3, LEFT)]),
     ((BRIDGE, 2), [(BRIDGE, -3, LEFT)]),
@@ -119,12 +127,12 @@ function update_encodings_after_dehntwist!(dttraintrack::TrainTrack, pd::PantsDe
     update_branchencodings!(branchencodings, compiledrules2)
 end
 
-function update_encodings_after_firstmove!(dttraintrack::TrainTrack, pd::PantsDecomposition, curveindex::Int, branchencodings::Array{Array{ArcInPants, 1}, 1})
+function update_encodings_after_firstmove!(dttraintrack::TrainTrack, pd::PantsDecomposition, curveindex::Int, branchencodings::Array{Array{ArcInPants, 1}, 1}, inverse=false)
 
     pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
     bdyindex = findfirst(i->abs(pantscurve_nextto_pant(pd, pantindex, i)) != abs(curveindex), 1:3)
 
-    compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, REPLACEMENT_RULES_FIRSTMOVE, pantindex, bdyindex)
+    compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, inverse ? REPLACEMENT_RULES_FIRSTMOVE_INVERSE : REPLACEMENT_RULES_FIRSTMOVE, pantindex, bdyindex)
 
     apply_firstmove!(pd, curveindex)
 

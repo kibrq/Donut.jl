@@ -74,6 +74,7 @@ function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPan
     g0 = arc1.startgate
     v1 = arc2.endvertex
     g1 = arc2.endgate
+    # println(g0, g1)
     # println(arc1)
     # println(arc2)
 
@@ -140,9 +141,21 @@ function simplifiedpath(pd::PantsDecomposition,
     if isbridge(arc3)
         if v0 != v2
             # Figure 5: V-shape (same result as for Figure 3)
-            return [construct_pantscurvearc(pd, v0, g0, LEFT),
-                    ArcInPants(v0, g0, v2, g2),
-                    construct_pantscurvearc(pd, v2, v2, LEFT)]
+            # println([construct_pantscurvearc(pd, v0, g0, LEFT),
+            # ArcInPants(v0, g0, v2, g2),
+            # construct_pantscurvearc(pd, v2, g2, LEFT)])
+            # println(gluinglist(pd))
+            # println(v0, g0)
+            # println(arc1, arc2, arc3)
+            if isbridgeforward(pd, arc1)
+                return [construct_pantscurvearc(pd, v0, g0, LEFT),
+                        ArcInPants(v0, g0, v2, g2),
+                        construct_pantscurvearc(pd, v2, g2, LEFT)]
+            else
+                return [construct_pantscurvearc(pd, v0, g0, RIGHT),
+                        ArcInPants(v0, g0, v2, g2),
+                        construct_pantscurvearc(pd, v2, g2, RIGHT)]
+            end
         else
             if isbridgeforward(pd, arc1)
                 # FIGURE 6

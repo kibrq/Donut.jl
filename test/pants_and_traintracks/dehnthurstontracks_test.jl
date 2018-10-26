@@ -6,7 +6,7 @@ using Donut.Pants
 using Donut.PantsAndTrainTracks
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
 using Donut.TrainTracks
-using Donut.PantsAndTrainTracks: ispantscurve, isbridge, isselfconnecting, ArcInPants, selfconn_and_bridge_measures, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, SELFCONN, BRIDGE, PANTSCURVE, arc_in_pantsdecomposition, peel_to_remove_illegalturns!, peel_fold_secondmove!
+using Donut.PantsAndTrainTracks: ispantscurve, isbridge, isselfconnecting, ArcInPants, selfconn_and_bridge_measures, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, SELFCONN, BRIDGE, PANTSCURVE, arc_in_pantsdecomposition, peel_to_remove_illegalturns!, peel_fold_secondmove!, peel_fold_firstmove!
 using Donut.Pants.DTCoordinates
 using Donut.TrainTracks.Measures
 
@@ -283,17 +283,22 @@ end
     @test sort(measure.values[1:length(branches(tt))]) == [1, 4, 7, 7, 7, 7, 20, 30, 100]
 end
 
-@testset "Peel-fold second move 2" begin
+function separating_tt_large_central_intersection()
     pd = PantsDecomposition([[1, -1, 2], [-2, -3, 3]])
     dtcoords = DehnThurstonCoordinates([2, 20, 6], [1, -1, 14])
     tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
-    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 4, 6, 6, 8, 14]
+    tt, pd, measure, longencodings, [1, 1, 2, 2, 4, 6, 6, 8, 14]
+end
+
+@testset "Peel-fold second move 2" begin
+    tt, pd, measure, longencodings, orderedmeasures = separating_tt_large_central_intersection()
+    @test sort(measure.values[1:length(branches(tt))]) == orderedmeasures
     peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
     @test all(length(enc) == 1 for enc in longencodings)
     @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
     peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
     @test all(length(enc) == 1 for enc in longencodings)
-    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 4, 6, 6, 8, 14]
+    @test sort(measure.values[1:length(branches(tt))]) == orderedmeasures
 end
 
 @testset "Peel-fold second move 3" begin
@@ -309,5 +314,28 @@ end
     @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
 end
 
+
+
+@testset "Peel-fold first move 1" begin
+    """
+    The following is a Dehn-Thurston train track on the genus 2 surface.
+    The pants decomposition has a separating curve (2), and switch 1 is
+    left-turning, switches 2 and 3 are right-turning. Pants curves 1 and 3
+    give first elementary moves.
+
+    First we test the case with lambda11 (self-connecting branch to the
+    boundary of the torus. At switch 3, unzipping goes into the pants
+    curves, at switch 1 it goes across.
+    """
+    tt, pd, measure, longencodings, orderedmeasures = separating_tt_large_central_intersection()
+    peel_fold_firstmove!(tt, measure, pd, 1, longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 4, 6, 6, 8, 9, 9, 14]
+    peel_fold_firstmove!(tt, measure, pd, -3, longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 6, 8, 9, 9, 10, 10, 18]
+    peel_fold_firstmove!(tt, measure, pd, -3, longencodings, true)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 4, 6, 6, 8, 9, 9, 14]
+    peel_fold_firstmove!(tt, measure, pd, 1, longencodings, true)
+    @test sort(measure.values[1:length(branches(tt))]) == orderedmeasures
+end
 
 end

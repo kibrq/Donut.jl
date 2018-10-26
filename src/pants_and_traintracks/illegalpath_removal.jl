@@ -218,6 +218,8 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{
         println()
         println()
     end
+    @assert all(length(enc) == 1 for enc in encodings)
+
     switches_to_fix = Set(abs(branch_endpoint(tt, sg*br)) for br in branches_toconsider for sg in (-1,1))
     # Fixing switch orientations.
     for sw in switches_to_fix
@@ -226,6 +228,9 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{
 end
 
 function fix_switch_orientation!(tt::TrainTrack, sw::Int, encodings::Array{Array{ArcInPants, 1}, 1})
+    # println(encodings)
+    # println(outgoing_branches(tt, sw))
+    # println(outgoing_branches(tt, -sw))
     @assert sw > 0
     for side in (LEFT, RIGHT)
         br = outgoing_branch(tt, sw, 1, side)
@@ -251,6 +256,6 @@ function peel_fold_secondmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomp
 end
 
 
-function peel_fold_firstmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1})
-    peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, encodings), encodings)
+function peel_fold_firstmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1}, inverse=false)
+    peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, encodings, inverse), encodings)
 end
