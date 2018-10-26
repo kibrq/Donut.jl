@@ -271,24 +271,43 @@ end
 
 end
 
-pd = PantsDecomposition([[1, -1, 2], [-2, -3, 3]])
-dtcoords = DehnThurstonCoordinates([11, 14, 8], [-100, 20, 30])
-tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
-# println(tt)
-peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
-@test all(length(enc) == 1 for enc in longencodings)
-@test sort(measure.values[1:length(branches(tt))]) == [8, 8, 11, 11, 13, 13, 20, 37, 93]
+@testset "Peel-fold second move 1" begin
+    pd = PantsDecomposition([[1, -1, 2], [-2, -3, 3]])
+    dtcoords = DehnThurstonCoordinates([11, 14, 8], [-100, 20, 30])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [8, 8, 11, 11, 13, 13, 20, 37, 93]
+    peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 4, 7, 7, 7, 7, 20, 30, 100]
+end
 
-# >>> from macaw.train_tracks.dehn_thurston.dehn_thurston_tt import DehnThurstonTT
-# >>> tt = DehnThurstonTT([[1, 6, 5], [-1, 4, -6], [-5, -4, 2], [-8, -7, -2], [7, 9, 3], [-9, 8, -3]], [100, 20, 30, 7, 7, 4, 7, 7, 1])
-# >>> tt.unzip_fold_second_move(2)
-# >>> tt.gluing_list()
-# [[1, 6], [-1, 4], [-8, -4, -5, 9, 5], [8, -7, -2, -6, 2], [7, 3], [-9, -3]]
-# >>> tt.measure()
-# [93, 13, 37, 11, 13, 11, 8, 20, 8]
-# >>> tt.unzip_fold_second_move(2)
-# >>> tt.gluing_list()
-# [[1, 6, -8], [-1, 4, -6], [8, -4, -5], [-2, -7, 5], [7, 9, 3], [-9, 2, -3]]
-# >>> tt.measure()
-# [100, 7, 30, 7, 20, 4, 7, 7, 1]
+@testset "Peel-fold second move 2" begin
+    pd = PantsDecomposition([[1, -1, 2], [-2, -3, 3]])
+    dtcoords = DehnThurstonCoordinates([2, 20, 6], [1, -1, 14])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 4, 6, 6, 8, 14]
+    peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
+    peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 4, 6, 6, 8, 14]
+end
+
+@testset "Peel-fold second move 3" begin
+    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    dtcoords = DehnThurstonCoordinates([2, 10, 6], [3, -11, 20])
+    tt, measure, longencodings = dehnthurstontrack(pd, dtcoords)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
+    peel_fold_secondmove!(tt, measure, pd, 3, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [2, 2, 3, 4, 10, 10, 14, 21, 22]
+    peel_fold_secondmove!(tt, measure, pd, 3, longencodings)
+    @test all(length(enc) == 1 for enc in longencodings)
+    @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
+end
+
+
 end

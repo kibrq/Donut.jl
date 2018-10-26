@@ -2,20 +2,26 @@
 
 using Donut.TrainTracks.MeasuresAndOperations
 using Donut.TrainTracks
+import Donut
+import Donut.TrainTracks.Operations
+
 
 function is_switchside_legal(tt::TrainTrack, sw::Int, side::Int, encodings::Array{Array{ArcInPants, 1}, 1})
+    debug = false
     frontbr = outgoing_branch(tt, sw, 1, side)
     backbr = outgoing_branch(tt, -sw, 1, otherside(side))
     frontenc = encoding_of_branch(encodings, frontbr)
     backenc = encoding_of_branch(encodings, backbr)
-    # println("------------------ BEGIN: is_switchside_legal")
-    # println("Switch: ", sw)
-    # println("Side: ", side)
-    # println("Front br: ", frontbr)
-    # println("Back br: ", backbr)
-    # println("Front encoding: ", frontenc)
-    # println("Back encoding: ", backenc)
-    # println("------------------ END: is_switchside_legal")
+    if debug
+        println("------------------ BEGIN: is_switchside_legal")
+        println("Switch: ", sw)
+        println("Side: ", side)
+        println("Front br: ", frontbr)
+        println("Back br: ", backbr)
+        println("Front encoding: ", frontenc)
+        println("Back encoding: ", backenc)
+        println("------------------ END: is_switchside_legal")
+    end
 
     if !ispathtight(reversed(frontenc[1]), backenc[1])
         return false
@@ -49,17 +55,24 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
     if length(switches_toconsider) == 0
         switches_toconsider = collect(1:length(switches(tt)))
     end
-    switches_left = copy(switches_toconsider)
+    # switches_left = copy(switches_toconsider)
     if debug
         println("***************** START PEELING! **************")
-        println("Switches left: ", switches_left)
+        println("Switches to consider: ", switches_toconsider)
         println("Encodings:")
         printencoding(encodings)
     end
-    while length(switches_left) > 0
-        for i in length(switches_left):-1:1
-            sw = switches_left[i]
-            illegalturn_found = false
+    if debug
+        println("TrainTrack gluing list: ", tt_gluinglist(tt))
+        # println("TrainTrack: ", tt)
+        println("Encodings: ")
+        printencoding(encodings)
+        println()
+    end
+    illegalturn_found = true
+    while illegalturn_found
+        illegalturn_found = false
+        for sw in switches_toconsider
             for side in (LEFT, RIGHT)
                 if debug
                     println(is_switchside_legal(tt, sw, side, encodings))
@@ -67,10 +80,6 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
                 if !is_switchside_legal(tt, sw, side, encodings)
                     if debug
                         println("------------------ BEGIN: peel_loop")
-                        println("TrainTrack: ", tt_gluinglist(tt))
-                        println(tt)
-                        println("Switch:", sw)
-                        println("Side:", side)
                     end
                     sidetopeel = whichside_to_peel(tt, measure, sw, side)
                     peeledbr = outgoing_branch(tt, sw, 1, side)
@@ -82,9 +91,11 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
                         peel!(tt, -sw, otherside(side), measure)
                     end
                     if debug
-                        println("Peeled br:", peeledbr)
-                        println("Other br:", otherbr)
-                        println("Encoding:")
+                        println("Peeling $(peeledbr) off of $(otherbr)...")
+                        println("TrainTrack: ", tt_gluinglist(tt))
+                        # println("Switch:", sw)
+                        # println("Side:", side)
+                        println("Encoding before peeling:")
                         printencoding(encodings)
                     end
 
@@ -105,13 +116,15 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
                     break
                 end
             end
-            # println(switches)
-            if !illegalturn_found
-                deleteat!(switches_left, i)
-            else
+            if illegalturn_found
                 break
             end
         end
+    end
+    if debug
+        println("***************** END PEELING! **************")
+        println()
+        println()
     end
 end
 
@@ -138,7 +151,7 @@ end
 
 function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{Array{ArcInPants, 1}, 1}, branches_toconsider::AbstractArray{Int, 1}=Int[], debug=false)
     if debug
-        println("------------------ BEGIN: fold_peeledtt_back")
+        println("***************** START FOLDING! **************")
     end
     if length(branches_toconsider) == 0
         branches_toconsider = [br for br in branches(tt) if length(encoding_of_branch(encodings, br)) > 1]
@@ -154,8 +167,8 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{
     while length(branches_left) > 0 && count < 20
         count += 1
         if debug
-            println("TrainTrack: ", tt_gluinglist(tt))
-            println(tt)
+            println("TrainTrack gluing list: ", tt_gluinglist(tt))
+            # println("TrainTrack: ", tt)
             println("Encodings: ")
             printencoding(encodings)
             println()
@@ -181,8 +194,8 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{
                         fold!(tt, -endsw, otherside(side), measure)
                         subtract_encoding!(encodings, signed_br, fold_onto_br)
                         if debug
-                            println("TrainTrack: ", tt_gluinglist(tt))
-                            println(tt)
+                            println("TrainTrack gluing list: ", tt_gluinglist(tt))
+                            # println("TrainTrack: ", tt)
                             println("Encodings: ")
                             printencoding(encodings)
                             println()
@@ -201,14 +214,43 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Array{
         end
     end
     if debug
-        println("------------------ END: fold_peeledtt_back")
+        println("***************** END FOLDING! **************")
+        println()
+        println()
+    end
+    switches_to_fix = Set(abs(branch_endpoint(tt, sg*br)) for br in branches_toconsider for sg in (-1,1))
+    # Fixing switch orientations.
+    for sw in switches_to_fix
+        fix_switch_orientation!(tt, sw, encodings)
     end
 end
 
+function fix_switch_orientation!(tt::TrainTrack, sw::Int, encodings::Array{Array{ArcInPants, 1}, 1})
+    @assert sw > 0
+    for side in (LEFT, RIGHT)
+        br = outgoing_branch(tt, sw, 1, side)
+        arc = encoding_of_branch(encodings, br)[1]
+        if ispantscurve(arc)
+            if arc.direction == BACKWARD
+                Donut.TrainTracks.Operations.reverseswitch!(tt, sw)
+            end
+            return
+        end
+    end
+    @assert false
+end
 
-
-function peel_fold_secondmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1})
-    update_encodings_after_secondmove!(tt, pd, curveindex, encodings)
+function peel_fold_elementarymove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, update_encoding_fn::Function, encodings::Array{Array{ArcInPants, 1}, 1})
+    update_encoding_fn(tt, pd, encodings)
     peel_to_remove_illegalturns!(tt, pd, encodings, measure) # TODO: supply the switches to consider as well.
     fold_peeledtt_back!(tt, measure, encodings) # TODO: supply the branches to consider.
+end
+
+function peel_fold_secondmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1})
+    peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_secondmove!(tt, pd, curveindex, encodings), encodings)
+end
+
+
+function peel_fold_firstmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Array{Array{ArcInPants, 1}, 1})
+    peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, encodings), encodings)
 end

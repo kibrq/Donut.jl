@@ -47,6 +47,14 @@ const REPLACEMENT_RULES_SECONDMOVE_LOWER = [(a, [(triple[1], triple[2], othersid
 function compile_oldbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, branchencodings::Array{Array{ArcInPants, 1}, 1}, branchtype::Int, bdyindex::Int, pantindex::Int, marking_bdyindex::Int)
     indices = marking_bdyindex, nextindex(marking_bdyindex, 3), previndex(marking_bdyindex, 3)
     findbranch(dttraintrack, pd, pantindex, indices[bdyindex], branchtype, branchencodings)
+    # if x!= nothing && abs(x) == 9
+    #     println("------")
+    #     println(pantindex)
+    #     println(bdyindex)
+    #     println(indices[bdyindex])
+    #     println(branchtype)
+    # end
+    # x
 end
 
 """
@@ -131,6 +139,10 @@ function update_encodings_after_secondmove!(dttraintrack::TrainTrack, pd::PantsD
     lowerpantindex = pant_nextto_pantscurve(pd, curveindex, RIGHT)
     lowerbdyindex = bdyindex_nextto_pantscurve(pd, curveindex, RIGHT)
     
+    # println(upperpantindex)
+    # println(upperbdyindex)
+    # println(lowerpantindex)
+    # println(lowerbdyindex)
     # lowerrules = REPLACEMENT_RULES_SECONDMOVE
     # swapping lefts to rights
 

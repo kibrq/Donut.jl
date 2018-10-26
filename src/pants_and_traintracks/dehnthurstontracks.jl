@@ -297,7 +297,9 @@ end
 
 
 """
-Return the switch on the given pants curve. We use the convention that switch 1 is on the first inner pants curve, etc.
+Return the switch on the given pants curve. We use the convention that switch 1 is on the first inner pants curve, etc. 
+
+The direction of the switch is assumed to be same as the direction of the pants curve. Therefore we sometimes need to fix the switch orientation after performing elementary moves.
 
 # TODO: This method is now linear in the nunber of inner pants curves. It could be constant with more bookkeeping.
 """
@@ -343,21 +345,25 @@ end
 
 function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{Array{ArcInPants,1},1})
     if branchtype == SELFCONN
-        fn = isselfconnecting
-        idx = bdyindex
+        # The self-connecting branch with the positive orientation starts on the left and ends at the right, so it is the first self-connecting branch we find scanning from left to right.
+        for br in branches_at_pantend(dttraintrack, pd, pantindex, bdyindex, branchencodings)
+            if isselfconnecting(branchencodings[abs(br)][1])
+                return br
+            end
+        end
     elseif branchtype == BRIDGE
-        fn = isbridge
-        idx = nextindex(bdyindex, 3)
+        next_branches = branches_at_pantend(dttraintrack, pd, pantindex, nextindex(bdyindex, 3), branchencodings)
+        prev_branches = branches_at_pantend(dttraintrack, pd, pantindex, previndex(bdyindex, 3), branchencodings)
+        for br in next_branches
+            if isbridge(branchencodings[abs(br)][1]) && -br in prev_branches
+                return br
+            end
+        end
     elseif branchtype == PANTSCURVE
         curveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
         return pantscurve_to_branch(pd, curveindex, dttraintrack, branchencodings)
     else
         @assert false
-    end
-    for br in branches_at_pantend(dttraintrack, pd, pantindex, idx, branchencodings)
-        if br > 0 && fn(branchencodings[br][1])
-            return br
-        end
     end
     return nothing
 end
