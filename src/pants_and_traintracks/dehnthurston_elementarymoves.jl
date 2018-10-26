@@ -6,10 +6,10 @@ using Donut.Pants.ElementaryMoves
 
 function replacement_rules_twist(twistdirection::Int=RIGHT)
     # idx1, idx2, idx3 = bdyindex, nextindex(bdyindex, 3), previndex(bdyindex, 3)
-    sg = twistdirection == LEFT ? 1 : -1
+    sg = twistdirection == RIGHT ? 1 : -1
     return [
         ((BRIDGE, 3), [(PANTSCURVE, -sg), (BRIDGE, 3)]),
-        ((BRIDGE, 2), [(BRIDGE, 2), (PANTSCURVE, -sg)]),
+        ((BRIDGE, 2), [(BRIDGE, 2), (PANTSCURVE, sg)]),
         ((SELFCONN, 1), [(PANTSCURVE, -sg), (SELFCONN, 1), (PANTSCURVE, sg)])
     ]
 end
