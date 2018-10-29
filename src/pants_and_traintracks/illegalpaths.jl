@@ -113,7 +113,7 @@ function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPan
 end
 
 
-function directionof_pantscurvearc(pd, pantscurvearc::ArcInPants, lookingfromgate::Int)
+function directionof_pantscurvearc(pd::PantsDecomposition, pantscurvearc::ArcInPants, lookingfromgate::Int)
     for direction in (LEFT, RIGHT)
         arc = construct_pantscurvearc(pd, pantscurvearc.startvertex, lookingfromgate, direction)
         if pantscurvearc == arc

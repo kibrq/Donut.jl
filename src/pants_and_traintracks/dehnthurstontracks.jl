@@ -1,24 +1,25 @@
 
-export dehnthurstontrack, branchencodings
+module DehnThurstonTracks
+
+export dehnthurstontrack
 
 using Donut.Pants
 using Donut.TrainTracks
 using Donut.Utils: nextindex, previndex, otherside
 using Donut.Constants: LEFT, RIGHT
-using Donut.Pants.DTCoordinates
-using Donut.TrainTracks.Measures
 
 doubledindex(x) = x > 0 ? 2*x-1 : -2*x
 
-const PANTSCURVE = 1
-const SELFCONN = 2
-const BRIDGE = 3
 
 struct BranchData
     branchtype::Int
     pantindex::Int
     bdyindex::Int
 end
+
+using Donut.PantsAndTrainTracks.ArcsInPants
+using Donut.PantsAndTrainTracks.ArcsInPants: PANTSCURVE, BRIDGE, SELFCONN
+
 
 """
 
@@ -31,7 +32,7 @@ The branches of the constructed train track are number from 1 to N for some N. T
 
 
 """
-function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, turnings::Array{Int, 1})
+function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Vector{Int}, turnings::Vector{Int})
     ipc = innercurveindices(pd)
     # TODO: handle one-sided pants curves
     @assert all(curve->istwosided_pantscurve(pd, curve), ipc)
@@ -45,12 +46,14 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
     
     gluinglist = [Int[] for i in 1:2*length(ipc)]
     twistedbranches = Int[]
+    branchencodings = ArcInPants[]
     branchdata = BranchData[]
 
     # creating pants branches
     for i in eachindex(ipc)
         push!(gluinglist[2*i-1], i)
         push!(gluinglist[2*i], -i)
+        push!(branchencodings, construct_pantscurvearc(ipc[i]))
         push!(branchdata, BranchData(PANTSCURVE, 0, 0))
     end
 
@@ -113,7 +116,11 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
             nextlabel += 1
             push!(addedbranches, idx1)
             push!(branchdata, BranchData(BRIDGE, pant, idx1))
+            v1 = !isreversingend[idx2] ? curves[idx2] : curves[idx2]
+            v2 = !isreversingend[idx3] ? curves[idx3] : curves[idx3]
+            push!(branchencodings, construct_bridge(v1, v2))
         end
+
 
         if typ == 0
             # For type 0, there is no self-connecting branch.
@@ -149,151 +156,15 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Array{Int,1}, tur
         end
         splice!(x, length(x)+insertpos+1:length(x)+insertpos, nextlabel)
         nextlabel += 1
+        c = ispantend_orientationpreserving(pd, pant, typ) ? curve : -curve
+        push!(branchencodings, construct_selfconnarc(c))
         push!(branchdata, BranchData(SELFCONN, pant, typ))
     end
     tt = TrainTrack(gluinglist, twistedbranches)
     # @assert length(branches(tt)) == numbranches
-    tt, branchdata
+    tt, branchencodings, branchdata
 end
 
-
-
-function branchencodings(dttraintrack::TrainTrack, turnings::Array{Int, 1}, branchdata::Array{BranchData})
-    encodings = ArcInPants[]
-
-    for br in branches(dttraintrack)  # actually 1:length(branches)
-        startvertex = branch_endpoint(dttraintrack, -br)
-        endvertex = branch_endpoint(dttraintrack, br)
-        function gate(vertex)
-            g = turnings[abs(vertex)]
-            return vertex > 0 ? otherside(g) : g
-        end
-        data = branchdata[br]
-        if data.branchtype == PANTSCURVE
-            push!(encodings, pantscurvearc(abs(startvertex), FORWARD))
-        elseif data.branchtype == BRIDGE
-            startgate = gate(startvertex)
-            endgate = gate(endvertex)
-            push!(encodings, ArcInPants(abs(startvertex), startgate, abs(endvertex), endgate))
-        elseif data.branchtype == SELFCONN
-            startgate = gate(startvertex)
-            push!(encodings, selfconnarc(abs(startvertex), startgate, RIGHT))
-        else
-            @assert false
-        end
-    end
-    [[enc] for enc in encodings]
-end
-
-
-function selfconn_and_bridge_measures(ints1::Integer, ints2::Integer, ints3::Integer)
-    ints = [ints1, ints2, ints3]
-    selfconn = [max(ints[i] - ints[nextindex(i, 3)] - ints[previndex(i, 3)], 0) for i in 1:3]
-    if any(x % 2 == 1 for x in selfconn)
-        error("The specified coordinates do not result in an integral lamination: an odd number is divided by 2.")
-    end
-    selfconn = [div(x, 2) for x in selfconn]  
-
-    # take out the self-connecting strands, now the triangle ineq. is
-    # satisfied
-    adjusted_measures = [ints[i] - 2*selfconn[i] for i in 1:3]
-    bridges = [max(adjusted_measures[previndex(i, 3)] + adjusted_measures[nextindex(i, 3)] - adjusted_measures[i], 0) for i in 1:3]
-    if any(x % 2 == 1 for x in bridges)
-        error("The specified coordinates do not result in an integral lamination: an odd number is divided by 2.")
-    end
-    bridges = [div(x, 2) for x in bridges]  
-    return selfconn, bridges
-end
-
-"""
-From the Dehn-Thurston coordinates, creates an array whose i'th element is the intersection number of the i'th pants curve. (Boundary pants curves are also included in this array.)
-"""
-function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Array{Real})
-    T = typeof(intersection_numbers[1])
-    curves = curveindices(pd)
-    len = maximum(curves)
-    allintersections = fill(T(0), len)
-    innerindices = innercurveindices(pd)
-    if length(innerindices) != length(intersection_numbers)
-        error("Mismatch between number of inner pants curves ($(length(innerindices))) and the number of Dehn-Thurston coordinates ($(length(intersection_numbers))).")
-    end
-    for i in eachindex(innerindices)
-        allintersections[innerindices[i]] = intersection_numbers[i]
-    end
-    return allintersections
-end
-
-
-function determine_panttype(pd::PantsDecomposition, bdycurves, selfconn, bridges)
-    # println(bdycurves)
-    # println(selfconn)
-    # println(bridges)
-    # if at all possible, we include a self-connecting curve
-    # first we check if there is a positive self-connecting measure in
-    # which case the choice is obvious
-    for i in 1:3
-        if selfconn[i] > 0
-            return i
-        end
-    end
-
-    # If the value is self_conn_idx is still not determined, we see if the pairing measures allow including a self-connecting branch
-    for i in 1:3
-        curve = bdycurves[i]
-        # making sure the opposite pair has zero measure
-        if bridges[i] == 0 && isinner_pantscurve(pd, curve) && pant_nextto_pantscurve(pd, curve, LEFT) != pant_nextto_pantscurve(pd, curve, RIGHT) 
-            # if the type is first move, then the self-connecting
-            # branch would make the train track not recurrent
-            return i
-        end
-    end
-    return 0
-end
-
-
-function determine_measure(dttraintrack::TrainTrack, twisting_numbers, selfconn_and_bridge_measures, branchdata::Array{BranchData})
-    T = typeof(twisting_numbers[1])
-    measure = T[]
-    for br in eachindex(twisting_numbers)
-        # println("Pantscurve")
-        push!(measure, abs(twisting_numbers[br]))
-        @assert branchdata[br].branchtype == PANTSCURVE
-    end
-    for br in length(twisting_numbers)+1:length(branchdata)
-        data = branchdata[br]
-        if data.branchtype == BRIDGE
-            # println("Bridge")
-
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][2][data.bdyindex])
-        elseif data.branchtype == SELFCONN
-            # println("Selfconn")
-
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][1][data.bdyindex])
-        else
-            @assert false
-        end
-    end
-    Measure{T}(dttraintrack, measure)
-end
-
-
-function dehnthurstontrack(pd::PantsDecomposition, dtcoords::DehnThurstonCoordinates)
-
-    allintersections = allcurve_intersections(pd, dtcoords.intersection_numbers)
- 
-    sb_measures = [selfconn_and_bridge_measures([allintersections[abs(c)] for c in pantboundaries(pd, pant)]...) for pant in pants(pd)]
-    
-    pantstypes = [determine_panttype(pd, pantboundaries(pd, pant), sb_measures[pant]...) for pant in pants(pd)]
-
-    turnings = [twist < 0 ? LEFT : RIGHT for twist in dtcoords.twisting_numbers]
-
-    tt, branchdata = dehnthurstontrack(pd, pantstypes, turnings)
-
-    measure = determine_measure(tt, dtcoords.twisting_numbers, sb_measures, branchdata)
-    encodings = branchencodings(tt, turnings, branchdata)
-
-    tt, measure, encodings
-end
 
 
 """
@@ -308,21 +179,22 @@ function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Int)
     return sign(pantscurveindex) * sw
 end
 
-function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Array{Array{ArcInPants,1},1})
+
+function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vector{ArcInPants})
     for side in (LEFT, RIGHT)
         br = outgoing_branch(dttraintrack, sw, 1, side)
-        if ispantscurve(branchencodings[abs(br)][1])
+        if ispantscurve(branchencodings[abs(br)])
             return side
         end
     end
     @assert false
 end
 
-function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Array{Array{ArcInPants,1},1})
+function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Vector{ArcInPants})
     sw = pantscurve_toswitch(pd, pantscurveindex)
     for side in (LEFT, RIGHT)
         br = outgoing_branch(dttraintrack, sw, 1, side)
-        if ispantscurve(branchencodings[abs(br)][1])
+        if ispantscurvearc(branchencodings[abs(br)])
             return br
         end
     end
@@ -332,7 +204,7 @@ end
 """
 The branches are always returned left to right. So for a self-connecting branch the beginning of the branch would come before the end of the branch.
 """
-function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Array{Array{ArcInPants,1},1})
+function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Vector{ArcInPants})
     pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
     sw = pantscurve_toswitch(pd, pantscurveindex)
     turning = switch_turning(dttraintrack, sw, branchencodings)
@@ -351,29 +223,13 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, p
     end
 end
 
-function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
-    x = 0
-    for br in outgoing_branches(tt, sw)
-        if !ispantscurve(branchencodings[abs(br)][1])
-            x += branchmeasure(measure, br)
-        end
-    end
-    x
-end
 
-function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
-    for br in outgoing_branches(tt, sw)
-        if ispantscurve(branchencodings[abs(br)][1])
-            return branchmeasure(measure, br)
-        end
-    end
-end
 
-function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Array{Array{ArcInPants,1},1})
+function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Vector{ArcInPants})
     if branchtype == SELFCONN
         # The self-connecting branch with the positive orientation starts on the left and ends at the right, so it is the first self-connecting branch we find scanning from left to right.
         for br in branches_at_pantend(dttraintrack, pd, pantindex, bdyindex, branchencodings)
-            if isselfconnecting(branchencodings[abs(br)][1])
+            if isselfconnecting(branchencodings[abs(br)])
                 return br
             end
         end
@@ -381,7 +237,7 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
         next_branches = branches_at_pantend(dttraintrack, pd, pantindex, nextindex(bdyindex, 3), branchencodings)
         prev_branches = branches_at_pantend(dttraintrack, pd, pantindex, previndex(bdyindex, 3), branchencodings)
         for br in next_branches
-            if isbridge(branchencodings[abs(br)][1]) && -br in prev_branches
+            if isbridge(branchencodings[abs(br)]) && -br in prev_branches
                 return br
             end
         end
@@ -432,8 +288,50 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyin
 end
 
 
+# ---------------------------------------------
+# Branch encoding construction
+# ---------------------------------------------
 
 
+# function encoding(branchtype::Int, startpantscurve::Int)
+#     if branchtype == PANTSCURVE
+#         return 
+#     elseif
+# end
+
+# function branchencodings(dttraintrack::TrainTrack, turnings::Array{Int, 1}, branchdata::Array{BranchData})
+#     encodings = ArcInPants[]
+
+#     for br in branches(dttraintrack)  # actually 1:length(branches)
+#         startvertex = branch_endpoint(dttraintrack, -br)
+#         endvertex = branch_endpoint(dttraintrack, br)
+#         function gate(vertex)
+#             g = turnings[abs(vertex)]
+#             return vertex > 0 ? otherside(g) : g
+#         end
+#         data = branchdata[br]
+#         if data.branchtype == PANTSCURVE
+#             push!(encodings, pantscurvearc(abs(startvertex), FORWARD))
+#         elseif data.branchtype == BRIDGE
+#             startgate = gate(startvertex)
+#             endgate = gate(endvertex)
+#             push!(encodings, ArcInPants(abs(startvertex), startgate, abs(endvertex), endgate))
+#         elseif data.branchtype == SELFCONN
+#             startgate = gate(startvertex)
+#             push!(encodings, selfconnarc(abs(startvertex), startgate, RIGHT))
+#         else
+#             @assert false
+#         end
+#     end
+#     [[enc] for enc in encodings]
+# end
+
+
+
+
+
+
+end
 
 
 

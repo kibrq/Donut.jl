@@ -3,6 +3,7 @@ module DTCoordinates
 export DehnThurstonCoordinates, dtcoords_of_pantscurve, dtcoords_of_transversal
 
 using Donut.Pants
+import Base.==
 
 # TODO: shall we instead use a bigger array instead when the i'th index contains the data of curve i?
 struct DehnThurstonCoordinates
@@ -28,6 +29,10 @@ end
 
 # function DehnThurstonCoordinates(intersection_numbers::Array{Int}, twisting_numbers::Array{Int})
 # end
+
+function ==(coords1::DehnThurstonCoordinates, coords2::DehnThurstonCoordinates)
+    coords1.intersection_numbers == coords2.intersection_numbers && coords1.twisting_numbers == coords2.twisting_numbers
+end
 
 function dtcoords_of_pantscurve(pd::PantsDecomposition, pantscurve::Int)
     if !isinner_pantscurve(pd, pantscurve)
