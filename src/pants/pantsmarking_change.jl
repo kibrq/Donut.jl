@@ -16,6 +16,7 @@ struct FirstMove <: ChangeOfPantsMarking
     inverse::Bool
 end
 
+FirstMove(x) = FirstMove(x, false)
 inverse(move::FirstMove) = FirstMove(move.curveindex, !move.inverse)
 
 struct SecondMove <: ChangeOfPantsMarking
@@ -29,6 +30,7 @@ struct HalfTwist <: ChangeOfPantsMarking
     power::Int
 end
 
+HalfTwist(x) = HalfTwist(x, 1)
 inverse(move::HalfTwist) = HalfTwist(move.curveindex, -move.power)
 
 struct Twist <: ChangeOfPantsMarking
@@ -36,6 +38,7 @@ struct Twist <: ChangeOfPantsMarking
     power::Int
 end
 
+Twist(x) = Twist(x, 1)
 inverse(move::Twist) = Twist(move.curveindex, -move.power)
 
 

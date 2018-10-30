@@ -5,7 +5,7 @@ using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.Pants.DTCoordinates
 using Donut.PantsAndTrainTracks
-using Donut.PantsAndTrainTracks: ArcInPants
+using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
 import Base.==
 
 struct PantsLamination{T}

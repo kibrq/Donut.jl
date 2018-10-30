@@ -1,8 +1,16 @@
 
+module IsotopyAfterElementaryMoves
+
 export update_encodings_after_halftwist!, update_encodings_after_dehntwist!, update_encodings_after_firstmove!, update_encodings_after_secondmove!
 
-
+using Donut.Constants: LEFT, RIGHT
+using Donut.TrainTracks
+using Donut.Pants
+using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.Pants.ElementaryMoves
+using Donut.Utils: otherside, nextindex, previndex
+using Donut.PantsAndTrainTracks.DehnThurstonTracks: findbranch, arc_in_pantsdecomposition
+using Donut.PantsAndTrainTracks.PathTightening: reversedpath
 
 function replacement_rules_twist(twistdirection::Int=RIGHT)
     # idx1, idx2, idx3 = bdyindex, nextindex(bdyindex, 3), previndex(bdyindex, 3)
@@ -93,17 +101,16 @@ function compile_newbranches(replacement_rules, compile_fn::Function)
     [(br, [compile_fn(item) for item in newdata]) for (br, newdata) in replacement_rules]
 end
 
-# TODO: branchencodings -> Vector
-function update_branchencodings!(branchencodings::Vector{ArcInPants}, compiledrules::Array{Tuple{Int, Array{ArcInPants,1}},1})
-
+function update_branchencodings!(branchencodings::Vector{ArcInPants}, compiledrules::Vector{Tuple{Int, Vector{ArcInPants}}})
+    encoding_changes = Tuple{Int, Vector{ArcInPants}}[]
     for (br, newencoding) in compiledrules
-        # TODO: br can be negative.
         if br > 0
-            branchencodings[br] = newencoding
+            push!(encoding_changes, (br, newencoding))
         else
-            branchencodings[-br] = reversedpath(newencoding)
+            push!(encoding_changes, (-br, reversedpath(newencoding)))
         end
     end
+    encoding_changes
 end
 
 # TODO: implement an inverse half twist. For now a half-twist plus and inverse Dehn twist does the job.
@@ -171,4 +178,4 @@ end
 
 
 
-# TODO: Change the encodings back to Array{ArcInPants} whereever possible and when the encodings are updated, store the updates in a separate Array{Array{ArcInPants}} array. (Only those entries would be nonempty when changes are needed.)
+end

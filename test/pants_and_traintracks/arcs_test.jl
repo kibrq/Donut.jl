@@ -1,26 +1,26 @@
 module ArcsTest
 
 using Test
-using Donut.PantsAndTrainTracks: ArcInPants, pantscurvearc, selfconnarc, reversed, isbridge, ispantscurve, isselfconnecting
+using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants, construct_pantscurvearc, construct_selfconnarc, construct_bridge, reversed, isbridge, ispantscurvearc, isselfconnarc
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
 
-arc = ArcInPants(1, LEFT, 3, RIGHT)
-@test reversed(arc) == ArcInPants(3, RIGHT, 1, LEFT)
+arc = construct_bridge(1, -3)
+@test reversed(arc) == construct_bridge(-3, 1)
 @test isbridge(arc)
-@test !ispantscurve(arc)
-@test !isselfconnecting(arc)
+@test !ispantscurvearc(arc)
+@test !isselfconnarc(arc)
 
-arc = pantscurvearc(4, FORWARD)
-@test reversed(arc) == pantscurvearc(4, BACKWARD)
+arc = construct_pantscurvearc(4)
+@test reversed(arc) == construct_pantscurvearc(-4)
 @test !isbridge(arc)
-@test ispantscurve(arc)
-@test !isselfconnecting(arc)
+@test ispantscurvearc(arc)
+@test !isselfconnarc(arc)
 
-arc = selfconnarc(3, LEFT, RIGHT)
-@test reversed(arc) == selfconnarc(3, LEFT, LEFT)
+arc = construct_selfconnarc(3, RIGHT)
+@test reversed(arc) == construct_selfconnarc(3, LEFT)
 @test !isbridge(arc)
-@test !ispantscurve(arc)
-@test isselfconnecting(arc)
+@test !ispantscurvearc(arc)
+@test isselfconnarc(arc)
 
 
 end

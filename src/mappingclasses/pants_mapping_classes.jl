@@ -1,7 +1,13 @@
 
-using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist
+
+
+export pantstwist, transversaltwist, PantsMappingClass
+
+using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, pant_nextto_pantscurve
 using Donut.Laminations: PantsLamination
 import Base.*, Base.==, Base.^
+import Donut.Pants.inverse
+using Donut.Constants: LEFT, RIGHT
 
 abstract type MappingClass end
 
@@ -11,7 +17,7 @@ struct PantsMappingClass <: MappingClass
 end
 
 function copy(pmc::PantsMappingClass)
-    PantsMappingClass(copy(pmc.change_of_markings))
+    PantsMappingClass(Base.copy(pmc.change_of_markings))
 end
 
 function identity_mapping_class()
@@ -30,7 +36,7 @@ end
 function transversaltwist(pd::PantsDecomposition, curveindex::Int, twistdirection::Int=RIGHT)
     # TODO: these first vs second move details shouldn't be here
     leftpant = pant_nextto_pantscurve(pd, curveindex, LEFT)
-    righpant = pant_nextto_pantscurve(pd, curveindex, RIGHT)
+    rightpant = pant_nextto_pantscurve(pd, curveindex, RIGHT)
     move = leftpant == rightpant ? FirstMove(curveindex) : SecondMove(curveindex)
     PantsMappingClass([move, Twist(curveindex), inverse(move)])
 end

@@ -4,9 +4,13 @@ export measured_dehnthurstontrack
 
 using Donut.Pants
 using Donut.Pants.DTCoordinates
-using Donut.TrainTrack
+using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
+using Donut.PantsAndTrainTracks.DehnThurstonTracks: BranchData
+using Donut.PantsAndTrainTracks.ArcsInPants
+using Donut.Utils: nextindex, previndex
+using Donut.Constants: LEFT, RIGHT
 
 function divide_by_2(x::Integer)
     if x % 2 == 1
@@ -33,7 +37,7 @@ end
 """
 From the Dehn-Thurston coordinates, creates an array whose i'th element is the intersection number of the i'th pants curve. (Boundary pants curves are also included in this array.)
 """
-function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Vector{T})
+function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Vector{T}) where {T}
     curves = curveindices(pd)
     len = maximum(curves)
     allintersections = fill(zero(T), len)
@@ -48,7 +52,7 @@ function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Ve
 end
 
 
-function determine_measure(dttraintrack::TrainTrack, twisting_numbers::Vector{T}, selfconn_and_bridge_measures, branchdata::Vector{BranchData})
+function determine_measure(dttraintrack::TrainTrack, twisting_numbers::Vector{T}, selfconn_and_bridge_measures, branchdata::Vector{BranchData}) where {T}
     measure = T[]
     for br in eachindex(twisting_numbers)
         # println("Pantscurve")
@@ -117,7 +121,7 @@ function measured_dehnthurstontrack(pd::PantsDecomposition, dtcoords::DehnThurst
 end
 
 
-function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
+function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
     x = 0
     for br in outgoing_branches(tt, sw)
         if !ispantscurve(branchencodings[abs(br)][1])
@@ -127,7 +131,7 @@ function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings:
     x
 end
 
-function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Array{Array{ArcInPants, 1}, 1}, sw::Int)
+function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
     for br in outgoing_branches(tt, sw)
         if ispantscurve(branchencodings[abs(br)][1])
             return branchmeasure(measure, br)

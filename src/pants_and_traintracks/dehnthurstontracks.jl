@@ -157,7 +157,7 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Vector{Int}, turn
         splice!(x, length(x)+insertpos+1:length(x)+insertpos, nextlabel)
         nextlabel += 1
         c = ispantend_orientationpreserving(pd, pant, typ) ? curve : -curve
-        push!(branchencodings, construct_selfconnarc(c))
+        push!(branchencodings, construct_selfconnarc(c, LEFT))
         push!(branchdata, BranchData(SELFCONN, pant, typ))
     end
     tt = TrainTrack(gluinglist, twistedbranches)
@@ -183,7 +183,7 @@ end
 function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vector{ArcInPants})
     for side in (LEFT, RIGHT)
         br = outgoing_branch(dttraintrack, sw, 1, side)
-        if ispantscurve(branchencodings[abs(br)])
+        if ispantscurvearc(branchencodings[abs(br)])
             return side
         end
     end
@@ -229,7 +229,7 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
     if branchtype == SELFCONN
         # The self-connecting branch with the positive orientation starts on the left and ends at the right, so it is the first self-connecting branch we find scanning from left to right.
         for br in branches_at_pantend(dttraintrack, pd, pantindex, bdyindex, branchencodings)
-            if isselfconnecting(branchencodings[abs(br)])
+            if isselfconnarc(branchencodings[abs(br)])
                 return br
             end
         end
@@ -258,26 +258,26 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, bdyin
     # println("arc_in_pantsdecomposition", pantindex, ", ", bdyindex, ", ", branchtype)
     if branchtype == PANTSCURVE
         bdycurve = pantscurve_nextto_pant(pd, pantindex, abs(bdyindex))
-        return pantscurvearc(abs(bdycurve), bdycurve * bdyindex > 0 ? FORWARD : BACKWARD)
+        return construct_pantscurvearc(sign(bdyindex) * bdycurve)
     elseif branchtype == SELFCONN
         bdycurve, side = pantend_to_pantscurveside(pd, pantindex, abs(bdyindex))
-        if bdycurve < 0
-            side = otherside(side)
-        end
-        return selfconnarc(abs(bdycurve), side, bdyindex > 0 ? LEFT : RIGHT)
+        # if bdycurve < 0
+        #     side = otherside(side)
+        # end
+        return construct_selfconnarc(bdycurve * (side == LEFT ? 1 : -1), bdyindex > 0 ? LEFT : RIGHT)
     elseif branchtype == BRIDGE
         idx1 = nextindex(abs(bdyindex), 3)
         curve1, side1 = pantend_to_pantscurveside(pd, pantindex, idx1)
-        if curve1 < 0
-            side1 = otherside(side1)
-        end
+        # if curve1 < 0
+        #     side1 = otherside(side1)
+        # end
 
         idx2 = previndex(abs(bdyindex), 3)
         curve2, side2 = pantend_to_pantscurveside(pd, pantindex, idx2)
-        if curve2 < 0
-            side2 = otherside(side2)
-        end
-        newarc = ArcInPants(abs(curve1), side1, abs(curve2), side2)
+        # if curve2 < 0
+        #     side2 = otherside(side2)
+        # end
+        newarc = construct_bridge(curve1 * (side1 == LEFT ? 1 : -1), curve2 * (side2 == LEFT ? 1 : -1))
         if bdyindex < 0
             newarc = reversed(newarc)
         end

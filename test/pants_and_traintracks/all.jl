@@ -1,3 +1,6 @@
 include("arcs_test.jl")
-include("illegalpaths_test.jl")
+include("path_tightening_test.jl")
 include("dehnthurstontracks_test.jl")
+include("measured_dehnthurston_test.jl")
+include("isotopy_after_elementarymove_test.jl")
+include("peel_fold_test.jl")

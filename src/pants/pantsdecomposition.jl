@@ -247,13 +247,10 @@ end
 
 function pantsdecomposition_humphries(genus::Int)
     a = [[1, 2, -1]]
-    for i in 1:genus-1
+    for i in 1:genus-2
         push!(a, [3*i+1, 3*i, 1-3*i])
         push!(a, [-3*i, -1-3*i, 2+3*i])
     end
     push!(a, [-3*genus+3, -3*genus+4, 3*genus-3])
-    a
+    PantsDecomposition(a)
 end
-
-
-

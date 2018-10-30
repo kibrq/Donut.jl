@@ -1,10 +1,10 @@
 module PantsAndTrainTracks
 
 include("arcsinpants.jl")
-include("illegalpaths.jl")
+include("path_tightening.jl")
 include("dehnthurstontracks.jl")
 include("measured_dehnthurstontracks.jl")
-include("updateencoding_elementarymoves.jl")
-include("illegalpath_removal.jl")
+include("isotopy_after_elementarymoves.jl")
+include("peel_fold.jl")
 
 end
