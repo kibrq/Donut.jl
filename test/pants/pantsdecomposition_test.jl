@@ -5,29 +5,26 @@ using Donut.Pants
 using Donut.Pants: PantEnd
 using Donut.Constants: LEFT, RIGHT
 
-@test_throws ErrorException PantsDecomposition([[1, 2, 3], [-2, -2, -1]])
-@test_throws ErrorException PantsDecomposition([[1, 2, 3, -3], [-2, -1]])
-@test_throws ErrorException PantsDecomposition([[1, 2, 0], [3, -2, -1]])
+# PantsDecomposition([(1, 2, 3), (-2, -2, -1)])
+@test_throws ErrorException PantsDecomposition([(1, 2, 3), (-2, -2, -1)])
+@test_throws ErrorException PantsDecomposition([(1, 2, 0), (3, -2, -1)])
 
 @testset "Simple genus 2 pants decomposition" begin
-    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
     @test pants(pd) == [1, 2]
     @test numpants(pd) == 2
     @test numpunctures(pd) == 0
     @test numboundarycurves(pd) == 0
     @test eulerchar(pd) == -2
-    @test isvalidcurveindex(pd, -2)
-    @test isvalidcurveindex(pd, 3)
-    @test !isvalidcurveindex(pd, 5)
     @test boundarycurveindices(pd) == Int[]
     @test innercurveindices(pd) == [1, 2, 3]
     @test curveindices(pd) == [1, 2, 3]
     @test !isboundary_pantscurve(pd, 1)
     @test !isboundary_pantscurve(pd, -1)
-    @test !isboundary_pantscurve(pd, 4)
+    @test_throws ErrorException isboundary_pantscurve(pd, 4)
     @test isinner_pantscurve(pd, 1)
     @test isinner_pantscurve(pd, -1)
-    @test !isinner_pantscurve(pd, 4)
+    @test_throws ErrorException isinner_pantscurve(pd, 4)
     @test istwosided_pantscurve(pd, 1)
     @test istwosided_pantscurve(pd, -1)
     @test !isonesided_pantscurve(pd, 3)
@@ -41,13 +38,13 @@ using Donut.Constants: LEFT, RIGHT
     @test pant_nextto_pantscurve(pd, -3, LEFT) == 2
     @test pant_nextto_pantscurve(pd, -3, RIGHT) == 1
     pantend = pantscurveside_to_pantend(pd, 1, LEFT)
-    @test (pantend.pantnumber, pantend.bdyindex) == (1, 1)
+    @test (pantend.pantindex, pantend.bdyindex) == (1, 1)
     pantend = pantscurveside_to_pantend(pd, 1, RIGHT)
-    @test (pantend.pantnumber, pantend.bdyindex) == (2, 3)
+    @test (pantend.pantindex, pantend.bdyindex) == (2, 3)
     pantend = pantscurveside_to_pantend(pd, -1, LEFT)
-    @test (pantend.pantnumber, pantend.bdyindex) == (2, 3)
+    @test (pantend.pantindex, pantend.bdyindex) == (2, 3)
     pantend = pantscurveside_to_pantend(pd, -1, RIGHT)
-    @test (pantend.pantnumber, pantend.bdyindex) == (1, 1)
+    @test (pantend.pantindex, pantend.bdyindex) == (1, 1)
     @test pantend_to_pantscurveside(pd, 1, 1) == (1, LEFT)
     @test pantend_to_pantscurveside(pd, 1, 2) == (2, LEFT)
     @test pantend_to_pantscurveside(pd, 1, 3) == (3, LEFT)
@@ -57,7 +54,7 @@ using Donut.Constants: LEFT, RIGHT
 end
 
 @testset "Pants decomposition with one-sided curves, boundary, and orientation-reversing gluings" begin
-    pd = PantsDecomposition([[1, 2, 3], [-3, 4, 5], [4, 6, 6]], [1])
+    pd = PantsDecomposition([(1, 2, 3), (-3, 4, 5), (4, 6, 6)], [1])
     @test boundarycurveindices(pd) == [2, 5]
     @test curveindices(pd) == [1, 2, 3, 4, 5, 6]
     @test innercurveindices(pd) == [1, 3, 4, 6]

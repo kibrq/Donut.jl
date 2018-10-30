@@ -9,7 +9,7 @@ using Donut.MappingClasses
 
 function humphries_generators(genus::Int, rightmost_included::Bool=false)
     pd = pantsdecomposition_humphries(genus)
-    A = [pantstwist(1)]
+    A = [pantstwist(pd, 1)]
     for i in 1:genus-1
         push!(A, transversaltwist(pd, 3*i-1))
     end
@@ -20,11 +20,11 @@ function humphries_generators(genus::Int, rightmost_included::Bool=false)
         push!(B, fi)
     end
     push!(B, transversaltwist(pd, 3*genus-3))
-    c = pantstwist(3)
+    c = pantstwist(pd, 3)
     if rightmost_included
-        push!(A, pantstwist(3*genus-3))
+        push!(A, pantstwist(pd, 3*genus-3))
     end
-    pd, A, B, c
+    A, B, c
 end
 
 

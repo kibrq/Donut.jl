@@ -4,7 +4,7 @@ export apply_firstmove!, apply_secondmove!, applymove_onesided_to_onesided!, app
 
 
 using Donut.Pants
-using Donut.Pants: _pantscurve, _getpant
+using Donut.Pants: _setboundarycurves, _setpantscurveside_to_pantend
 using Donut.Utils: nextindex, previndex, otherside
 using Donut.Constants: LEFT, RIGHT
 # function elementarymove_type(pd::PantsDecomposition, curveindex::Int)
@@ -13,22 +13,7 @@ using Donut.Constants: LEFT, RIGHT
 #     end
 # end
 
-function _setpantscurveside_to_pantend(pd::PantsDecomposition, curveindex::Int,
-        side::Int, pantnumber::Int, bdyindex::Int)
-    pantscurve = _pantscurve(pd, curveindex)
-    if curveindex < 0
-        side = otherside(side)
-    end
-    pantscurve.neighboring_pantends[side].pantnumber = pantnumber
-    pantscurve.neighboring_pantends[side].bdyindex = bdyindex
-end
 
-function _setboundarycurves(pd::PantsDecomposition, pantindex::Int, bdy1::Int, bdy2::Int, bdy3::Int)
-    pant = _getpant(pd, pantindex)
-    pant.boundaries[1] = bdy1
-    pant.boundaries[2] = bdy2
-    pant.boundaries[3] = bdy3
-end
 
 function apply_secondmove!(pd::PantsDecomposition, curveindex::Int)
     @assert istwosided_pantscurve(pd, curveindex)
@@ -99,15 +84,22 @@ end
 
 function apply_halftwist!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
     boundaries = pantboundaries(pd, pantindex)
-    idx1 = bdyindex
     idx2 = nextindex(bdyindex, 3)
     idx3 = previndex(bdyindex, 3)
 
     curve2, side2 = pantend_to_pantscurveside(pd, pantindex, idx2)
     curve3, side3 = pantend_to_pantscurveside(pd, pantindex, idx3)
 
-    boundaries[idx2], boundaries[idx3] = boundaries[idx3], boundaries[idx2]
-    _setboundarycurves(pd, pantindex, boundaries...)
+    if bdyindex == 1
+        swap_indices = (1, 3, 2)
+    elseif bdyindex == 2
+        swap_indices = (3, 2, 1)
+    elseif bdyindex == 3
+        swap_indices = (2, 1, 3)
+    else
+        @assert false
+    end
+    _setboundarycurves(pd, pantindex, boundaries[swap_indices[1]], boundaries[swap_indices[2]], boundaries[swap_indices[3]])
     _setpantscurveside_to_pantend(pd, curve2, side2, pantindex, idx3)
     _setpantscurveside_to_pantend(pd, curve3, side3, pantindex, idx2)
 end

@@ -9,7 +9,7 @@ using Donut.PantsAndTrainTracks.DehnThurstonTracks: dehnthurstontrack, pantscurv
 using Donut.PantsAndTrainTracks.ArcsInPants: SELFCONN, BRIDGE, PANTSCURVE, construct_pantscurvearc, construct_selfconnarc, construct_bridge
 
 
-pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
 turnings = [LEFT, RIGHT, LEFT]
 tt, encodings, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
 
@@ -59,7 +59,7 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
 @test findbranch(tt, pd, 2, 2, PANTSCURVE, encodings) == -2
 @test findbranch(tt, pd, 2, 3, PANTSCURVE, encodings) == -1
 
-pd = PantsDecomposition([[1, 2, 3], [-2, -3, 4]])
+pd = PantsDecomposition([(1, 2, 3), (-2, -3, 4)])
 # dehnthurstontrack(pd, [1, 1], [LEFT, LEFT])
 # in the first pant, only 2 and 3 are inner pants curves
 @test_throws ErrorException dehnthurstontrack(pd, [0, 1], [LEFT, LEFT])
@@ -67,7 +67,7 @@ pd = PantsDecomposition([[1, 2, 3], [-2, -3, 4]])
 dehnthurstontrack(pd, [2, 1], [LEFT, LEFT])
 dehnthurstontrack(pd, [3, 1], [LEFT, LEFT])
 
-pd = PantsDecomposition([[1, 2, 3], [-2, 4, 5], [-3, 6, 6]])
+pd = PantsDecomposition([(1, 2, 3), (-2, 4, 5), (-3, 6, 6)])
 turnings = [RIGHT, LEFT, LEFT]
 tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 @test switches(tt) == [1, 2, 3]
@@ -104,7 +104,7 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 
 
 @testset "Constructing arcs in pants decompositions" begin
-    pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
+    pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
     @test arc_in_pantsdecomposition(pd, 1, 2, BRIDGE) == construct_bridge(3, 1)
     @test arc_in_pantsdecomposition(pd, 1, -2, BRIDGE) == construct_bridge(1, 3)
     @test arc_in_pantsdecomposition(pd, 2, 3, BRIDGE) == construct_bridge(-3, -2)
@@ -118,7 +118,7 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
     @test arc_in_pantsdecomposition(pd, 1, 1, PANTSCURVE) == construct_pantscurvearc(1)
     @test arc_in_pantsdecomposition(pd, 1, -1, PANTSCURVE) == construct_pantscurvearc(-1)
 
-    pd = PantsDecomposition([[1, 2, 3], [-2, 4, 5], [-3, 6, 6]])
+    pd = PantsDecomposition([(1, 2, 3), (-2, 4, 5), (-3, 6, 6)])
     @test arc_in_pantsdecomposition(pd, 3, 1, BRIDGE) == construct_bridge(6, -6)
     @test arc_in_pantsdecomposition(pd, 3, -1, BRIDGE) == construct_bridge(-6, 6)
 

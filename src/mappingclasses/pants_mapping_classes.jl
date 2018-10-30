@@ -3,49 +3,71 @@
 
 export pantstwist, transversaltwist, PantsMappingClass
 
-using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, pant_nextto_pantscurve
+using Donut.Pants
+using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, pant_nextto_pantscurve, isequal_strong
 using Donut.Laminations: PantsLamination
 import Base.*, Base.==, Base.^
 import Donut.Pants.inverse
+import Donut
+import Donut.Pants.copy
 using Donut.Constants: LEFT, RIGHT
 
 abstract type MappingClass end
 
 struct PantsMappingClass <: MappingClass
-    # pd::PantsDecomposition
+    pd::PantsDecomposition
     change_of_markings::Vector{ChangeOfPantsMarking}  # applied from right to left
 end
 
 function copy(pmc::PantsMappingClass)
-    PantsMappingClass(Base.copy(pmc.change_of_markings))
+    PantsMappingClass(Donut.Pants.copy(pmc.pd), Base.copy(pmc.change_of_markings))
 end
 
-function identity_mapping_class()
-    PantsMappingClass(ChangeOfPantsMarking[])
+function identity_mapping_class(pd::PantsDecomposition)
+    PantsMappingClass(pd, ChangeOfPantsMarking[])
 end
 
-function pantstwist(curveindex::Int, power::Int=1)
-    PantsMappingClass([Twist(curveindex, -power)])
+function pantstwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
+    if !istwosided_pantscurve(pd, curveindex)
+        error("Curve $(curveindex) is not a two-sided inner pants curve, so we cannot perform a Dehn Twist around it.")
+    end
+    PantsMappingClass(pd, [Twist(curveindex, -power)])
 end
 
-function halftwist(curveindex::Int, power::Int=1)
+function halftwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
     # TODO: we should check that the curve is around two boundaries. Input the pd.
-    PantsMappingClass([HalfTwist(curveindex, -power)])
+    if !istwosided_pantscurve(pd, curveindex)
+        error("Curve $(curveindex) is not a two-sided inner pants curve, so we cannot perform a Dehn Twist around it.")
+    end
+    PantsMappingClass(pd, [HalfTwist(curveindex, -power)])
 end
 
 function transversaltwist(pd::PantsDecomposition, curveindex::Int, twistdirection::Int=RIGHT)
-    # TODO: these first vs second move details shouldn't be here
-    leftpant = pant_nextto_pantscurve(pd, curveindex, LEFT)
-    rightpant = pant_nextto_pantscurve(pd, curveindex, RIGHT)
-    move = leftpant == rightpant ? FirstMove(curveindex) : SecondMove(curveindex)
-    PantsMappingClass([move, Twist(curveindex), inverse(move)])
+    if isfirstmove_curve(pd, curveindex)
+        move = FirstMove(curveindex)
+    elseif issecondmove_curve(pd, curveindex)
+        move = SecondMove(curveindex)
+    else
+        error("Curve $(curveindex) is not a first or second move curve, so we cannot perform transversaltwist about it.")
+    end
+    PantsMappingClass(pd, [move, Twist(curveindex), inverse(move)])
 end
 
 function precompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
+    # println(pmc.pd.pants)
+    # println(pmc.pd.pantscurves)
+    # println(compose_by.pd.pants)
+    # println(compose_by.pd.pantscurves)
+    if !isequal_strong(pmc.pd, compose_by.pd)
+        error("Two mapping classes can only be composed when they share the same PantsDecomposition.")
+    end
     append!(pmc.change_of_markings, compose_by.change_of_markings)
 end
 
 function postcompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
+    if pmc.pd != compose_by.pd
+        error("Two mapping classes can only be composed when they share the same PantsDecomposition.")
+    end
     splice!(pmc.change_of_markings, 1:0, compose_by.change_of_markings)
 end
 
@@ -57,10 +79,10 @@ end
 
 function ^(pmc::PantsMappingClass, exp::Int)
     if exp == 0
-        return identity_mapping_class()
+        return identity_mapping_class(pmc.pd)
     end
     new_arr = Iterators.flatten([pmc.change_of_markings for i in 1:abs(exp)])
-    new_pmc = PantsMappingClass(collect(new_arr))
+    new_pmc = PantsMappingClass(pmc.pd, collect(new_arr))
 
     if exp > 0
         return new_pmc
@@ -103,11 +125,11 @@ end
 
 
 function inverse(pmc::PantsMappingClass)
-    PantsMappingClass(reverse(inverse(move) for move in pmc.change_of_markings))
+    PantsMappingClass(pmc.pd, reverse(inverse(move) for move in pmc.change_of_markings))
 end
 
 function isidentity_upto_homology(pmc::PantsMappingClass)
-    pd = pml.pd
+    pd = pmc.pd
     for curveindex in innerindices(pd)
         lam = lamination_from_pantscurve(pd, curveindex)
         if lam != pmc * lam
