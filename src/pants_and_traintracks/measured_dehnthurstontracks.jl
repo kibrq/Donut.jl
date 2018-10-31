@@ -3,12 +3,13 @@ module MeasuredDehnThurstonTracks
 export measured_dehnthurstontrack, intersecting_measure, pantscurve_measure
 
 using Donut.Pants
-using Donut.Pants.DTCoordinates
+using Donut.Pants.DehnThurstonCoords
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: BranchData
 using Donut.PantsAndTrainTracks.ArcsInPants
+
 using Donut.Utils: nextindex, previndex
 using Donut.Constants: LEFT, RIGHT
 
@@ -34,22 +35,22 @@ function selfconn_and_bridge_measures(ints1::T, ints2::T, ints3::T) where {T}
     return selfconn, bridges
 end
 
-"""
-From the Dehn-Thurston coordinates, creates an array whose i'th element is the intersection number of the i'th pants curve. (Boundary pants curves are also included in this array.)
-"""
-function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Vector{T}) where {T}
-    curves = curveindices(pd)
-    len = maximum(curves)
-    allintersections = fill(zero(T), len)
-    innerindices = innercurveindices(pd)
-    if length(innerindices) != length(intersection_numbers)
-        error("Mismatch between number of inner pants curves ($(length(innerindices))) and the number of Dehn-Thurston coordinates ($(length(intersection_numbers))).")
-    end
-    for i in eachindex(innerindices)
-        allintersections[innerindices[i]] = intersection_numbers[i]
-    end
-    return allintersections
-end
+# """
+# From the Dehn-Thurston coordinates, creates an array whose i'th element is the intersection number of the i'th pants curve. (Boundary pants curves are also included in this array.)
+# """
+# function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Vector{T}) where {T}
+#     curves = curveindices(pd)
+#     len = maximum(curves)
+#     allintersections = fill(zero(T), len)
+#     innerindices = innercurveindices(pd)
+#     if length(innerindices) != length(intersection_numbers)
+#         error("Mismatch between number of inner pants curves ($(length(innerindices))) and the number of Dehn-Thurston coordinates ($(length(intersection_numbers))).")
+#     end
+#     for i in eachindex(innerindices)
+#         allintersections[innerindices[i]] = intersection_numbers[i]
+#     end
+#     return allintersections
+# end
 
 
 function determine_measure(dttraintrack::TrainTrack, twisting_numbers::Vector{T}, selfconn_and_bridge_measures, branchdata::Vector{BranchData}) where {T}
@@ -102,20 +103,25 @@ end
 
 
 
-function measured_dehnthurstontrack(pd::PantsDecomposition, dtcoords::DehnThurstonCoordinates)
-    allintersections = allcurve_intersections(pd, dtcoords.intersection_numbers)
+function measured_dehnthurstontrack(pd::PantsDecomposition, dtcoords_vec::Vector{Tuple{T, T}}) where {T}
+    dtcoords = DehnThurstonCoordinates{T}(pd, dtcoords_vec)
+    for c in innercurveindices(pd)
+        if isonesided_pantscurve(pd, c)
+            error("Measured Dehn-Thurston tracks are currently implemented only when all pants curves are two-sided")
+        end
+    end
+    # allintersections = allcurve_intersections(pd, dtcoords.intersection_numbers)
  
-    sb_measures = [selfconn_and_bridge_measures([allintersections[abs(c)] for c in pantboundaries(pd, pant)]...) for pant in pants(pd)]
+    sb_measures = [selfconn_and_bridge_measures([intersection_number(dtcoords, c) for c in pantboundaries(pd, pant)]...) for pant in pants(pd)]
     
     pantstypes = [determine_panttype(pd, pantboundaries(pd, pant), sb_measures[pant]...) for pant in pants(pd)]
 
-    turnings = [twist < 0 ? LEFT : RIGHT for twist in dtcoords.twisting_numbers]
+    twisting_numbers = [twisting_number(dtcoords, c) for c in innercurveindices(pd)]
+    turnings = [twist < 0 ? LEFT : RIGHT for twist in twisting_numbers]
 
     tt, encodings, branchdata = dehnthurstontrack(pd, pantstypes, turnings)
 
-    measure = determine_measure(tt, dtcoords.twisting_numbers, sb_measures, branchdata)
-
-    # encodings = branchencodings(tt, turnings, branchdata)
+    measure = determine_measure(tt, twisting_numbers, sb_measures, branchdata)
 
     tt, measure, encodings
 end
@@ -130,6 +136,7 @@ function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings:
     end
     x
 end
+
 
 function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
     for br in outgoing_branches(tt, sw)

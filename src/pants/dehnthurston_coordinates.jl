@@ -1,71 +1,62 @@
-module DTCoordinates
 
-export DehnThurstonCoordinates, dtcoords_of_pantscurve, dtcoords_of_transversal
+module DehnThurstonCoords
+
+export DehnThurstonCoordinates, intersection_number, twisting_number
 
 using Donut.Pants
-using Donut.Constants: LEFT, RIGHT
-import Base.==
 
-# TODO: shall we instead use a bigger array instead when the i'th index contains the data of curve i?
 struct DehnThurstonCoordinates{T}
-    intersection_numbers::Vector{T}
-    twisting_numbers::Vector{T}
+    pd::PantsDecomposition
+    coords::Vector{Tuple{T, T}}
 
-    function DehnThurstonCoordinates{T}(intersection_numbers::Vector{T}, twisting_numbers::Vector{T}) where {T}
-        if length(intersection_numbers) != length(twisting_numbers)
-            error("The length of the intersection number array should be the same as the length of the twisting number array.")
+    function DehnThurstonCoordinates{T}(pd::PantsDecomposition, dtcoords::Vector{Tuple{T,T}}) where {T}
+        ipc = innercurveindices(pd)
+        if length(ipc) != length(dtcoords)
+            error("The length of the coordinate list $(length(dtcoords)) should agree with the number of inner pants curves $(length(ipc)).")
         end
-        for i in eachindex(intersection_numbers)
-            ints = intersection_numbers[i]
-            if ints < 0
-                error("The intersection number cannot be negative.")
-            end
-            if ints == 0 && twisting_numbers[i] < 0
-                error("The convention is that when the intersection number is zero, the twisting number is nonnegative.")
+        for i in eachindex(dtcoords)
+            curveindex = ipc[i]
+            if istwosided_pantscurve(pd, curveindex)
+                # if length(dtcoords[i]) != 2
+                #     error("For the two-sided pants curve $(curveindex), exactly two coordinates should be provided instead of $(length(dtcoords[i])).")
+                # end
+                intersection_number = dtcoords[i][1]
+                twisting_number = dtcoords[i][2]
+                if intersection_number < 0
+                    error("The intersection numbers cannot be negative.")
+                end
+                if intersection_number == 0 && twisting_number < 0
+                    error("The convention is that when the intersection number is zero, the twisting number is nonnegative.")
+                end
+            elseif isonesided_pantscurve(pd, curveindex)
+                if dtcoords[i][2] != 1
+                    error("For the one-sided pants curve $(curveindex), the second coordinate should be zero.")
+                end
+            else
+                @assert false
             end
         end
-        new(intersection_numbers, twisting_numbers)
+        curves = curveindices(pd)
+        len = maximum(curves)
+        x = fill((T(0), T(0)), len)
+        ipc = innercurveindices(pd)
+        for i in eachindex(dtcoords)
+            x[ipc[i]] = dtcoords[i]
+        end
+        new(pd, x)
     end
 end
 
-# function DehnThurstonCoordinates(intersection_numbers::Array{Int}, twisting_numbers::Array{Int})
-# end
 
-function ==(coords1::DehnThurstonCoordinates, coords2::DehnThurstonCoordinates)
-    coords1.intersection_numbers == coords2.intersection_numbers && coords1.twisting_numbers == coords2.twisting_numbers
+function intersection_number(dtcoords::DehnThurstonCoordinates, curveindex::Int) where {T}
+    @assert istwosided_pantscurve(dtcoords.pd, curveindex)
+    dtcoords.coords[abs(curveindex)][1]
 end
 
-function dtcoords_of_pantscurve(pd::PantsDecomposition, pantscurve::Int, samplenumber::T) where {T}
-    if !isinner_pantscurve(pd, pantscurve)
-        error("There is no inner pants curve of index $(pantscurve).")
-    end
-    DehnThurstonCoordinates{T}(
-        [zero(T) for c in innercurveindices(pd)],
-        [abs(pantscurve) != abs(c) ? zero(T) : one(T) for c in innercurveindices(pd)]
-    )
+function twisting_number(dtcoords::DehnThurstonCoordinates, curveindex::Int) where {T}
+    @assert istwosided_pantscurve(dtcoords.pd, curveindex)
+    dtcoords.coords[abs(curveindex)][2]
 end
-
-function dtcoords_of_transversal(pd::PantsDecomposition, pantscurve::Int, samplenumber::T) where {T}
-    if !isinner_pantscurve(pd, pantscurve)
-        error("There is no inner pants curve of index $(pantscurve).")
-    end
-    leftpant = pant_nextto_pantscurve(pd, pantscurve, LEFT)
-    rightpant = pant_nextto_pantscurve(pd, pantscurve, RIGHT)
-    # TODO: this might not be correct in the nonorientable case
-    numintersections = leftpant == rightpant ? one(T) : T(2)
-    DehnThurstonCoordinates{T}(
-        [abs(pantscurve) != abs(c) ? zero(T) : numintersections for c in innercurveindices(pd)],
-        [zero(T) for c in innercurveindices(pd)]
-    )
-end
-
-function dtcoords_random(pd::PantsDecomposition)
-
-end
-
-
-
-
 
 
 
