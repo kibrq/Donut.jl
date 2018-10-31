@@ -1,6 +1,6 @@
 module MeasuredDehnThurstonTracks
 
-export measured_dehnthurstontrack
+export measured_dehnthurstontrack, intersecting_measure, pantscurve_measure
 
 using Donut.Pants
 using Donut.Pants.DTCoordinates
@@ -124,7 +124,7 @@ end
 function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
     x = 0
     for br in outgoing_branches(tt, sw)
-        if !ispantscurve(branchencodings[abs(br)][1])
+        if !ispantscurvearc(branchencodings[abs(br)])
             x += branchmeasure(measure, br)
         end
     end
@@ -133,7 +133,7 @@ end
 
 function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
     for br in outgoing_branches(tt, sw)
-        if ispantscurve(branchencodings[abs(br)][1])
+        if ispantscurvearc(branchencodings[abs(br)])
             return branchmeasure(measure, br)
         end
     end

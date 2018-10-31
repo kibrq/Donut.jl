@@ -1,7 +1,7 @@
 
 module DehnThurstonTracks
 
-export dehnthurstontrack
+export dehnthurstontrack, switch_turning, pantscurve_toswitch, pantscurve_to_branch, branches_at_pantend, findbranch, arc_in_pantsdecomposition
 
 using Donut.Pants
 using Donut.TrainTracks
@@ -187,6 +187,9 @@ function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vect
             return side
         end
     end
+    println(dttraintrack)
+    println(sw)
+    println(branchencodings)
     @assert false
 end
 

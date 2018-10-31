@@ -11,6 +11,9 @@ import Donut.Pants.inverse
 import Donut
 import Donut.Pants.copy
 using Donut.Constants: LEFT, RIGHT
+using Donut.Laminations
+using Donut.PantsAndTrainTracks.PeelFold
+
 
 abstract type MappingClass end
 
@@ -87,7 +90,7 @@ function ^(pmc::PantsMappingClass, exp::Int)
     if exp > 0
         return new_pmc
     else
-        return inverse(new_pmc)
+        return inv(new_pmc)
     end
 end
 
@@ -113,6 +116,10 @@ end
 
 function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLamination)
     for cm in reverse(pmc.change_of_markings)
+        # println("----------------------------------------------------")
+        # println(cm)
+        # println(pl)
+        # println("----------------------------------------------------")
         apply_change_of_markings_to_lamination!(cm, pl)
     end
 end
@@ -124,18 +131,27 @@ function *(pmc::PantsMappingClass, pl::PantsLamination)
 end
 
 
-function inverse(pmc::PantsMappingClass)
-    PantsMappingClass(pmc.pd, reverse(inverse(move) for move in pmc.change_of_markings))
+function inv(pmc::PantsMappingClass)
+    PantsMappingClass(pmc.pd, [inverse(move) for move in reverse(pmc.change_of_markings)])
 end
 
 function isidentity_upto_homology(pmc::PantsMappingClass)
     pd = pmc.pd
-    for curveindex in innerindices(pd)
-        lam = lamination_from_pantscurve(pd, curveindex)
+    println(pmc)
+    for curveindex in innercurveindices(pd)
+        lam = lamination_from_pantscurve(pd, curveindex, BigInt(0))
+        println("Applying mapping class to pantscurve $(curveindex)")
+        println("Original curve: ", lam)
+        println("Image curve: ", pmc * lam)
+        println()
         if lam != pmc * lam
             return false
         end
-        lam = lamination_from_transversal(pd, curveindex)
+        lam = lamination_from_transversal(pd, curveindex, BigInt(0))
+        println("Applying mapping class to transversal $(curveindex)")
+        println("Original curve: ", lam)
+        println("Image curve: ", pmc * lam)
+        println()
         if lam != pmc * lam
             return false
         end
@@ -144,5 +160,13 @@ function isidentity_upto_homology(pmc::PantsMappingClass)
 end
 
 function ==(pmc1::PantsMappingClass, pmc2::PantsMappingClass)
-    isidentity_upto_homology(pmc1*pmc2^(-1))
+    isidentity_upto_homology(pmc1*inv(pmc2))
+end
+
+function Base.show(io::IO, pmc::PantsMappingClass)
+    println(io, pmc.pd)
+    println(io, "Change of markings: ")
+    for cm in pmc.change_of_markings
+        println(io, cm)
+    end
 end

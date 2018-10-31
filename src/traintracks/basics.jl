@@ -119,6 +119,7 @@ struct TrainTrack
     end
 end
 
+
 _setend!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
     branch_array[br_idx].endpoint[END] = sw_idx :
     branch_array[-br_idx].endpoint[START] = sw_idx
@@ -214,6 +215,7 @@ branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 
 switchvalence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
+twisted_branches(tt::TrainTrack) = filter(br->istwisted(tt, br), branches(tt))
 
 istrivalent(tt::TrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
 
@@ -243,6 +245,15 @@ end
 
 function tt_gluinglist(tt::TrainTrack)
     [outgoing_branches(tt, sg*sw) for sw in switches(tt) for sg in (1, -1)]
+end
+
+function Base.show(io::IO, tt::TrainTrack)
+    print(io, "Traintrack with gluing list ", tt_gluinglist(tt))
+    twbr = twisted_branches(tt)
+    if length(twbr) > 0
+        println()
+        print(io, "Twisted branches: ", twbr)
+    end
 end
 
 # TODO: possibly

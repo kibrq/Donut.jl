@@ -50,3 +50,6 @@ end
 # pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
 # PantsDecompositionAutomorphism([-1, -2, -3]) corresponds to the hyperelliptic involution.
 # PantsDecompositionAutomorphism([3, 2, 1]) corresponds to another order 2 involution.
+
+
+# function Base.show(io::IO, pmc::ChangeOfPantsMarking)

@@ -139,11 +139,27 @@ end
 
 """
 Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we can peel either the branch going forward or the branch going backward. This function returns FORWARD or BACKWARD, indicating which branch is peeled according to the measure (the one that has smaller measure).
+
+If the measures are equal, then we need to make sure that we are not peeling from the side where there is only one outgoing branch
 """
 function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
     br1 = outgoing_branch(tt, switch, 1, side)
     br2 = outgoing_branch(tt, -switch, 1, otherside(side))
-    branchmeasure(measure, br1) < branchmeasure(measure, br2) ? FORWARD : BACKWARD
+    m1 = branchmeasure(measure, br1)
+    m2 = branchmeasure(measure, br2)
+    if m1 < m2
+        return FORWARD
+    end
+    if m1 > m2
+        return BACKWARD
+    end
+    if numoutgoing_branches(tt, switch) > 1
+        return FORWARD
+    elseif numoutgoing_branches(tt, -switch) > 1
+        return BACKWARD
+    else
+        error("Switch $(switch) is two-valent. We cannot peel either side.")
+    end
 end
 
 

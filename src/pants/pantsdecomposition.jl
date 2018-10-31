@@ -17,12 +17,12 @@ mutable struct PantEnd
 end
 PantEnd() = PantEnd(NOPANT_THISSIDE, 0)
 exists(pantend::PantEnd) = pantend.pantindex != NOPANT_THISSIDE
-
+isequal(x1::PantEnd, x2::PantEnd) = x1.pantindex == x2.pantindex && x1.bdyindex == x2.bdyindex
 
 struct PantsCurve
     neighboring_pantends::Vector{PantEnd}  # length 2
 end
-isequal_strong(pc1::PantsCurve, pc2::PantsCurve) = pc1.neighboring_pantends[1] == pc2.neighboring_pantends[1] && pc1.neighboring_pantends[2] == pc2.neighboring_pantends[2]
+isequal_strong(pc1::PantsCurve, pc2::PantsCurve) = isequal(pc1.neighboring_pantends[1], pc2.neighboring_pantends[1]) && isequal(pc1.neighboring_pantends[2], pc2.neighboring_pantends[2])
 
 
 PantsCurve() = PantsCurve([PantEnd(), PantEnd()])
@@ -49,31 +49,17 @@ struct PantsDecomposition <: AbstractSurface
     pantboundaries::Vector{Tuple{Int, Int, Int}}
     pantscurves::Vector{PantsCurve}
 
-    # gluinglist will not be deepcopied, it is owned by the object
+    # gluinglist will not be copied, it is owned by the object
     function PantsDecomposition(gluinglist::Vector{Tuple{Int, Int, Int}},
                 onesided_curves::Array{Int, 1}=Int[])
-        num_pants = length(gluinglist)
-        for i in 1:num_pants
-            ls = gluinglist[i]
-            if length(ls) != 3
-                error("All pants should have three boundaries")
-            end
-        end
 
         allcurves = sort(map(abs,collect(Iterators.flatten(gluinglist))))
         maxcurvenumber = allcurves[end]
-        # for i in 1:length(allcurves)-2
-        #     if allcurves[i] == allcurves[i+1] == allcurves[i+2]
-        #         error("Each curve can appear in the gluing list at most once")
-        #     end
-        # end
 
         if allcurves[1] == 0
             error("Pants curves cannot be numbered by 0")
         end
 
-        # pants = [Pant(ls, [false, false, false]) for ls in gluinglist]
-        # pants = [Pant(ls) for ls in gluinglist]
         pantscurves = [PantsCurve() for i in 1:maxcurvenumber]
 
         for pantindex in eachindex(gluinglist)
@@ -111,18 +97,7 @@ struct PantsDecomposition <: AbstractSurface
 end
 
 function isequal_strong(pd1::PantsDecomposition, pd2::PantsDecomposition)
-    x1 = length(pd1.pantboundaries) == length(pd2.pantboundaries) 
-    x2 = all(pd1.pantboundaries[i] == pd2.pantboundaries[i] for i in eachindex(pd1.pantboundaries))
-    x3 = length(pd1.pantscurves) == length(pd2.pantscurves) 
-    for i in eachindex(pd1.pantscurves)
-        println(pd1.pantscurves[i])
-        println(pd2.pantscurves[i])
-        println(isequal_strong(pd1.pantscurves[i], pd2.pantscurves[i]))
-    end
-    x4 = all(isequal_strong(pd1.pantscurves[i], pd2.pantscurves[i]) for i in eachindex(pd1.pantscurves))
-    println(x1, x2, x3, x4)
-    x1 && x2 && x3 && x4
-    # pd1.pantboundaries == pd2.pantboundaries && length(pd1.pantscurves) == length(pd2.pantscurves) && all(isequal_strong(pd1.pantscurves[i], pd2.pantscurves[i]) for i in eachindex(pd1.pantscurves))
+    pd1.pantboundaries == pd2.pantboundaries && length(pd1.pantscurves) == length(pd2.pantscurves) && all(isequal_strong(pd1.pantscurves[i], pd2.pantscurves[i]) for i in eachindex(pd1.pantscurves))
 end
 
 
