@@ -153,16 +153,113 @@ function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::
     if m1 > m2
         return BACKWARD
     end
-    if numoutgoing_branches(tt, switch) > 1
-        return FORWARD
-    elseif numoutgoing_branches(tt, -switch) > 1
-        return BACKWARD
-    else
-        error("Switch $(switch) is two-valent. We cannot peel either side.")
+
+    for sg in (1, -1)
+        if remains_recurrent_after_peel(tt, sg*switch, sg == 1 ? side : otherside(side))
+            return sg == 1 ? FORWARD : BACKWARD
+        end
     end
+
+    # When m1 == m2, we have a choice. We need to make sure that after the peeling we get a recurrent train track. In particular, we need to check that locally near the switch, the switch conditions can be satisfied when all the branches have positive measure. For example, this fails when the branches on one side are [7,8,9] and the branches on the other side are [-8]. That is, the branches on one side are a proper subset of the branches on the other side.
+    # for sg in (1, -1)
+    #     set1 = outgoing_branches(tt, sg*switch, sg == 1 ? side : otherside(side))
+    #     if length(set1) == 1
+    #         # there is only one branch going forward, so we cannot peel that.
+    #         continue
+    #     end
+    #     set1 = set1[2:length(set1)]
+    #     set2 = outgoing_branches(tt, -sg*switch)
+    #     backbr = sg == 1 ? br2 : br1
+    #     forwbr = sg == 1 ? br1 : br2
+    #     if branch_endpoint(tt, backbr) == branch_endpoint(tt, -backbr)
+    #         # if the back branch turns back to the back side of the switch, then after the peeling the peeled branch will connect to the opposite side of the switch
+    #         set2 = [set2; forwbr]
+    #     end
+    #     if branch_endpoint(tt, backbr) == -branch_endpoint(tt, -backbr)
+    #         # if the back branch turns back to the front side of the switch, then after the peeling the peeled branch will connect to the front side of the switch
+    #         set1 = [set1; forwbr]
+    #     end
+    #     println("Set1:", set1)
+    #     println("Set2:", set2)
+    #     println("Forwbr:", forwbr)
+    #     println("Backbr:", backbr)
+    #     if isproper_subset(set1, set2)
+    #         # Not recurrent, so this side won't work.
+    #         continue
+    #     end
+
+    #     # if we got here then our switch is OK.
+    #     # Now we have to check if the back switch is OK.
+    #     backsw = branch_endpoint(tt, backbr)
+    #     println("Backsw: ", backsw)
+    #     if abs(switch) != abs(backsw)
+    #         backset1 = [outgoing_branches(tt, backsw); forwbr]
+    #         backset2 = outgoing_branches(tt, -backsw)
+    #         println("BackSet1:", backset1)
+    #         println("BackSet2:", backset2)
+    #         # println("Forwbr:", forwbr)
+    #         # println("Backbr:", backbr)
+    #         if isproper_subset(backset2, backset1)
+    #             continue
+    #         end
+    #     end
+    #     # If we got here, then the back switch is also OK.
+    #     return sg == 1 ? FORWARD : BACKWARD
+    # end
+    # if we get here then neither side was found good. This shouldn't happen.
+    @assert false
+
+    # if numoutgoing_branches(tt, switch) > 1
+    #     return FORWARD
+    # elseif numoutgoing_branches(tt, -switch) > 1
+    #     return BACKWARD
+    # else
+    #     error("Switch $(switch) is two-valent. We cannot peel either side.")
+    # end
 end
 
 
+function remains_recurrent_after_peel(tt::TrainTrack, switch::Int, peelside::Int)
+    peeledbr = outgoing_branch(tt, switch, 1, peelside)
+    peeloffbr = outgoing_branch(tt, -switch, 1, otherside(peelside))
+    backsw = branch_endpoint(tt, peeloffbr)
 
+    switches_visited = [switch]
+    current_sw_idx = 1
+    while current_sw_idx <= length(switches_visited)
+        current_sw = switches_visited[current_sw_idx]
+        for br in outgoing_branches(tt, current_sw)
+            if current_sw == switch && br == peeledbr
+                # We consider the state of the train track after peeling, so we are not allowed to go from switch to peeledbr
+                continue
+            end
+            # After the peeling, the endpoint of -peeledbr changes to backsw
+            sw = br != -peeledbr ? -branch_endpoint(tt, br) : -backsw
+            if sw == backsw
+                # We get back to backsw, which means that we can travel through peeledoffbr to get back to switch. So there is a curve going through backsw and we are good.
+                return true
+            end
+            if !(sw in switches_visited)
+                push!(switches_visited, sw)
+            end
+        end
+        current_sw_idx += 1
+    end
+    return false
+end
+
+# function isproper_subset(set1::AbstractArray{Int, 1}, set2::AbstractArray{Int, 1})
+#     for br in set1
+#         if !(-br in set2)
+#             # set1 is not a subset of set2, so this side is good.
+#             return false
+#         end
+#     end
+#     # if we got here, then set1 is a subset of set2. If not a proper subset, we are still good.
+#     if length(set1) == length(set2)
+#         return false
+#     end
+#     return true
+# end
 
 end

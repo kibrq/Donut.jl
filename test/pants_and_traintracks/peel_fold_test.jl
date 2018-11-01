@@ -5,7 +5,7 @@ using Donut.Pants
 using Donut.TrainTracks
 using Donut.PantsAndTrainTracks.PeelFold: peel_to_remove_illegalturns!, peel_fold_secondmove!, peel_fold_firstmove!, peel_fold_dehntwist!
 using Donut.Constants: LEFT, RIGHT
-using Donut.Pants.DTCoordinates
+# using Donut.Pants.DTCoordinates
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 
 # @testset "Peel to remove illegal turns" begin
@@ -41,23 +41,23 @@ using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 @testset "Peel-fold Dehn twist" begin
     # Twisting in the good direction
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -8, 14])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -8, 14])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(2, 1), (20, -8), (6, 14)])
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 2, 4, 6, 6, 8, 8, 14]
     peel_fold_dehntwist!(tt, measure, pd, 2, longencodings, RIGHT)
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 2, 4, 6, 6, 8, 14, 28]
 
     # Twisting in the bad direction.
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -100, 14])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -100, 14])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(2, 1), (20, -100), (6, 14)])
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 2, 4, 6, 6, 8, 14, 100]
     peel_fold_dehntwist!(tt, measure, pd, 2, longencodings, LEFT)
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 2, 4, 6, 6, 8, 14, 80]
 
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -1, 14])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -1, 14])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(2, 1), (20, -1), (6, 14)])
     @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 4, 6, 6, 8, 14]
     peel_fold_dehntwist!(tt, measure, pd, 2, longencodings, LEFT)
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 2, 4, 6, 6, 8, 14, 19]
@@ -66,8 +66,8 @@ end
 
 @testset "Peel-fold second move 1" begin
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([11, 14, 8], [-100, 20, 30])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([11, 14, 8], [-100, 20, 30])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(11, -100), (14, 20), (8, 30)])
     peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
     @test sort(measure.values[1:length(branches(tt))]) == [8, 8, 11, 11, 13, 13, 20, 37, 93]
     peel_fold_secondmove!(tt, measure, pd, 2, longencodings)
@@ -76,8 +76,8 @@ end
 
 function separating_tt_large_central_intersection()
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -1, 14])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([2, 20, 6], [1, -1, 14])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(2, 1), (20, -1), (6, 14)])
     tt, pd, measure, longencodings, [1, 1, 2, 2, 4, 6, 6, 8, 14]
 end
 
@@ -92,8 +92,8 @@ end
 
 @testset "Peel-fold second move 3" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
-    dtcoords = DehnThurstonCoordinates{Int}([2, 10, 6], [3, -11, 20])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([2, 10, 6], [3, -11, 20])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(2, 3), (10, -11), (6, 20)])
     @test sort(measure.values[1:length(branches(tt))]) == [1, 1, 2, 2, 3, 6, 6, 11, 20]
     peel_fold_secondmove!(tt, measure, pd, 3, longencodings)
     @test sort(measure.values[1:length(branches(tt))]) == [2, 2, 3, 4, 10, 10, 14, 21, 22]
@@ -129,8 +129,8 @@ end
     """Now testing the cases when the bridge opposite of the torus boundary is present.
     """
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
-    dtcoords = DehnThurstonCoordinates{Int}([11, 14, 8], [-100, 20, 2])
-    tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
+    # dtcoords = DehnThurstonCoordinates{Int}([11, 14, 8], [-100, 20, 2])
+    tt, measure, longencodings = measured_dehnthurstontrack(pd, [(11, -100), (14, 20), (8, 2)])
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 4, 7, 7, 7, 7, 20, 100]
     peel_fold_firstmove!(tt, measure, pd, -1, longencodings)
     @test sort(measure.values[1:length(branches(tt))]) == [1, 2, 7, 7, 7, 7, 11, 20, 93]

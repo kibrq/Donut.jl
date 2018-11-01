@@ -157,14 +157,19 @@ function simplifiedpath(pd::PantsDecomposition,
                         pantscurvearc_lookingfromgate(pd, v2, RIGHT)]
             end
         else
+            direction = directionof_pantscurvearc(pd, arc2, v1)
             if isbridgeforward(pd, arc1)
                 # FIGURE 6
-                direction = directionof_pantscurvearc(pd, arc2, v1)
                 return [construct_selfconnarc(v0, direction)]
             else
                 # FIGURE 7
-                return [construct_selfconnarc(v0, LEFT),
-                        pantscurvearc_lookingfromgate(pd, v0, LEFT)]
+                if direction == RIGHT
+                    return [construct_selfconnarc(v0, LEFT),
+                            pantscurvearc_lookingfromgate(pd, v0, LEFT)]
+                else
+                    return [pantscurvearc_lookingfromgate(pd, v0, RIGHT),
+                            construct_selfconnarc(v0, RIGHT)]
+                end
             end
         end
     elseif isselfconnarc(arc3)

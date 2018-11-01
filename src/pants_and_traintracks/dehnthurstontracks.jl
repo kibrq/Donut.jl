@@ -209,8 +209,11 @@ The branches are always returned left to right. So for a self-connecting branch 
 """
 function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchencodings::Vector{ArcInPants})
     pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
+    # println("Pantscurve: ", pantscurveindex)
     sw = pantscurve_toswitch(pd, pantscurveindex)
+    # println("Switch: ", sw)
     turning = switch_turning(dttraintrack, sw, branchencodings)
+    # println("Turning: ", turning)
     if turning == LEFT
         sw = -sw
     end
@@ -229,6 +232,14 @@ end
 
 
 function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, branchtype::Int, branchencodings::Vector{ArcInPants})
+    # println("++++++++++++++++++++++++++++")
+    # println(dttraintrack)
+    # println(pd)
+    # println(pantindex)
+    # println(bdyindex)
+    # println(branchtype)
+    # println(branchencodings)
+    # println("++++++++++++++++++++++++++++")
     if branchtype == SELFCONN
         # The self-connecting branch with the positive orientation starts on the left and ends at the right, so it is the first self-connecting branch we find scanning from left to right.
         for br in branches_at_pantend(dttraintrack, pd, pantindex, bdyindex, branchencodings)
@@ -238,8 +249,11 @@ function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex:
         end
     elseif branchtype == BRIDGE
         next_branches = branches_at_pantend(dttraintrack, pd, pantindex, nextindex(bdyindex, 3), branchencodings)
+        # println("Next branches: ", next_branches)
         prev_branches = branches_at_pantend(dttraintrack, pd, pantindex, previndex(bdyindex, 3), branchencodings)
+        # println("Prev branches: ", prev_branches)
         for br in next_branches
+            # println("Branch candidate: ", br)
             if isbridge(branchencodings[abs(br)]) && -br in prev_branches
                 return br
             end

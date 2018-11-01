@@ -3,7 +3,6 @@ module MeasuredDehnThurstonTest
 using Test
 
 using Donut.Pants
-using Donut.Pants.DTCoordinates
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
@@ -24,17 +23,14 @@ selfconn, pairs = selfconn_and_bridge_measures(1.0, 1.0, 1.0)
 
 @testset "Dehn-Thurston train track from coordinates" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
-    dtcoords = DehnThurstonCoordinates{Int}([1, 4, 3], [-3, -4, 10])
-    tt, measure, encoding = measured_dehnthurstontrack(pd, dtcoords)
+    tt, measure, encoding = measured_dehnthurstontrack(pd, [(1, -3), (4, -4), (3, 10)])
 
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
-    dtcoords = DehnThurstonCoordinates{Int}([5, 4, 3], [5, 0, -99])
-    tt, measure, encoding = measured_dehnthurstontrack(pd, dtcoords)
+    tt, measure, encoding = measured_dehnthurstontrack(pd, [(5, 5), (4, 0), (3, -99)])
 
 
     pd = PantsDecomposition([(1, 2, 3), (-3, 4, 5)])
-    dtcoords = DehnThurstonCoordinates{BigInt}(BigInt[4], BigInt[-3])
-    tt, measure, encoding = measured_dehnthurstontrack(pd, dtcoords)
+    tt, measure, encoding = measured_dehnthurstontrack(pd, [(BigInt(4), BigInt(-3))])
     @test outgoing_branch(tt, 1, 1) == -outgoing_branch(tt, -1, 1)
     @test outgoing_branch(tt, 1, 2) == -outgoing_branch(tt, 1, 3)
     @test outgoing_branch(tt, -1, 2) == -outgoing_branch(tt, -1, 3)

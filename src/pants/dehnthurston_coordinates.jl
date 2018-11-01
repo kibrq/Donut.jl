@@ -48,12 +48,14 @@ struct DehnThurstonCoordinates{T}
 end
 
 
-function intersection_number(dtcoords::DehnThurstonCoordinates, curveindex::Int) where {T}
-    @assert istwosided_pantscurve(dtcoords.pd, curveindex)
+function intersection_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Int) where {T}
+    if !istwosided_pantscurve(dtcoords.pd, curveindex)
+        return T(0)
+    end
     dtcoords.coords[abs(curveindex)][1]
 end
 
-function twisting_number(dtcoords::DehnThurstonCoordinates, curveindex::Int) where {T}
+function twisting_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Int) where {T}
     @assert istwosided_pantscurve(dtcoords.pd, curveindex)
     dtcoords.coords[abs(curveindex)][2]
 end

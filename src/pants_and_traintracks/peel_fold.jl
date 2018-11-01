@@ -94,7 +94,9 @@ function printencoding_changes(encoding_changes)
     end
 end
 
-function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, encodings::Vector{ArcInPants}, measure::Measure, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, switches_toconsider::AbstractArray{Int}=Int[])
+function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, encodings::Vector{ArcInPants}, measure::Measure, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}})
+    switches_toconsider = Set(abs(branch_endpoint(tt, sg*br)) for (br, enc_arr) in encoding_changes for sg in (1, -1))
+
     for i in length(encoding_changes):-1:1
         br, enc_arr = encoding_changes[i]
         @assert br > 0
@@ -103,9 +105,9 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
         end
     end
 
-    if length(switches_toconsider) == 0
-        switches_toconsider = collect(1:length(switches(tt)))
-    end
+    # if length(switches_toconsider) == 0
+    #     switches_toconsider = collect(1:length(switches(tt)))
+    # end
     # switches_left = copy(switches_toconsider)
     if debug
         println("***************** START PEELING! **************")
@@ -115,6 +117,7 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
         printencoding_changes(encoding_changes)
     end
     if debug
+        println("Pants decomposition: ", pd)
         println("TrainTrack gluing list: ", tt_gluinglist(tt))
         # println("TrainTrack: ", tt)
         println("Encodings: ")
@@ -137,35 +140,35 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
 
                     peeledbr = outgoing_branch(tt, sw, 1, side)
                     otherbr = outgoing_branch(tt, -sw, 1, otherside(side))
-                    sidedecided = false
-                    if branchmeasure(measure, peeledbr) == branchmeasure(measure, otherbr)
-                        path1 = branch_to_path(encodings, encoding_changes, peeledbr)
-                        path2 = branch_to_path(encodings, encoding_changes, otherbr)
-                        if !ispantscurvearc(path1[1]) && !ispantscurvearc(path2[1])
-                            # The new switch turning on this side is not decided yet, and we have choice which side to peel. 
-                            # In this case we need to make sure that if the switch turning on the other side of the switch is already decided (there is no illegal turn on the other side), then we pick the appropriate side to peel on this side.
-                            otherside_br1 = outgoing_branch(tt, sw, 1, otherside(side))
-                            otherside_br2 = outgoing_branch(tt, -sw, 1, side)
-                            otherpath1 = branch_to_path(encodings, encoding_changes, otherside_br1)
-                            otherpath2 = branch_to_path(encodings, encoding_changes, otherside_br2)
-                            if ispantscurvearc(otherpath1[1])
-                                @assert !ispantscurvearc(otherpath2[1])
-                                # Switch will be left turning, so we have to peel the backward branch.
-                                sidetopeel = BACKWARD
-                                sidedecided = true
-                            elseif ispantscurvearc(otherpath2[1])
-                                @assert !ispantscurvearc(otherpath1[1])
-                                # Switch will be right turning, so we have to peel the forward branch. 
-                                sidetopeel = FORWARD
-                                sidedecided = true
-                            else
-                                # The switch turning on the other side is not yet decided, so does not matter which side we peel.
-                            end
-                        end
-                    end
-                    if !sidedecided      
+                    # sidedecided = false
+                    # if branchmeasure(measure, peeledbr) == branchmeasure(measure, otherbr)
+                    #     path1 = branch_to_path(encodings, encoding_changes, peeledbr)
+                    #     path2 = branch_to_path(encodings, encoding_changes, otherbr)
+                    #     if !ispantscurvearc(path1[1]) && !ispantscurvearc(path2[1])
+                    #         # The new switch turning on this side is not decided yet, and we have choice which side to peel. 
+                    #         # In this case we need to make sure that if the switch turning on the other side of the switch is already decided (there is no illegal turn on the other side), then we pick the appropriate side to peel on this side.
+                    #         otherside_br1 = outgoing_branch(tt, sw, 1, otherside(side))
+                    #         otherside_br2 = outgoing_branch(tt, -sw, 1, side)
+                    #         otherpath1 = branch_to_path(encodings, encoding_changes, otherside_br1)
+                    #         otherpath2 = branch_to_path(encodings, encoding_changes, otherside_br2)
+                    #         if ispantscurvearc(otherpath1[1])
+                    #             @assert !ispantscurvearc(otherpath2[1])
+                    #             # Switch will be left turning, so we have to peel the backward branch.
+                    #             sidetopeel = BACKWARD
+                    #             sidedecided = true
+                    #         elseif ispantscurvearc(otherpath2[1])
+                    #             @assert !ispantscurvearc(otherpath1[1])
+                    #             # Switch will be right turning, so we have to peel the forward branch. 
+                    #             sidetopeel = FORWARD
+                    #             sidedecided = true
+                    #         else
+                    #             # The switch turning on the other side is not yet decided, so does not matter which side we peel.
+                    #         end
+                    #     end
+                    # end
+                    # if !sidedecided      
                         sidetopeel = whichside_to_peel(tt, measure, sw, side)
-                    end
+                    # end
                     if sidetopeel == FORWARD
                         peel!(tt, sw, side, measure)
                     else
@@ -222,6 +225,7 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
         println()
         println()
     end
+    return switches_toconsider
 end
 
 function issubpath(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, br1::Int, br2::Int)
@@ -263,11 +267,12 @@ function store_length1_path!(encodings::Vector{ArcInPants}, encoding_changes::Ve
 end
 
 
-function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}})
+function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, switches_toconsider::Set{Int})
+    # switches to consider for fixing the switch orientations.
     if debug
         println("***************** START FOLDING! **************")
     end
-    switches_to_fix = Set(abs(branch_endpoint(tt, sg*br)) for (br, _) in encoding_changes for sg in (-1,1))
+    # switches_to_fix = Set(abs(branch_endpoint(tt, sg*br)) for (br, _) in encoding_changes for sg in (-1,1))
 
     count = 0
     while length(encoding_changes) > 0 && count < 10
@@ -329,7 +334,8 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector
     @assert length(encoding_changes) == 0
 
     # Fixing switch orientations.
-    for sw in switches_to_fix
+    # println("Fixing orie  ntation of switches ", switches_toconsider, "...")
+    for sw in switches_toconsider
         fix_switch_orientation!(tt, sw, encodings)
     end
 end
@@ -367,8 +373,8 @@ end
 
 function peel_fold_elementarymove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, update_encoding_fn::Function, encodings::Vector{ArcInPants})
     encoding_changes = update_encoding_fn(tt, pd, encodings)
-    peel_to_remove_illegalturns!(tt, pd, encodings, measure, encoding_changes) # TODO: supply the switches to consider as well.
-    fold_peeledtt_back!(tt, measure, encodings, encoding_changes) # TODO: supply the branches to consider.
+    switches_toconsider = peel_to_remove_illegalturns!(tt, pd, encodings, measure, encoding_changes)
+    fold_peeledtt_back!(tt, measure, encodings, encoding_changes, switches_toconsider)
 end
 
 function peel_fold_secondmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, curveindex::Int, encodings::Vector{ArcInPants})

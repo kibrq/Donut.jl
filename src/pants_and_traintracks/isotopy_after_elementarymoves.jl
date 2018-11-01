@@ -125,6 +125,9 @@ function update_encodings_after_halftwist!(dttraintrack::TrainTrack, pd::PantsDe
 end
 
 function update_encodings_after_dehntwist!(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, direction::Int, branchencodings::Vector{ArcInPants})
+    # println("*******************************")
+    # println("Compiling old branches...")
+    # println("*******************************")
     compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, replacement_rules_twist(direction), pantindex, bdyindex)
     # println("*******************************")
     # println(direction)
@@ -136,7 +139,7 @@ function update_encodings_after_dehntwist!(dttraintrack::TrainTrack, pd::PantsDe
 
     compiledrules2 = compile_newbranches(compiledrules1, newdata->compile_newbranch(pd, newdata..., pantindex, bdyindex))
 
-
+    # println(compiledrules2)
     update_branchencodings!(branchencodings, compiledrules2)
 end
 
