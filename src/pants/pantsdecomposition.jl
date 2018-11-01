@@ -30,7 +30,7 @@ PantsCurve() = PantsCurve([PantEnd(), PantEnd()])
 occupiedsides(pantscurve::PantsCurve) = [side for side in (LEFT, RIGHT)
     if exists(pantscurve.neighboring_pantends[side])]
 
-exists(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) != 0
+# exists(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) != 0
 isboundary(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) == 1
 isinner(pantscurve::PantsCurve) = length(occupiedsides(pantscurve)) == 2
 
@@ -53,11 +53,10 @@ struct PantsDecomposition <: AbstractSurface
     function PantsDecomposition(gluinglist::Vector{Tuple{Int, Int, Int}},
                 onesided_curves::Array{Int, 1}=Int[])
 
-        allcurves = sort(map(abs,collect(Iterators.flatten(gluinglist))))
-        maxcurvenumber = allcurves[end]
-
-        if allcurves[1] == 0
-            error("Pants curves cannot be numbered by 0")
+        curvenumbers = sort(map(abs,Iterators.flatten(gluinglist)))
+        maxcurvenumber = curvenumbers[end]
+        if Set(curvenumbers) != Set(1:maxcurvenumber)
+            error("The pants curves should be numbered from 1 to N where N is the number of pants curves.")
         end
 
         pantscurves = [PantsCurve() for i in 1:maxcurvenumber]
@@ -116,13 +115,13 @@ function pantboundaries(pd::PantsDecomposition, pantindex::Int)
     pd.pantboundaries[pantindex]
 end
 # this could return an iterator
-curveindices(pd::PantsDecomposition) = [i for i in eachindex(pd.pantscurves) if exists(pd.pantscurves[i])]
+curveindices(pd::PantsDecomposition) = 1:length(pd.pantscurves)
 pants(pd::PantsDecomposition) = collect(1:length(pd.pantboundaries))
 numpants(pd::PantsDecomposition) = length(pd.pantboundaries)
 eulerchar(pd::PantsDecomposition) = -1*numpants(pd)
 
 function check_pantcurve_validity(pd::PantsDecomposition, curveindex::Int)
-    if !(1 <= abs(curveindex) <= length(pd.pantscurves) && exists(pd.pantscurves[abs(curveindex)]))
+    if !(1 <= abs(curveindex) <= length(pd.pantscurves))
         error("There is no pants curve with index $(curveindex).")
     end
 end
