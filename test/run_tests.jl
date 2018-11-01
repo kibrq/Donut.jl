@@ -8,4 +8,5 @@
 # @time include("traintracks/all.jl")
 # @time include("pants/all.jl")
 # @time include("pants_and_traintracks/all.jl")
+# @time include("laminations/laminations_test.jl")
 @time include("mappingclasses/all.jl")

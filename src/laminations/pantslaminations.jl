@@ -10,6 +10,7 @@ using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
 using Donut.PantsAndTrainTracks.PeelFold
 using Donut.Constants: LEFT
+using Donut.Utils: otherside
 import Base.==
 
 struct PantsLamination{T}
@@ -36,6 +37,10 @@ function coords_of_curve(pl::PantsLamination, curveindex::Int)
     if istwosided_pantscurve(pl.pd, curveindex)
         intersection_number = intersecting_measure(pl.tt, pl.measure, pl.encodings, pantscurve_toswitch(pl.pd, curveindex))
         twisting_num = twisting_number(pl, curveindex)
+        if intersection_number == 0
+            # By convention if the intersection number is zero, the twisting number is chosen to be positive.
+            twisting_num = abs(twisting_num)
+        end
         return (intersection_number, twisting_num)
     else isonesided_pantscurve(pl.pd, curveindex)
         error("Dehn-Thurston coordinates for one-sided pants curves is not yet implemented.")
@@ -97,20 +102,20 @@ function twisting_number(pl::PantsLamination, curveindex::Int)
 end
 
 
-function apply_firstmove!(pl::PantsLamination, curveindex::Int, inverse=false)
-    peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, inverse)
-end
+# function apply_firstmove!(pl::PantsLamination, curveindex::Int, inverse=false)
+#     peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, inverse)
+# end
 
-function apply_secondmove!(pl::PantsLamination, curveindex::Int)
-    peel_fold_secondmove!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings)
-end
+# function apply_secondmove!(pl::PantsLamination, curveindex::Int)
+#     peel_fold_secondmove!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings)
+# end
 
-function apply_dehntwist!(pl::PantsLamination, curveindex::Int, twistdirection::Int)
-    peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, otherside(twistdirection))
-    # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
-end
+# function apply_dehntwist!(pl::PantsLamination, curveindex::Int, twistdirection::Int)
+#     peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, otherside(twistdirection))
+#     # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
+# end
 
-function apply_halftwist!(pl::PantsLamination, pantindex::Int, twistdirection::Int)
-    peel_fold_halftwist!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, otherside(twistdirection))
-    # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
-end
+# function apply_halftwist!(pl::PantsLamination, pantindex::Int, twistdirection::Int)
+#     peel_fold_halftwist!(pl.tt, pl.measure, pl.pd, curveindex, pl.encodings, otherside(twistdirection))
+#     # the reason we change the direction of the twisting is that twisting the train track to the LEFT is the same as twisting the marking to the RIGHT.
+# end

@@ -19,7 +19,7 @@ EXAMPLE:
 
 """
 function hyperelliptic_involution(genus)
-    pd, A, B, c = humphries_generators(genus, true)
+    A, B, c = humphries_generators(genus, true)
 
     f = copy(A[1])
     # print c

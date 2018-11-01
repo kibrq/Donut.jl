@@ -16,7 +16,7 @@ function humphries_generators(genus::Int, rightmost_included::Bool=false)
     B = [transversaltwist(pd, 1)]
     for i in 1:genus-2
         move1, move2 = SecondMove(3*i), FirstMove(3*i+1)
-        fi = PantsMappingClass([move1, move2, Twist(3*i+1), inverse(move1), inverse(move2)])
+        fi = PantsMappingClass(pd, [move1, move2, Twist(3*i+1), inverse(move1), inverse(move2)])
         push!(B, fi)
     end
     push!(B, transversaltwist(pd, 3*genus-3))

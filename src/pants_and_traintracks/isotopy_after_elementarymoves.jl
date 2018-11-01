@@ -126,6 +126,11 @@ end
 
 function update_encodings_after_dehntwist!(dttraintrack::TrainTrack, pd::PantsDecomposition, pantindex::Int, bdyindex::Int, direction::Int, branchencodings::Vector{ArcInPants})
     compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, replacement_rules_twist(direction), pantindex, bdyindex)
+    # println("*******************************")
+    # println(direction)
+    # println(replacement_rules_twist(direction))
+    # println(compiledrules1)
+    # println("*******************************")
 
     apply_dehntwist!(pd, pantindex, bdyindex, direction)
 

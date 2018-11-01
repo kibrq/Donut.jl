@@ -45,7 +45,7 @@ function halftwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
     PantsMappingClass(pd, [HalfTwist(curveindex, -power)])
 end
 
-function transversaltwist(pd::PantsDecomposition, curveindex::Int, twistdirection::Int=RIGHT)
+function transversaltwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
     if isfirstmove_curve(pd, curveindex)
         move = FirstMove(curveindex)
     elseif issecondmove_curve(pd, curveindex)
@@ -53,10 +53,11 @@ function transversaltwist(pd::PantsDecomposition, curveindex::Int, twistdirectio
     else
         error("Curve $(curveindex) is not a first or second move curve, so we cannot perform transversaltwist about it.")
     end
-    PantsMappingClass(pd, [move, Twist(curveindex), inverse(move)])
+    PantsMappingClass(pd, [move, Twist(curveindex, -power), inverse(move)])
 end
 
 function precompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
+    # TODO: replace with weak equality
     # println(pmc.pd.pants)
     # println(pmc.pd.pantscurves)
     # println(compose_by.pd.pants)
@@ -68,7 +69,10 @@ function precompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
 end
 
 function postcompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
-    if pmc.pd != compose_by.pd
+    # TODO: replace with weak equality
+    if !isequal_strong(pmc.pd, compose_by.pd)
+        # println(pmc.pd)
+        # println(compose_by.pd)
         error("Two mapping classes can only be composed when they share the same PantsDecomposition.")
     end
     splice!(pmc.change_of_markings, 1:0, compose_by.change_of_markings)
@@ -104,13 +108,13 @@ end
 
 function apply_change_of_markings_to_lamination!(move::HalfTwist, pl::PantsLamination)
     for i in 1:abs(move.power)
-        peel_fold_halftwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 1 ? RIGHT : LEFT)
+        peel_fold_halftwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
     end
 end 
 
 function apply_change_of_markings_to_lamination!(move::Twist, pl::PantsLamination)
     for i in 1:abs(move.power)
-        peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 1 ? RIGHT : LEFT)
+        peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
     end
 end
 
@@ -118,9 +122,10 @@ function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLami
     for cm in reverse(pmc.change_of_markings)
         # println("----------------------------------------------------")
         # println(cm)
-        # println(pl)
-        # println("----------------------------------------------------")
+        # println("Lamination before move:", pl)
         apply_change_of_markings_to_lamination!(cm, pl)
+        # println("Lamination after move:", pl)
+        # println("----------------------------------------------------")
     end
 end
 
@@ -137,21 +142,21 @@ end
 
 function isidentity_upto_homology(pmc::PantsMappingClass)
     pd = pmc.pd
-    println(pmc)
+    # println(pmc)
     for curveindex in innercurveindices(pd)
         lam = lamination_from_pantscurve(pd, curveindex, BigInt(0))
-        println("Applying mapping class to pantscurve $(curveindex)")
-        println("Original curve: ", lam)
-        println("Image curve: ", pmc * lam)
-        println()
+        # println("Applying mapping class to pantscurve $(curveindex)")
+        # println("Original curve: ", lam)
+        # println("Image curve: ", pmc * lam)
+        # println()
         if lam != pmc * lam
             return false
         end
         lam = lamination_from_transversal(pd, curveindex, BigInt(0))
-        println("Applying mapping class to transversal $(curveindex)")
-        println("Original curve: ", lam)
-        println("Image curve: ", pmc * lam)
-        println()
+        # println("Applying mapping class to transversal $(curveindex)")
+        # println("Original curve: ", lam)
+        # println("Image curve: ", pmc * lam)
+        # println()
         if lam != pmc * lam
             return false
         end
