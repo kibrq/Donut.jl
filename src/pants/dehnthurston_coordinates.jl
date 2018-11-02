@@ -10,7 +10,7 @@ struct DehnThurstonCoordinates{T}
     coords::Vector{Tuple{T, T}}
 
     function DehnThurstonCoordinates{T}(pd::PantsDecomposition, dtcoords::Vector{Tuple{T,T}}) where {T}
-        ipc = innercurveindices(pd)
+        ipc = collect(innercurveindices(pd))
         if length(ipc) != length(dtcoords)
             error("The length of the coordinate list $(length(dtcoords)) should agree with the number of inner pants curves $(length(ipc)).")
         end
@@ -39,7 +39,6 @@ struct DehnThurstonCoordinates{T}
         curves = curveindices(pd)
         len = maximum(curves)
         x = fill((T(0), T(0)), len)
-        ipc = innercurveindices(pd)
         for i in eachindex(dtcoords)
             x[ipc[i]] = dtcoords[i]
         end

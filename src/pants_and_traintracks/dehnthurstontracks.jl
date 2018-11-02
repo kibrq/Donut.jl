@@ -33,7 +33,7 @@ The branches of the constructed train track are number from 1 to N for some N. T
 
 """
 function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Vector{Int}, turnings::Vector{Int})
-    ipc = innercurveindices(pd)
+    ipc = collect(innercurveindices(pd))
     # TODO: handle one-sided pants curves
     @assert all(curve->istwosided_pantscurve(pd, curve), ipc)
 
@@ -174,9 +174,14 @@ The direction of the switch is assumed to be same as the direction of the pants 
 
 # TODO: This method is now linear in the nunber of inner pants curves. It could be constant with more bookkeeping.
 """
-function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Int) 
-    sw = findfirst(x->x==abs(pantscurveindex), innercurveindices(pd))
-    return sign(pantscurveindex) * sw
+function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Int)
+    i = 1
+    for c in innercurveindices(pd)
+        if c == abs(pantscurveindex)
+            return sign(pantscurveindex) * i
+        end
+        i += 1
+    end
 end
 
 

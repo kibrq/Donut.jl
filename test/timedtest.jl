@@ -31,7 +31,7 @@ end
 # Running time of test()
 # - 93ms
 # - 85ms: restricting the curvenumbering of PantsDecompositions from 1 to N
-
+# - 70ms: innercurveindixes() returns a generator instead of an array.
 
 # - it was 262ms for the old Python PantsLamination implementation that used Penner's update rules for Dehn-Thurston coordinates
 # - it was 380ms for the newer Python PantsLamination implementation that measured train tracks are splitting-folding for updating the coordinates. Only the second move used an automatic peel-fold mechanism, the peel-fold sequences in the other cases were hard-coded.

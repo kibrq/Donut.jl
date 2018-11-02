@@ -49,6 +49,11 @@ struct PantsDecomposition <: AbstractSurface
     pantboundaries::Vector{Tuple{Int, Int, Int}}
     pantscurves::Vector{PantsCurve}
 
+    function PantsDecomposition(pantboundaries::Vector{Tuple{Int, Int, Int}},
+        pantscurves::Vector{PantsCurve})
+        new(pantboundaries, pantscurves)
+    end
+
     # gluinglist will not be copied, it is owned by the object
     function PantsDecomposition(gluinglist::Vector{Tuple{Int, Int, Int}},
                 onesided_curves::Array{Int, 1}=Int[])
@@ -58,6 +63,7 @@ struct PantsDecomposition <: AbstractSurface
         if Set(curvenumbers) != Set(1:maxcurvenumber)
             error("The pants curves should be numbered from 1 to N where N is the number of pants curves.")
         end
+        # TODO: for non-orientable elementary moves, the number of pants curves can increase or decrease, so in that case it is not convenient to number the pants curves from 1 to N. This numbering assumption is not assumed anywhere though, so it is easy to change.
 
         pantscurves = [PantsCurve() for i in 1:maxcurvenumber]
 
@@ -100,7 +106,7 @@ function isequal_strong(pd1::PantsDecomposition, pd2::PantsDecomposition)
 end
 
 
-copy(pd::PantsDecomposition) = deepcopy(pd)
+copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.pantboundaries), pd.pantscurves)
 
 gluinglist(pd::PantsDecomposition) = pd.pantboundaries
 
@@ -216,7 +222,8 @@ isonesided_pantscurve(pd::PantsDecomposition, curveindex::Int) = pantscurve_type
 isfirstmove_curve(pd::PantsDecomposition, curveindex::Int) = pantscurve_type(pd, curveindex) == TORUS_NBHOOD
 issecondmove_curve(pd::PantsDecomposition, curveindex::Int) = pantscurve_type(pd, curveindex) == PUNCTURED_SPHERE_NBHOOD
 
-innercurveindices(pd::PantsDecomposition) = filter(x -> isinner_pantscurve(pd, x), curveindices(pd))
+innercurveindices(pd::PantsDecomposition) = (c for c in curveindices(pd) if isinner_pantscurve(pd, c))
+# filter(x -> isinner_pantscurve(pd, x), curveindices(pd))
 boundarycurveindices(pd::PantsDecomposition) = filter(x -> isboundary_pantscurve(pd, x), curveindices(pd))
 numboundarycurves(pd::PantsDecomposition) = length(boundarycurveindices(pd))
 numpunctures(pd::PantsDecomposition) = numboundarycurves(pd)
