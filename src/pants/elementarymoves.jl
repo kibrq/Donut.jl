@@ -4,7 +4,7 @@ export apply_firstmove!, apply_secondmove!, applymove_onesided_to_onesided!, app
 
 
 using Donut.Pants
-using Donut.Pants: _setboundarycurves, _setpantscurveside_to_pantend
+using Donut.Pants: _setboundarycurves, _setpantscurveside
 using Donut.Utils: nextindex, previndex, otherside
 using Donut.Constants: LEFT, RIGHT
 # function elementarymove_type(pd::PantsDecomposition, curveindex::Int)
@@ -47,16 +47,16 @@ function apply_secondmove!(pd::PantsDecomposition, curveindex::Int)
     # top pant
     toppant = rightpant
     _setboundarycurves(pd, toppant, -curveindex, topright[1], topleft[1])
-    _setpantscurveside_to_pantend(pd, curveindex, RIGHT, toppant, 1)
+    _setpantscurveside(pd, curveindex, RIGHT, toppant, 1)
     # bottom pant
     bottompant = leftpant
     _setboundarycurves(pd, bottompant, curveindex, bottomleft[1], bottomright[1])
-    _setpantscurveside_to_pantend(pd, curveindex, LEFT, bottompant, 1)
+    _setpantscurveside(pd, curveindex, LEFT, bottompant, 1)
 
-    _setpantscurveside_to_pantend(pd, topleft[1], topleft[2], toppant, 3)
-    _setpantscurveside_to_pantend(pd, topright[1], topright[2], toppant, 2)
-    _setpantscurveside_to_pantend(pd, bottomleft[1], bottomleft[2], bottompant, 2)
-    _setpantscurveside_to_pantend(pd, bottomright[1], bottomright[2], bottompant, 3)
+    _setpantscurveside(pd, topleft[1], topleft[2], toppant, 3)
+    _setpantscurveside(pd, topright[1], topright[2], toppant, 2)
+    _setpantscurveside(pd, bottomleft[1], bottomleft[2], bottompant, 2)
+    _setpantscurveside(pd, bottomright[1], bottomright[2], bottompant, 3)
 end
 
 
@@ -100,8 +100,8 @@ function apply_halftwist!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int)
         @assert false
     end
     _setboundarycurves(pd, pantindex, boundaries[swap_indices[1]], boundaries[swap_indices[2]], boundaries[swap_indices[3]])
-    _setpantscurveside_to_pantend(pd, curve2, side2, pantindex, idx3)
-    _setpantscurveside_to_pantend(pd, curve3, side3, pantindex, idx2)
+    _setpantscurveside(pd, curve2, side2, pantindex, idx3)
+    _setpantscurveside(pd, curve3, side3, pantindex, idx2)
 end
 
 function apply_dehntwist!(pd::PantsDecomposition, pantindex::Int, bdyindex::Int, direction::Int)
