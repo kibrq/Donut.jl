@@ -5,38 +5,9 @@ using Donut.Pants
 using Donut.TrainTracks
 using Donut.PantsAndTrainTracks.PeelFold: peel_to_remove_illegalturns!, peel_fold_secondmove!, peel_fold_firstmove!, peel_fold_dehntwist!
 using Donut.Constants: LEFT, RIGHT
-# using Donut.Pants.DTCoordinates
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 
-# @testset "Peel to remove illegal turns" begin
-#     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-#     dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
-#     tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
-#     update_encodings_after_dehntwist!(tt, pd, 1, 3, LEFT, longencodings)
-#     @test sum(length(item) for item in longencodings) == 10
-#     # the switch was right turning before and we twist the marking to the left, which twists the train track to the right, so no illegal turns.
-#     peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [3])
-#     @test sum(length(item) for item in longencodings) == 10
 
-#     # Same thing, but twisting left. Now there are no illegal turns.
-#     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-#     dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
-#     tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
-#     update_encodings_after_dehntwist!(tt, pd, 1, 3, RIGHT, longencodings)
-#     @test sum(length(item) for item in longencodings) == 10
-#     # the switch was right turning before and and we twist the marking to the right, which twists the train track to the left
-#     peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [1, 2, 3])
-#     @test sum(length(item) for item in longencodings) == 9
-
-#     pd = PantsDecomposition([[1, 2, 3], [-3, -2, -1]])
-#     dtcoords = DehnThurstonCoordinates([1, 6, 3], [-3, -4, 10])
-#     tt, measure, longencodings = measured_dehnthurstontrack(pd, dtcoords)
-#     update_encodings_after_secondmove!(tt, pd, 2, longencodings)
-#     @test sum(length(item) for item in longencodings) == 13
-#     # the switch was right turning before and we twist to right, so no illegal turns.
-#     peel_to_remove_illegalturns!(tt, pd, longencodings, measure, [1, 2, 3])
-#     # @test sum(length(item) for item in longencodings) == 15  # TODO: check that this is 16.
-# end
 
 @testset "Peel-fold Dehn twist" begin
     # Twisting in the good direction

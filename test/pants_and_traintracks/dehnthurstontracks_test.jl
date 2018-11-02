@@ -59,15 +59,15 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
 @test findbranch(tt, pd, 2, 2, PANTSCURVE, encodings) == -2
 @test findbranch(tt, pd, 2, 3, PANTSCURVE, encodings) == -1
 
-pd = PantsDecomposition([(1, 2, 3), (-2, -3, 4)])
+pd = PantsDecomposition([(3, 1, 2), (-1, -2, 4)])
 # dehnthurstontrack(pd, [1, 1], [LEFT, LEFT])
-# in the first pant, only 2 and 3 are inner pants curves
+# in the first pant, only 1 and 2 are inner pants curves
 @test_throws ErrorException dehnthurstontrack(pd, [0, 1], [LEFT, LEFT])
 @test_throws ErrorException dehnthurstontrack(pd, [1, 1], [LEFT, LEFT])
 dehnthurstontrack(pd, [2, 1], [LEFT, LEFT])
 dehnthurstontrack(pd, [3, 1], [LEFT, LEFT])
 
-pd = PantsDecomposition([(1, 2, 3), (-2, 4, 5), (-3, 6, 6)])
+pd = PantsDecomposition([(6, 1, 2), (-1, 4, 5), (-2, 3, -3)])
 turnings = [RIGHT, LEFT, LEFT]
 tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 @test switches(tt) == [1, 2, 3]
@@ -79,12 +79,12 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 @test numoutgoing_branches(tt, 2) == 3
 @test numoutgoing_branches(tt, 3) == 3
 
-@test pantscurve_toswitch(pd, 2) == 1
-@test pantscurve_toswitch(pd, -2) == -1
-@test pantscurve_toswitch(pd, 3) == 2
-@test pantscurve_toswitch(pd, -3) == -2
-@test pantscurve_toswitch(pd, 6) == 3
-@test pantscurve_toswitch(pd, -6) == -3
+@test pantscurve_toswitch(pd, 1) == 1
+@test pantscurve_toswitch(pd, -1) == -1
+@test pantscurve_toswitch(pd, 2) == 2
+@test pantscurve_toswitch(pd, -2) == -2
+@test pantscurve_toswitch(pd, 3) == 3
+@test pantscurve_toswitch(pd, -3) == -3
 
 
 @test switch_turning(tt, 1, encodings) == RIGHT
@@ -118,15 +118,6 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
     @test arc_in_pantsdecomposition(pd, 1, 1, PANTSCURVE) == construct_pantscurvearc(1)
     @test arc_in_pantsdecomposition(pd, 1, -1, PANTSCURVE) == construct_pantscurvearc(-1)
 
-    pd = PantsDecomposition([(1, 2, 3), (-2, 4, 5), (-3, 6, 6)])
-    @test arc_in_pantsdecomposition(pd, 3, 1, BRIDGE) == construct_bridge(6, -6)
-    @test arc_in_pantsdecomposition(pd, 3, -1, BRIDGE) == construct_bridge(-6, 6)
-
-    @test arc_in_pantsdecomposition(pd, 3, 2, SELFCONN) == construct_selfconnarc(6, LEFT)
-    @test arc_in_pantsdecomposition(pd, 3, 3, SELFCONN) == construct_selfconnarc(-6, LEFT)
-
-    @test arc_in_pantsdecomposition(pd, 3, 2, PANTSCURVE) == construct_pantscurvearc(6)
-    @test arc_in_pantsdecomposition(pd, 3, 3, PANTSCURVE) == construct_pantscurvearc(6)
 end
 
 

@@ -5,7 +5,7 @@ export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitc
 
 
 using Donut.TrainTracks
-using Donut.TrainTracks: _setend!, Branch, Switch, copy, zeroout, BranchPosition, BranchRange
+using Donut.TrainTracks: _setend!, Branch, Switch, copy_branch, copy_switch, zeroout, BranchPosition, BranchRange
 using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
@@ -103,7 +103,7 @@ function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
         end
     end
     if abs(branch) != abs(newlabel)
-        copy(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
+        copy_branch(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
         zeroout(tt.branches[abs(branch)])
     end
     if sign(branch) != sign(newlabel)
@@ -132,7 +132,7 @@ function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
     end
 
     if abs(switch) != abs(newlabel)
-        copy(tt.switches[abs(switch)], tt.switches[abs(newlabel)])
+        copy_switch(tt.switches[abs(switch)], tt.switches[abs(newlabel)])
         zeroout(tt.switches[abs(switch)])
     end
 

@@ -35,22 +35,6 @@ function selfconn_and_bridge_measures(ints1::T, ints2::T, ints3::T) where {T}
     return selfconn, bridges
 end
 
-# """
-# From the Dehn-Thurston coordinates, creates an array whose i'th element is the intersection number of the i'th pants curve. (Boundary pants curves are also included in this array.)
-# """
-# function allcurve_intersections(pd::PantsDecomposition, intersection_numbers::Vector{T}) where {T}
-#     curves = curveindices(pd)
-#     len = maximum(curves)
-#     allintersections = fill(zero(T), len)
-#     innerindices = innercurveindices(pd)
-#     if length(innerindices) != length(intersection_numbers)
-#         error("Mismatch between number of inner pants curves ($(length(innerindices))) and the number of Dehn-Thurston coordinates ($(length(intersection_numbers))).")
-#     end
-#     for i in eachindex(innerindices)
-#         allintersections[innerindices[i]] = intersection_numbers[i]
-#     end
-#     return allintersections
-# end
 
 
 function determine_measure(dttraintrack::TrainTrack, twisting_numbers::Vector{T}, selfconn_and_bridge_measures, branchdata::Vector{BranchData}) where {T}
@@ -105,12 +89,6 @@ end
 
 function measured_dehnthurstontrack(pd::PantsDecomposition, dtcoords_vec::Vector{Tuple{T, T}}) where {T}
     dtcoords = DehnThurstonCoordinates{T}(pd, dtcoords_vec)
-    for c in innercurveindices(pd)
-        if isonesided_pantscurve(pd, c)
-            error("Measured Dehn-Thurston tracks are currently implemented only when all pants curves are two-sided")
-        end
-    end
-    # allintersections = allcurve_intersections(pd, dtcoords.intersection_numbers)
  
     sb_measures = [selfconn_and_bridge_measures([intersection_number(dtcoords, c) for c in pantboundaries(pd, pant)]...) for pant in pants(pd)]
     

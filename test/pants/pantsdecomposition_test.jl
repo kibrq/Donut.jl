@@ -20,14 +20,10 @@ using Donut.Constants: LEFT, RIGHT
     @test collect(curveindices(pd)) == [1, 2, 3]
     @test !isboundary_pantscurve(pd, 1)
     @test !isboundary_pantscurve(pd, -1)
-    @test_throws ErrorException isboundary_pantscurve(pd, 4)
+    @test_throws BoundsError isboundary_pantscurve(pd, 4)
     @test isinner_pantscurve(pd, 1)
     @test isinner_pantscurve(pd, -1)
-    @test_throws ErrorException isinner_pantscurve(pd, 4)
-    @test istwosided_pantscurve(pd, 1)
-    @test istwosided_pantscurve(pd, -1)
-    @test !isonesided_pantscurve(pd, 3)
-    @test !isonesided_pantscurve(pd, -3)
+    @test_throws BoundsError isinner_pantscurve(pd, 4)
     @test pant_nextto_pantscurve(pd, 1, LEFT) == 1
     @test pant_nextto_pantscurve(pd, 1, RIGHT) == 2
     @test pant_nextto_pantscurve(pd, -1, LEFT) == 2
@@ -36,53 +32,17 @@ using Donut.Constants: LEFT, RIGHT
     @test pant_nextto_pantscurve(pd, 3, RIGHT) == 2
     @test pant_nextto_pantscurve(pd, -3, LEFT) == 2
     @test pant_nextto_pantscurve(pd, -3, RIGHT) == 1
-    # pantend = pantscurveside_to_pantend(pd, 1, LEFT)
-    # @test (pantend.pantindex, pantend.bdyindex) == (1, 1)
-    # pantend = pantscurveside_to_pantend(pd, 1, RIGHT)
-    # @test (pantend.pantindex, pantend.bdyindex) == (2, 3)
-    # pantend = pantscurveside_to_pantend(pd, -1, LEFT)
-    # @test (pantend.pantindex, pantend.bdyindex) == (2, 3)
-    # pantend = pantscurveside_to_pantend(pd, -1, RIGHT)
-    # @test (pantend.pantindex, pantend.bdyindex) == (1, 1)
-    @test pantend_to_pantscurveside(pd, 1, 1) == (1, LEFT)
-    @test pantend_to_pantscurveside(pd, 1, 2) == (2, LEFT)
-    @test pantend_to_pantscurveside(pd, 1, 3) == (3, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 1) == (-3, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 2) == (-2, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 3) == (-1, LEFT)
 end
 
 @testset "Pants decomposition with one-sided curves, boundary, and orientation-reversing gluings" begin
-    pd = PantsDecomposition([(1, 2, 3), (-3, 4, 5), (4, 6, 6)], [1])
-    @test collect(boundarycurveindices(pd)) == [2, 5]
+    pd = PantsDecomposition([(4, 6, 3), (-3, 2, 5), (-2, 1, -1)])
+    @test collect(boundarycurveindices(pd)) == [4, 5, 6]
     @test collect(curveindices(pd)) == [1, 2, 3, 4, 5, 6]
-    @test collect(innercurveindices(pd)) == [1, 3, 4, 6]
-    @test isboundary_pantscurve(pd, 2)
+    @test collect(innercurveindices(pd)) == [1, 2, 3]
+    @test isboundary_pantscurve(pd, 4)
     @test isboundary_pantscurve(pd, -5)
-    @test isinner_pantscurve(pd, -4)
-    @test isinner_pantscurve(pd ,6)
-    @test !istwosided_pantscurve(pd, 1)
-    @test istwosided_pantscurve(pd, 3)
-    @test istwosided_pantscurve(pd, -4)
-    @test isonesided_pantscurve(pd, -1)
-    @test !isonesided_pantscurve(pd, -6)
-    @test pantend_to_pantscurveside(pd, 1, 1) == (1, LEFT)
-    @test pantend_to_pantscurveside(pd, 1, 2) == (2, LEFT)
-    @test pantend_to_pantscurveside(pd, 1, 3) == (3, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 1) == (-3, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 2) == (4, LEFT)
-    @test pantend_to_pantscurveside(pd, 2, 3) == (5, LEFT)
-    @test pantend_to_pantscurveside(pd, 3, 1) == (4, RIGHT)
-    @test pantend_to_pantscurveside(pd, 3, 2) == (6, LEFT)
-    @test pantend_to_pantscurveside(pd, 3, 3) == (6, RIGHT)
-
-    @test ispantend_orientationpreserving(pd, 3, 2) != ispantend_orientationpreserving(pd, 3, 3)
-    @test ispantend_orientationpreserving(pd, 2, 2) != ispantend_orientationpreserving(pd, 3, 1)
-    @test ispantend_orientationpreserving(pd, 1, 3) == ispantend_orientationpreserving(pd, 2, 1)
-
-    @test ispantscurveside_orientationpreserving(pd, 3, LEFT)
-    @test ispantscurveside_orientationpreserving(pd, 3, RIGHT)
-    @test ispantscurveside_orientationpreserving(pd, 6, LEFT) != ispantscurveside_orientationpreserving(pd, 6, RIGHT)
+    @test isinner_pantscurve(pd, -1)
+    @test isinner_pantscurve(pd ,2)
 end
 
 end

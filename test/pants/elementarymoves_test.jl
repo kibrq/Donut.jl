@@ -48,23 +48,6 @@ using Donut.Constants: LEFT, RIGHT
     @test gluinglist(pd) == [(3, 2, -2), (-3, -1, 1)]
 end
 
-@testset "Move 2 reversing" begin
-    pd = PantsDecomposition([(1, 2, -3), (-3, -2, 1)])
-    apply_secondmove!(pd, 2)
-    @test gluinglist(pd) == [(2, 1, 1), (-2, -3, -3)]
-    @test pant_nextto_pantscurve(pd, 2, LEFT) == 1
-    @test pant_nextto_pantscurve(pd, 2, RIGHT) == 2
-    @test pant_nextto_pantscurve(pd, 1, LEFT) == 1
-    @test pant_nextto_pantscurve(pd, 1, RIGHT) == 1
-    @test pant_nextto_pantscurve(pd, 3, LEFT) == 2
-    @test pant_nextto_pantscurve(pd, 3, RIGHT) == 2
-    @test bdyindex_nextto_pantscurve(pd, 1, LEFT) == 2
-    @test bdyindex_nextto_pantscurve(pd, 1, RIGHT) == 3
-    @test bdyindex_nextto_pantscurve(pd, 2, LEFT) == 1
-    @test bdyindex_nextto_pantscurve(pd, 2, RIGHT) == 1
-    @test bdyindex_nextto_pantscurve(pd, 3, LEFT) == 2
-    @test bdyindex_nextto_pantscurve(pd, 3, RIGHT) == 3
-end
 
 
 @testset "Halftwist" begin
@@ -77,16 +60,6 @@ end
     @test bdyindex_nextto_pantscurve(pd, 1, LEFT) == 3
     @test bdyindex_nextto_pantscurve(pd, 2, LEFT) == 2
     @test bdyindex_nextto_pantscurve(pd, 3, LEFT) == 1
-
-    pd = PantsDecomposition([(1, 2, -3), (-3, -2, 1)])
-    apply_halftwist!(pd, 2, 1)
-    @test gluinglist(pd) == [(1, 2, -3), (-3, 1, -2)]
-    @test pant_nextto_pantscurve(pd, -3, RIGHT) == 2
-    @test pant_nextto_pantscurve(pd, 1, RIGHT) == 2
-    @test pant_nextto_pantscurve(pd, -2, LEFT) == 2
-    @test bdyindex_nextto_pantscurve(pd, -3, RIGHT) == 1
-    @test bdyindex_nextto_pantscurve(pd, 1, RIGHT) == 2
-    @test bdyindex_nextto_pantscurve(pd, -2, LEFT) == 3
 end
 
 

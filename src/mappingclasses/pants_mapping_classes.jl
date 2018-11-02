@@ -10,6 +10,7 @@ import Base.*, Base.==, Base.^
 import Donut.Pants.inverse
 import Donut
 import Donut.Pants.copy
+import Donut.Laminations.copy
 using Donut.Constants: LEFT, RIGHT
 using Donut.Laminations
 using Donut.PantsAndTrainTracks.PeelFold
@@ -31,17 +32,11 @@ function identity_mapping_class(pd::PantsDecomposition)
 end
 
 function pantstwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
-    if !istwosided_pantscurve(pd, curveindex)
-        error("Curve $(curveindex) is not a two-sided inner pants curve, so we cannot perform a Dehn Twist around it.")
-    end
     PantsMappingClass(pd, [Twist(curveindex, -power)])
 end
 
 function halftwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
     # TODO: we should check that the curve is around two boundaries. Input the pd.
-    if !istwosided_pantscurve(pd, curveindex)
-        error("Curve $(curveindex) is not a two-sided inner pants curve, so we cannot perform a Dehn Twist around it.")
-    end
     PantsMappingClass(pd, [HalfTwist(curveindex, -power)])
 end
 
@@ -130,7 +125,7 @@ function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLami
 end
 
 function *(pmc::PantsMappingClass, pl::PantsLamination)
-    pl_copy = deepcopy(pl)
+    pl_copy = Donut.Laminations.copy(pl)
     apply_mappingclass_to_lamination!(pmc, pl_copy)
     pl_copy
 end

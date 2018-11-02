@@ -2,15 +2,20 @@
 
 module Measures
 
-export Measure, branchmeasure, zeromeasure, outgoingmeasure
+export Measure, branchmeasure, zeromeasure, outgoingmeasure, copy
 
 using Donut.TrainTracks
+import Base.copy
 
 """
 Notexisting branches should have 0 in the corresponding index. This assumption is used by some utility functions, e.g. updating the measure when pulling apart.
 """
 struct Measure{T}
     values::Array{T, 1}
+
+    function Measure{T}(values::Vector{T}) where {T}
+        new(values)
+    end
 
     function Measure{T}(tt::TrainTrack, valuearray::Array{T, 1}, allownegatives::Bool=false) where {T}
         if length(valuearray) != length(branches(tt))
@@ -40,7 +45,9 @@ struct Measure{T}
     end 
 end
 
-
+function copy(measure::Measure{T}) where {T} 
+    Measure{T}(copy(measure.values))
+end
 
 function zeromeasure(tt::TrainTrack, type)
     Measure{type}(tt, zeros(type, length(branches(tt))))

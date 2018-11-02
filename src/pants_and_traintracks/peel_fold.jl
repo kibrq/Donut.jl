@@ -140,35 +140,8 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
 
                     peeledbr = outgoing_branch(tt, sw, 1, side)
                     otherbr = outgoing_branch(tt, -sw, 1, otherside(side))
-                    # sidedecided = false
-                    # if branchmeasure(measure, peeledbr) == branchmeasure(measure, otherbr)
-                    #     path1 = branch_to_path(encodings, encoding_changes, peeledbr)
-                    #     path2 = branch_to_path(encodings, encoding_changes, otherbr)
-                    #     if !ispantscurvearc(path1[1]) && !ispantscurvearc(path2[1])
-                    #         # The new switch turning on this side is not decided yet, and we have choice which side to peel. 
-                    #         # In this case we need to make sure that if the switch turning on the other side of the switch is already decided (there is no illegal turn on the other side), then we pick the appropriate side to peel on this side.
-                    #         otherside_br1 = outgoing_branch(tt, sw, 1, otherside(side))
-                    #         otherside_br2 = outgoing_branch(tt, -sw, 1, side)
-                    #         otherpath1 = branch_to_path(encodings, encoding_changes, otherside_br1)
-                    #         otherpath2 = branch_to_path(encodings, encoding_changes, otherside_br2)
-                    #         if ispantscurvearc(otherpath1[1])
-                    #             @assert !ispantscurvearc(otherpath2[1])
-                    #             # Switch will be left turning, so we have to peel the backward branch.
-                    #             sidetopeel = BACKWARD
-                    #             sidedecided = true
-                    #         elseif ispantscurvearc(otherpath2[1])
-                    #             @assert !ispantscurvearc(otherpath1[1])
-                    #             # Switch will be right turning, so we have to peel the forward branch. 
-                    #             sidetopeel = FORWARD
-                    #             sidedecided = true
-                    #         else
-                    #             # The switch turning on the other side is not yet decided, so does not matter which side we peel.
-                    #         end
-                    #     end
-                    # end
-                    # if !sidedecided      
-                        sidetopeel = whichside_to_peel(tt, measure, sw, side)
-                    # end
+     
+                    sidetopeel = whichside_to_peel(tt, measure, sw, side)
                     if sidetopeel == FORWARD
                         peel!(tt, sw, side, measure)
                     else
@@ -358,18 +331,6 @@ function fix_switch_orientation!(tt::TrainTrack, sw::Int, encodings::Vector{ArcI
     @assert false
 end
 
-# function reverse_turning_on_side!(tt::TrainTrack, sw::Int, side::Int, encodings::Vector{ArcInPants})
-#     @assert numoutgoing_branches(tt, -sw) == 1
-#     back_br = outgoing_branch(tt, -sw, 1)
-#     @assert ispantscurvearc(branch_to_arc(encodings, backbr))
-#     for i in numoutgoing_branches(tt, sw)
-#         br = outgoing_branch(tt, sw, i, side)
-#         if ispantscurvearc(branch_to_arc(encodings, br))
-#             _reglue_outgoing_branches!
-#             break
-#         end
-
-# end
 
 function peel_fold_elementarymove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, update_encoding_fn::Function, encodings::Vector{ArcInPants})
     encoding_changes = update_encoding_fn(tt, pd, encodings)

@@ -59,13 +59,9 @@ end
 Construct an arc along a pants curve.
 """
 function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Int, direction::Int)
-    # wrapdirection = direction == lookingfromgate ? FORWARD : BACKWARD
-    # if !ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT)
-    #     wrapdirection = otherside(wrapdirection)
-    # end
     sign1 = direction == LEFT ? 1 : -1
-    sign2 = ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT) ? 1 : -1
-    construct_pantscurvearc(signed_vertex * sign1 * sign2)
+    # sign2 = ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT) ? 1 : -1
+    construct_pantscurvearc(signed_vertex * sign1)
 end
 
 # this could return an iterator for better speed

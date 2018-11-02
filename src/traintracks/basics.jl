@@ -1,6 +1,7 @@
 export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
+import Base.copy
 
 mutable struct Branch
     endpoint::Array{Int,1}  # dim: (2), indexed by START, END
@@ -16,7 +17,7 @@ function zeroout(br::Branch)
     br.istwisted = false
 end
 
-function copy(frombranch::Branch, tobranch::Branch)
+function copy_branch(frombranch::Branch, tobranch::Branch)
     for i in (1, 2)
         tobranch.endpoint[i] = frombranch.endpoint[i]
     end
@@ -41,7 +42,7 @@ function zeroout(sw::Switch)
     end
 end
 
-function copy(fromswitch::Switch, toswitch::Switch)
+function copy_switch(fromswitch::Switch, toswitch::Switch)
     for side in 1:2
         x = fromswitch.outgoing_branch_indices[side]
         y = toswitch.outgoing_branch_indices[side]
@@ -117,6 +118,10 @@ struct TrainTrack
 
         new(branches, switches)
     end
+end
+
+function copy(tt::TrainTrack)
+    TrainTrack(tt_gluinglist(tt), twisted_branches(tt))
 end
 
 
@@ -244,7 +249,7 @@ function is_branch_small_foldable(tt::TrainTrack, branch::Int)
 end
 
 function tt_gluinglist(tt::TrainTrack)
-    [outgoing_branches(tt, sg*sw) for sw in switches(tt) for sg in (1, -1)]
+    [collect(outgoing_branches(tt, sg*sw)) for sw in switches(tt) for sg in (1, -1)]
 end
 
 function Base.show(io::IO, tt::TrainTrack)
