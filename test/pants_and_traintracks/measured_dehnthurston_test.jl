@@ -8,17 +8,17 @@ using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks: selfconn_and_bridge_measures
 
-selfconn, pairs = selfconn_and_bridge_measures(1, 4, 7)
-@test selfconn == [0, 0, 1]
-@test pairs == [4, 1, 0]
+selfconn, pairs = selfconn_and_bridge_measures((1, 4, 7))
+@test selfconn == (0, 0, 1)
+@test pairs == (4, 1, 0)
 
-selfconn, pairs = selfconn_and_bridge_measures(13, 10, 7)
-@test selfconn == [0, 0, 0]
-@test pairs == [2, 5, 8]
+selfconn, pairs = selfconn_and_bridge_measures((13, 10, 7))
+@test selfconn == (0, 0, 0)
+@test pairs == (2, 5, 8)
 
-selfconn, pairs = selfconn_and_bridge_measures(1.0, 1.0, 1.0)
-@test selfconn == [0.0, 0.0, 0.0]
-@test pairs == [0.5, 0.5, 0.5]
+selfconn, pairs = selfconn_and_bridge_measures((1.0, 1.0, 1.0))
+@test selfconn == (0.0, 0.0, 0.0)
+@test pairs == (0.5, 0.5, 0.5)
 
 
 @testset "Dehn-Thurston train track from coordinates" begin

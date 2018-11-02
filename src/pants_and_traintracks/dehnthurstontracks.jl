@@ -32,7 +32,7 @@ The branches of the constructed train track are number from 1 to N for some N. T
 
 
 """
-function dehnthurstontrack(pd::PantsDecomposition, pantstypes::Vector{Int}, turnings::Vector{Int})
+function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
     ipc = innercurveindices(pd)
 
     if length(ipc) != length(turnings)
