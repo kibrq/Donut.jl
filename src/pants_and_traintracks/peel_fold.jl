@@ -265,18 +265,18 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector
                 signed_br = sg*br
                 start_sw = branch_endpoint(tt, -signed_br)
                 for side in (LEFT, RIGHT)
-                    if outgoing_branch(tt, start_sw, 1, side) == signed_br
+                    if outgoing_branch(tt, start_sw, 1, otherside(side)) == signed_br
                         continue
                     end
 
                     index = outgoing_branch_index(tt, start_sw, signed_br, side)
-                    fold_onto_br = outgoing_branch(tt, start_sw, index-1, side)
+                    fold_onto_br = outgoing_branch(tt, start_sw, index+1, side)
                     if issubpath(encodings, encoding_changes, fold_onto_br, signed_br)
                         if debug
                             println("Folding $(signed_br) onto $(fold_onto_br)...")
                         end
                         endsw = branch_endpoint(tt, fold_onto_br)
-                        fold!(tt, -endsw, otherside(side), measure)
+                        fold!(tt, start_sw, index, side, measure)
                         subtract_path!(encodings, encoding_changes, signed_br, fold_onto_br)
                         if debug
                             println("TrainTrack gluing list: ", tt_gluinglist(tt))

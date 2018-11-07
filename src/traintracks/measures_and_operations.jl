@@ -1,7 +1,7 @@
 
 module MeasuresAndOperations
 
-export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!, whichside_to_peel, peel2!
+export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!, whichside_to_peel
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
@@ -11,6 +11,7 @@ using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
 using Donut.TrainTracks.Operations: TTOperationIterator
 import Donut.TrainTracks.Operations.peel!
+import Donut.TrainTracks.Operations.fold!
 using Donut.Constants: FORWARD, BACKWARD
 
 function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
@@ -87,11 +88,6 @@ function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation
     sw, br
 end
 
-function peel2!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-    ops = peeling_to_elementaryops(tt, switch, side)
-    execute_elementaryops!(tt, ops, measure)
-    nothing
-end
 
 function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
     peeled_branch = outgoing_branch(tt, switch, 1, side)
@@ -101,11 +97,14 @@ function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
     _setmeasure!(measure, backward_branch, newvalue)
 end
 
-function fold!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-    ops = folding_to_elementaryops(tt, switch, side)
-    execute_elementaryops!(tt, ops, measure)
-    nothing
+function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int, measure::Measure)
+    foldedbranch = outgoing_branch(tt, switch, foldedbr_index, from_side)
+    foldonto_branch = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
+    newvalue = branchmeasure(measure, foldonto_branch) + branchmeasure(measure, foldedbranch)
+    fold!(tt, switch, foldedbr_index, from_side)
+    _setmeasure!(measure, foldonto_branch, newvalue)
 end
+
 
 function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int, measure::Measure)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)

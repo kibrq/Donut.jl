@@ -258,10 +258,6 @@ function _reglue_outgoing_branches!(
 
         # len = stop-start+1:stop
         len = stop-start+1
-        # println(len)
-        # println(to_position.index)
-        # println(smallest_bad_pos)
-        # println()
         if to_position.index < smallest_bad_pos
             delete_range = start+len:stop+len
         elseif smallest_bad_pos <= to_position.index <= largest_bad_pos
@@ -273,10 +269,16 @@ function _reglue_outgoing_branches!(
         br = outgoing_branch(tt, from_range.switch, idx, from_range.start_side)
         _setendpoint!(tt, -br, to_position.switch)
     end
-    # println(from_range)
-    # println(to_position)
-    inserted_branches = view(outgoing_branches(tt, from_range.switch, from_range.start_side), from_range.index_range)
+
+    if from_range.switch != to_position.switch
+        inserted_branches = view(outgoing_branches(tt, from_range.switch, from_range.start_side), from_range.index_range)
+    else
+        # if its the same switch, we make a copy to be safe
+        inserted_branches = outgoing_branches(tt, from_range.switch, from_range.start_side)[from_range.index_range]
+    end
+
     _insert_outgoing_branches!(tt, to_position, inserted_branches)
+    println(outgoing_branches(tt, to_position.switch))
     fixed_range = BranchRange(from_range.switch, delete_range, from_range.start_side)
     _delete_outgoing_branches!(tt, fixed_range)
 end
@@ -296,12 +298,33 @@ function peel!(tt::TrainTrack, switch::Int, side::Int)
     back_sw = branch_endpoint(tt, backward_branch)
     back_side = !istwisted(tt, backward_branch) ? side : otherside(side)
     pos = outgoing_branch_index(tt, back_sw, -backward_branch, back_side)
-    # println(back_side, pos)
     _reglue_outgoing_branches!(tt,
                                BranchRange(switch, 1:1, side),
                                BranchPosition(back_sw, pos-1, back_side))
     if istwisted(tt, backward_branch)
         twist_branch!(tt, peeled_branch)
+    end
+end
+
+
+function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int)
+    # if foldedbr_index == 
+    #     error("We cannot fold onto the first branch.")
+    # end
+    folded_br = outgoing_branch(tt, switch, foldedbr_index, from_side)
+    fold_onto_br = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
+    endsw = branch_endpoint(tt, fold_onto_br)
+    endside = !istwisted(tt, fold_onto_br) ? from_side : otherside(from_side)
+    if outgoing_branch(tt, endsw, 1, otherside(endside)) != -fold_onto_br
+        error("Branch $(folded_br) is not foldable on $(fold_onto_br), since there is a branch blocking the fold.")
+    end
+    _reglue_outgoing_branches!(
+        tt,
+        BranchRange(switch, foldedbr_index:foldedbr_index, from_side),
+        BranchPosition(-endsw, 0, endside)
+    )
+    if istwisted(tt, fold_onto_br)
+        twist_branch!(tt, folded_br)
     end
 end
 
@@ -556,11 +579,11 @@ end
 
 
 
-function fold!(tt::TrainTrack, switch::Int, side::Int)
-    ops = folding_to_elementaryops(tt, switch, side)
-    execute_elementaryops!(tt, ops)
-    nothing
-end
+# function fold!(tt::TrainTrack, switch::Int, side::Int)
+#     ops = folding_to_elementaryops(tt, switch, side)
+#     execute_elementaryops!(tt, ops)
+#     nothing
+# end
 
 function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)

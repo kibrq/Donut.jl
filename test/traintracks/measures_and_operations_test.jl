@@ -34,13 +34,13 @@ end
 @testset "Folding" begin
     tt = TrainTrack([[1, 2], [-1, -2]])
     measure = Measure{Int}(tt, [11, 2])
-    fold!(tt, 1, LEFT, measure)
+    fold!(tt, 1, 1, LEFT, measure)
     @test branchmeasure(measure, 1) == 11
     @test branchmeasure(measure, 2) == 13
 
     tt = TrainTrack([[1, 2], [-1, -2]])
     measure = Measure{Float64}(tt, [11.0, 2.0])
-    fold!(tt, -1, RIGHT, measure)
+    fold!(tt, -1, 1, RIGHT, measure)
     @test branchmeasure(measure, 1) == 13.0
     @test branchmeasure(measure, 2) == 2.0
 end

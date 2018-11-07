@@ -299,25 +299,22 @@ end
 
 @testset "Folding" begin
     tt = TrainTrack([[1, 2], [-1, -2]])
-    fold!(tt, 1, LEFT)
+    fold!(tt, 1, 1, RIGHT)
     @test outgoing_branches(tt, 1) == [1, 2]
     @test outgoing_branches(tt, -1) == [-1, -2]
-    fold!(tt, -1, RIGHT)
+    fold!(tt, -1, 1, LEFT)
     @test outgoing_branches(tt, 1) == [1, 2]
     @test outgoing_branches(tt, -1) == [-1, -2]
 
     tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
-    @test_throws ErrorException fold!(tt, 1, RIGHT)
-
-    tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
-    fold!(tt, 2, RIGHT)
+    fold!(tt, 1, 1, RIGHT)
     @test outgoing_branches(tt, 1) == [1]
     @test outgoing_branches(tt, -1) == [-3]
     @test outgoing_branches(tt, 2) == [3, 2]
     @test outgoing_branches(tt, -2) == [-1, -2]
 
     tt = TrainTrack([[1, 2], [-3], [3, 4], [-4, -1, -2]], [3])
-    fold!(tt, 1, LEFT)
+    fold!(tt, 2, 1, RIGHT)
     @test outgoing_branches(tt, 1) == [4, 1, 2]
     @test outgoing_branches(tt, -1) == [-3]
     @test outgoing_branches(tt, 2) == [3]
