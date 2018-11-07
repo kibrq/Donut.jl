@@ -256,20 +256,25 @@ function _reglue_outgoing_branches!(
             largest_bad_pos = n-start
         end
 
-        len = stop-start+1:stop
+        # len = stop-start+1:stop
+        len = stop-start+1
+        # println(len)
+        # println(to_position.index)
+        # println(smallest_bad_pos)
+        # println()
         if to_position.index < smallest_bad_pos
             delete_range = start+len:stop+len
         elseif smallest_bad_pos <= to_position.index <= largest_bad_pos
             error("Cannot insert the branches from where they are being deleted.")
         end
-
     end
 
     for idx in from_range.index_range
         br = outgoing_branch(tt, from_range.switch, idx, from_range.start_side)
         _setendpoint!(tt, -br, to_position.switch)
     end
-
+    # println(from_range)
+    # println(to_position)
     inserted_branches = view(outgoing_branches(tt, from_range.switch, from_range.start_side), from_range.index_range)
     _insert_outgoing_branches!(tt, to_position, inserted_branches)
     fixed_range = BranchRange(from_range.switch, delete_range, from_range.start_side)
@@ -277,8 +282,28 @@ function _reglue_outgoing_branches!(
 end
 
 
+# ------------------------------------
+# Peeling and folding
+# ------------------------------------
 
+function peel!(tt::TrainTrack, switch::Int, side::Int)
+    if numoutgoing_branches(tt, switch) == 1
+        error("Cannot peel at $(switch), because there is only one branch going forward.")
+    end
 
+    peeled_branch = outgoing_branch(tt, switch, 1, side)
+    backward_branch = outgoing_branch(tt, -switch, 1, otherside(side))
+    back_sw = branch_endpoint(tt, backward_branch)
+    back_side = !istwisted(tt, backward_branch) ? side : otherside(side)
+    pos = outgoing_branch_index(tt, back_sw, -backward_branch, back_side)
+    # println(back_side, pos)
+    _reglue_outgoing_branches!(tt,
+                               BranchRange(switch, 1:1, side),
+                               BranchPosition(back_sw, pos-1, back_side))
+    if istwisted(tt, backward_branch)
+        twist_branch!(tt, peeled_branch)
+    end
+end
 
 # ------------------------------------
 # Elementary Operations
@@ -530,11 +555,6 @@ function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation
 end
 
 
-function peel!(tt::TrainTrack, switch::Int, side::Int)
-    ops = peeling_to_elementaryops(tt, switch, side)
-    execute_elementaryops!(tt, ops)
-    nothing
-end
 
 function fold!(tt::TrainTrack, switch::Int, side::Int)
     ops = folding_to_elementaryops(tt, switch, side)
