@@ -1,68 +1,20 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, outgoing_branch, outgoing_branch_index, istwisted, isswitch, isbranch, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, switches, branches, numbranches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, next_branch
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 import Base.copy
+using Donut.Utils: otherside
 
-mutable struct Branch
-    endpoint::Array{Int,1}  # dim: (2), indexed by START, END
-    istwisted::Bool
-end
+mutable struct TrainTrack
+    branch_endpoints::Array{Int, 2}
+    istwisted::Array{Bool, 1}
+    branch_neighbors::Array{Int, 3}
+    extremal_outgoing_branches::Array{Int, 3}
 
-Branch() = Branch([0, 0], false)
-
-function zeroout(br::Branch)
-    for i in (1, 2)
-        br.endpoint[i] = 0
+    # branches::Array{Branch,1}
+    # switches::Array{Switch,1}
+    function TrainTrack(a, b, c, d)
+        new(a, b, c, d)
     end
-    br.istwisted = false
-end
-
-function copy_branch(frombranch::Branch, tobranch::Branch)
-    for i in (1, 2)
-        tobranch.endpoint[i] = frombranch.endpoint[i]
-    end
-    tobranch.istwisted = frombranch.istwisted    
-end
-
-
-struct Switch
-    outgoing_branch_indices::Array{Array{Int,1},1}  # dim: (2, max_num_branches)
-    numoutgoing_branches::Array{Int,1}  # dim: (2), indexed by FORWARD, BACKWARD
-end
-
-Switch() = Switch([Int[], Int[]], Int[0, 0])
-
-function zeroout(sw::Switch)
-    for side in 1:2
-        x = sw.outgoing_branch_indices[side]
-        for i in eachindex(x)
-            x[i] = 0
-        end
-        sw.numoutgoing_branches[side] = 0
-    end
-end
-
-function copy_switch(fromswitch::Switch, toswitch::Switch)
-    for side in 1:2
-        x = fromswitch.outgoing_branch_indices[side]
-        y = toswitch.outgoing_branch_indices[side]
-        if length(x) > length(y)
-            resize!(y, length(x))
-            for i in length(y)+1:length(x)
-                y[i] = 0
-            end
-        end
-        for i in eachindex(x)
-            y[i] = x[i]
-        end
-        toswitch.numoutgoing_branches[side] = fromswitch.numoutgoing_branches[side]
-    end    
-end
-
-
-struct TrainTrack
-    branches::Array{Branch,1}
-    switches::Array{Switch,1}
 
     function TrainTrack(gluinglist::Array{Array{Int,1},1},
                         twisted_branches::Array{Int,1}=Int[])
@@ -96,133 +48,183 @@ struct TrainTrack
         branch_arr_size = maximum(maximum(abs(x) for x in y) for y in gluinglist)
         switch_arr_size = div(length(gluinglist), 2)
 
-        branches = [Branch(Int[0, 0], i in twisted_branches) for i in 1:branch_arr_size]
-        switches = [Switch([fill(0, branch_arr_size),
-                            fill(0, branch_arr_size)],
-                           Int[0, 0]) for i in 1:switch_arr_size]
+        branch_endpoints = zeros(Int, 2, branch_arr_size)
+        istwisted = zeros(Bool, branch_arr_size)
+        branch_neighbors = zeros(Int, 2, 2, branch_arr_size)
+        extremal_outgoing_branches = zeros(Int, 2, 2, switch_arr_size)
 
-        for i in 1:switch_arr_size
-            for step in (FORWARD, BACKWARD)
-                sgn = step == FORWARD ? 1 : -1
-                ls = gluinglist[2*i - 2 + step]
-                for br_idx in ls
-                    # br_idx < 0 ?
-                    # branches[-br_idx].endpoint[END] = sgn*i :
-                    # branches[br_idx].endpoint[START] = sgn*i
-                    _setend!(-br_idx, sgn*i, branches)
+        for i in twisted_branches
+            istwisted[i] = true
+        end
+
+        for sw in 1:switch_arr_size
+            for direction in (FORWARD, BACKWARD)
+                ls = gluinglist[2*sw - 2 + direction]
+                extremal_outgoing_branches[direction, LEFT, sw] = ls[1]
+
+                prev_branch = 0
+                sgn = direction == FORWARD ? 1 : -1
+                for br in ls
+                    branch_endpoints[br > 0 ? START : END, abs(br)] = sgn*sw
+                    branch_neighbors[br > 0 ? FORWARD : BACKWARD, LEFT, abs(br)] = prev_branch
+                    if prev_branch != 0
+                        branch_neighbors[br > 0 ? FORWARD : BACKWARD, RIGHT, abs(prev_branch)] = br
+                    end
+                    prev_branch = br
                 end
-                switches[i].numoutgoing_branches[step] = length(ls)
-                switches[i].outgoing_branch_indices[step][1:length(ls)] = ls
+                extremal_outgoing_branches[direction, RIGHT, sw] = ls[end]
             end
         end
 
-        new(branches, switches)
+        new(branch_endpoints, istwisted, branch_neighbors, extremal_outgoing_branches)
     end
 end
 
 function copy(tt::TrainTrack)
-    TrainTrack(tt_gluinglist(tt), twisted_branches(tt))
+    TrainTrack(tt.branch_endpoints, tt.istwisted, tt.branch_neighbors, tt.extremal_outgoing_branches)
 end
 
+function extremal_branch(tt::TrainTrack, sw::Int, side::Int=LEFT)
+    return tt.extremal_outgoing_branches[sw > 0 ? FORWARD : BACKWARD, side, abs(sw)]
+end
 
-_setend!(br_idx::Int, sw_idx::Int, branch_array::Array{Branch}) = br_idx > 0 ?
-    branch_array[br_idx].endpoint[END] = sw_idx :
-    branch_array[-br_idx].endpoint[START] = sw_idx
+function _set_extremal_branch!(tt::TrainTrack, sw::Int, side::Int, br::Int)
+    tt.extremal_outgoing_branches[sw > 0 ? FORWARD : BACKWARD, side, abs(sw)] = br
+end
+
+function next_branch(tt::TrainTrack, br::Int, side::Int=LEFT)
+    return tt.branch_neighbors[br > 0 ? FORWARD : BACKWARD, side, abs(br)]
+end
+
+function _set_next_branch!(tt::TrainTrack, br::Int, side::Int, br2::Int)
+    tt.branch_neighbors[br > 0 ? FORWARD : BACKWARD, side, abs(br)] = br2
+end
+
+struct BranchIterator
+    tt::TrainTrack
+    start_br::Int
+    end_br::Int
+    start_side::Int
+end
+
+BranchIterator(a, b, c) = BranchIterator(a, b, c, LEFT)
+BranchIterator(a, b) = BranchIterator(a, b, b, LEFT)
 
 
+function Base.iterate(iter::BranchIterator, state::Int=0)
+    # println(iter.start_br)
+    # println(iter.end_br)
+    # println(iter.start_side)
+    # println(state)
+    # println()
+    if state == 0
+        current_br = iter.start_br
+    else 
+        prev_br = state
+        if prev_br == iter.end_br
+            return nothing
+        end
+        current_br = next_branch(iter.tt, prev_br, otherside(iter.start_side))
+    end
+    state = current_br
+    @assert state != 0
+    return (current_br, state)
+end
 
-branch_endpoint(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].endpoint[
-    branch > 0 ? END : START]
+function Base.length(iter::BranchIterator)
+    count = 0
+    for br in iter
+        count += 1
+    end
+    return count
+end
 
+function verify(iter::BranchIterator)
+    for br in iter
+    end
+    # if the iterator is not valid, then an assertion will fail during the iteration.
+end
 
-numoutgoing_branches(tt::TrainTrack, switch::Int) =
-    tt.switches[abs(switch)].numoutgoing_branches[switch > 0 ? FORWARD : BACKWARD]
+branch_endpoint(tt::TrainTrack, branch::Int) = tt.branch_endpoints[branch > 0 ? END : START, abs(branch)]
+
+"""
+WARNING: It leaves the TrainTrack object in an inconsistent state.
+"""
+_setendpoint!(tt::TrainTrack, branch::Int, switch::Int) =
+    tt.branch_endpoints[branch > 0 ? END : START, abs(branch)] = switch
 
 
 function outgoing_branches(tt::TrainTrack, switch::Int, start_side::Int=LEFT)
-    n = numoutgoing_branches(tt, switch)
-    direction = switch > 0 ? FORWARD : BACKWARD
-    arr_view = view(tt.switches[abs(switch)].outgoing_branch_indices[direction], 1:n)
-    return start_side == LEFT ? arr_view : reverse(arr_view)
+    return BranchIterator(tt, extremal_branch(tt, switch, start_side),
+    extremal_branch(tt, switch, otherside(start_side)), start_side)
 end
 
-struct BranchPosition
-    switch::Int
-    index::Int
-    start_side::Int
-end
-
-BranchPosition(sw, idx) = BranchPosition(sw, idx, LEFT)
-
-struct BranchRange
-    switch::Int
-    index_range::UnitRange{Int}
-    start_side::Int
-end
-
-BranchRange(sw, index_range) = BranchRange(sw, index_range, LEFT)
-BranchRange() = BranchRange(0, 0:0)
+numoutgoing_branches(tt::TrainTrack, switch::Int) = length(outgoing_branches(tt, switch))
 
 
-function outgoing_branch(tt::TrainTrack, switch::Int, index::Int, start_side::Int=LEFT)
-    n = numoutgoing_branches(tt, switch)
-    if index <= 0 || index > n
-        error("Index $(index) is invalid at switch $(switch). The number of outgoing branches is $(n).")
+istwisted(tt::TrainTrack, branch::Int) = tt.istwisted[abs(branch)]
+
+_set_twisted!(tt::TrainTrack, branch::Int, istwisted::Bool) = 
+    (tt.istwisted[abs(branch)] = istwisted)
+
+twist_branch!(tt::TrainTrack, branch::Int) = 
+    (tt.istwisted[abs(branch)] = !tt.istwisted[abs(branch)])
+
+isswitch(tt::TrainTrack, sw::Int) = 1 <= abs(sw) <= size(tt.extremal_outgoing_branches)[3] && tt.extremal_outgoing_branches[FORWARD, LEFT, abs(sw)] != 0
+
+switches(tt::TrainTrack) = (i for i in 1:size(tt.extremal_outgoing_branches)[3] if tt.extremal_outgoing_branches[FORWARD, LEFT, i] != 0)
+
+""" Return a switch number with is suitable as a new switch.
+
+The new switch won't be connected to any branches just yet.
+If necessary, new space is allocated.
+"""
+function _find_new_switch_number!(tt::TrainTrack)
+    for i in eachindex(size(tt.extremal_outgoing_branches)[3])  
+        if tt.extremal_outgoing_branches[FORWARD, LEFT, i] == 0 && tt.extremal_outgoing_branches[FORWARD, RIGHT, i] == 0
+            return i
+        end
     end
-    branches = outgoing_branches(tt, switch, start_side)
-    branches[index]
+    tt.extremal_outgoing_branches = cat(tt.extremal_outgoing_branches, zeros(Int, 2, 2), dims=3)
+    return size(tt.extremal_outgoing_branches)[3]
 end
 
-function outgoing_branch(tt::TrainTrack, pos::BranchPosition)
-    outgoing_branch(tt, pos.switch, pos.index, pos.side)
-end
+isbranch(tt::TrainTrack, br::Int) = 1 <= abs(br) <= size(tt.branch_endpoints)[2] && tt.branch_endpoints[START, abs(br)] != 0
 
-function outgoing_branch_index(tt::TrainTrack, switch::Int, branch::Int, start_side::Int=LEFT)
-    branches = outgoing_branches(tt, switch, start_side)
-    index = findfirst(isequal(branch), branches)
-    if index == nothing
-        error("Branch $(branch) is not outgoing from switch $(switch).")
+branches(tt::TrainTrack) = (i for i in 1:size(tt.branch_endpoints)[2] if tt.branch_endpoints[START, i] != 0)
+
+function numbranches(tt::TrainTrack)
+    count = 0
+    for br in branches(tt)
+        count += 1
     end
-    index
+    return count
 end
 
+"""
+Return a positive integer suitable for an additional branch.
 
-
-istwisted(tt::TrainTrack, branch::Int) = tt.branches[abs(branch)].istwisted
-
-
-
-
-
-function isswitch(tt::TrainTrack, switch::Int)
-    if abs(switch) == 0 || abs(switch) > length(tt.switches)
-        return false
+The new branch won't be connected to any switches just yet. If
+necessary, new space is allocated.
+"""
+function _find_new_branch_number!(tt::TrainTrack)
+    for i in eachindex(size(tt.branch_endpoints)[2])    
+        if tt.branch_endpoints[START, i] == 0
+            return i
+        end
     end
-    tt.switches[abs(switch)].numoutgoing_branches[1] > 0
+    tt.branch_endpoints = cat(tt.branch_endpoints, zeros(Int, 2), dims=2)
+    push!(tt.istwisted, 0)
+    tt.branch_neighbors = cat(tt.branch_neighbors, zeros(Int, 2, 2), dims=3)
+    return length(tt.istwisted)
 end
-
-
-function isbranch(tt::TrainTrack, branch::Int)
-    if abs(branch) == 0 || abs(branch) > length(tt.branches)
-        return false
-    end
-    tt.branches[abs(branch)].endpoint[START] != 0
-end
-
-
-
-
-# TODO: This could return an interator instead.
-switches(tt::TrainTrack) = [i for i in 1:length(tt.switches) if isswitch(tt, i)]
-
-# TODO: This could return an interator instead.
-branches(tt::TrainTrack) = [i for i in 1:length(tt.branches) if isbranch(tt, i)]
 
 switchvalence(tt::TrainTrack, switch::Int) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
-twisted_branches(tt::TrainTrack) = filter(br->istwisted(tt, br), branches(tt))
+twisted_branches(tt::TrainTrack) = (br for br in branches(tt) if istwisted(tt, br))
 
 istrivalent(tt::TrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
+
 
 function is_branch_large(tt::TrainTrack, branch::Int)
     start_sw = branch_endpoint(tt, -branch)
@@ -231,37 +233,33 @@ function is_branch_large(tt::TrainTrack, branch::Int)
 end
 
 
-function is_branch_small_foldable(tt::TrainTrack, branch::Int)
-    start_sw = branch_endpoint(tt, -branch)
-    end_sw = branch_endpoint(tt, branch)
-    if switchvalence(tt, start_sw) != 3 || switchvalence(tt, end_sw) != 3
-        return false
-    end
-    if numoutgoing_branches(tt, start_sw) != 2 || numoutgoing_branches(tt, end_sw) != 2
-        return false
-    end
-    start_side = outgoing_branch(tt, start_sw, 1, LEFT) == branch ? LEFT : RIGHT
-    end_side = outgoing_branch(tt, end_sw, 1, LEFT) == -branch ? LEFT : RIGHT
-    if istwisted(tt, branch)
-        end_side = otherside(end_side)
-    end
-    return start_side == end_side
-end
+# function is_branch_small_foldable(tt::TrainTrack, branch::Int)
+#     start_sw = branch_endpoint(tt, -branch)
+#     end_sw = branch_endpoint(tt, branch)
+#     if switchvalence(tt, start_sw) != 3 || switchvalence(tt, end_sw) != 3
+#         return false
+#     end
+#     if numoutgoing_branches(tt, start_sw) != 2 || numoutgoing_branches(tt, end_sw) != 2
+#         return false
+#     end
+#     start_side = outgoing_branch(tt, start_sw, 1, LEFT) == branch ? LEFT : RIGHT
+#     end_side = outgoing_branch(tt, end_sw, 1, LEFT) == -branch ? LEFT : RIGHT
+#     if istwisted(tt, branch)
+#         end_side = otherside(end_side)
+#     end
+#     return start_side == end_side
+# end
 
 function tt_gluinglist(tt::TrainTrack)
-    [collect(outgoing_branches(tt, sg*sw)) for sw in switches(tt) for sg in (1, -1)]
+    [collect(collect(outgoing_branches(tt, sg*sw))) for sw in switches(tt) for sg in (1, -1)]
 end
 
 function Base.show(io::IO, tt::TrainTrack)
     print(io, "Traintrack with gluing list ", tt_gluinglist(tt))
-    twbr = twisted_branches(tt)
+    twbr = collect(twisted_branches(tt))
     if length(twbr) > 0
         println()
         print(io, "Twisted branches: ", twbr)
     end
 end
 
-# TODO: possibly
-# num_branches(tt)
-# num_switches(tt)
-# copy(tt)

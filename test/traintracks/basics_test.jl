@@ -2,7 +2,7 @@ module TrainTrainBasicsTest
 
 using Test
 using Donut.TrainTracks
-using Donut.Constants: RIGHT
+using Donut.Constants: LEFT, RIGHT
 
 
 @test_throws ErrorException TrainTrack([[1, 2], [-2], [-1]])
@@ -23,7 +23,7 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test !isswitch(tt, -2)
 @test !isswitch(tt, 0)
 
-@test switches(tt) == [1]
+@test collect(switches(tt)) == [1]
 
 @test isbranch(tt, 1)
 @test isbranch(tt, -1)
@@ -35,21 +35,24 @@ tt = TrainTrack([[1, 2], [-1, -2]])
 @test switchvalence(tt, 1) == 4
 @test switchvalence(tt, -1) == 4
 
-@test outgoing_branches(tt, 1) == [1, 2]
-@test outgoing_branches(tt, -1) == [-1, -2]
-@test outgoing_branches(tt, 1, RIGHT) == [2, 1]
-@test outgoing_branches(tt, -1, RIGHT) == [-2, -1]
+@test collect(outgoing_branches(tt, 1)) == [1, 2]
+@test collect(outgoing_branches(tt, -1)) == [-1, -2]
+@test collect(outgoing_branches(tt, 1, RIGHT)) == [2, 1]
+@test collect(outgoing_branches(tt, -1, RIGHT)) == [-2, -1]
 
-@test outgoing_branch(tt, 1, 1) == 1
-@test outgoing_branch(tt, 1, 1, RIGHT) == 2
-@test outgoing_branch(tt, 1, 2) == 2
-@test outgoing_branch(tt, 1, 2, RIGHT) == 1
-@test outgoing_branch(tt, -1, 1) == -1
+@test extremal_branch(tt, 1) == 1
+@test extremal_branch(tt, 1, RIGHT) == 2
+@test extremal_branch(tt, -1, LEFT) == -1
+@test extremal_branch(tt, -1, RIGHT) == -2
 
-@test outgoing_branch_index(tt, 1, 2) == 2
-@test outgoing_branch_index(tt, 1, 2, RIGHT) == 1
-@test outgoing_branch_index(tt, -1, -2) == 2
-@test_throws ErrorException outgoing_branch_index(tt, -1, 2)
+@test next_branch(tt, 1, LEFT) == 0
+@test next_branch(tt, 1, RIGHT) == 2
+@test next_branch(tt, 2, LEFT) == 1
+@test next_branch(tt, 2, RIGHT) == 0
+@test next_branch(tt, -1, LEFT) == 0
+@test next_branch(tt, -1, RIGHT) == -2
+@test next_branch(tt, -2, LEFT) == -1
+@test next_branch(tt, -2, RIGHT) == 0
 
 @test branch_endpoint(tt, 1) == -1
 @test branch_endpoint(tt, -1) == 1

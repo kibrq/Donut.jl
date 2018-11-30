@@ -1,11 +1,11 @@
 
 module Operations
 
-export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitch!, add_branch!, delete_branch!, collapse_branch!, pull_switch_apart!, add_switch_on_branch!, delete_two_valent_switch!, peel!, fold!, split_trivalent!, fold_trivalent!
+export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitch!, add_branch!, delete_branch!, collapse_branch!, pull_out_branches!, pull_switch_apart!, add_switch_on_branch!, delete_two_valent_switch!, peel!, fold!, split_trivalent!, fold_trivalent!
 
 
 using Donut.TrainTracks
-using Donut.TrainTracks: _setend!, Branch, Switch, copy_branch, copy_switch, zeroout, BranchPosition, BranchRange
+using Donut.TrainTracks: _set_extremal_branch!, _set_next_branch!, _setendpoint!, twist_branch!, _find_new_branch_number!, _find_new_switch_number!, _set_twisted!, BranchIterator
 using Donut
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 using Donut.Utils: otherside
@@ -16,69 +16,80 @@ using Donut.TrainTracks.ElementaryOps
 # ------------------------------------
 
 
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-_setendpoint!(tt::TrainTrack, branch::Int, switch::Int) =
-    _setend!(branch, switch, tt.branches)
 
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-_set_numoutgoing_branches!(tt::TrainTrack, switch::Int, number::Int) =
-    tt.switches[abs(switch)].numoutgoing_branches[switch > 0 ? FORWARD : BACKWARD] = number
 
-function _setoutgoing_branch!(tt::TrainTrack, 
-    pos::BranchPosition, newvalue::Int)
-    _splice_outgoing_branches!(tt, 
-        BranchRange(pos.switch, pos.index:pos.index, pos.start_side), [newvalue])
+function _detach_branches_unsafe!(iter::BranchIterator)
+    # we don't check if start_br can be obtained from end_br by going in start_side direction.
+    tt = iter.tt
+    start_br = iter.start_br
+    end_br = iter.end_br
+    start_side = iter.start_side
+    # println(start_br, end_br, start_side)
+
+    br1 = next_branch(tt, start_br, start_side)
+    br2 = next_branch(tt, end_br, otherside(start_side))
+    switch = branch_endpoint(tt, -start_br)
+    # println(br1, br2, switch)
+    # println("Branch neighbors ", tt.branch_neighbors)
+    # println("Extremal branches", tt.extremal_outgoing_branches)
+
+    if br1 == 0
+        _set_extremal_branch!(tt, switch, start_side, br2)
+    else
+        _set_next_branch!(tt, br1, otherside(start_side), br2)
+    end
+    if br2 == 0
+        _set_extremal_branch!(tt, switch, otherside(start_side), br1)
+    else
+        _set_next_branch!(tt, br2, start_side, br1)
+    end
+    # println("Branch neighbors ", tt.branch_neighbors)
+    # println("Extremal branches", tt.extremal_outgoing_branches)
+
 end
 
-twist_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)].istwisted = !tt.branches[abs(branch)].istwisted)
 
+function _attach_branches_unsafe!(
+    iter::BranchIterator, target_br::Int, target_side::Int)
+    # we don't check if start_br can be obtained from end_br by going in start_side direction.
+    tt = iter.tt
+    start_br = iter.start_br
+    end_br = iter.end_br
+    start_side = iter.start_side
 
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-_delete_branch!(tt::TrainTrack, branch::Int) = (tt.branches[abs(branch)] = Donut.TrainTracks.Branch())
+    br1 = target_br
+    br2 = next_branch(tt, target_br, target_side)
+    switch = branch_endpoint(tt, -target_br)
 
+    for br in iter
+        _setendpoint!(tt, -br, switch)
+    end
 
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-_delete_switch!(tt::TrainTrack, switch::Int) = (tt.switches[abs(switch)] = Donut.TrainTracks.Switch())
-
-
-""" Return a switch number with is suitable as a new switch.
-
-The new switch won't be connected to any branches just yet.
-If necessary, new space is allocated.
-"""
-function _find_new_switch_number!(tt::TrainTrack)
-    for i in eachindex(tt.switches)
-        if !isswitch(tt, i)
-            return i
+    if start_side != target_side
+        _set_next_branch!(tt, br1, target_side, start_br)
+        _set_next_branch!(tt, start_br, otherside(target_side), br1)
+    else
+        # if the reading and attaching of the branches happens in opposite directions, we have to relink the whole linked list in the opposite order.
+        current_br = start_br
+        prev_br = br1
+        while prev_br != end_br
+            next_br = next_branch(tt, current_br, otherside(start_side))
+            _set_next_branch!(tt, prev_br, target_side, current_br)
+            _set_next_branch!(tt, current_br, otherside(target_side), prev_br)
+            prev_br = current_br
+            current_br = next_br
         end
     end
-    push!(tt.switches, Donut.TrainTracks.Switch())
-    return length(tt.switches)
-end
-
-"""
-Return a positive integer suitable for an additional branch.
-
-The new branch won't be connected to any switches just yet. If
-necessary, new space is allocated.
-"""
-function _find_new_branch_number!(tt::TrainTrack)
-    for i in eachindex(tt.branches)
-        if !isbranch(tt, i)
-            return i
-        end
+    _set_next_branch!(tt, end_br, target_side, br2)
+    if br2 == 0
+        _set_extremal_branch!(tt, switch, target_side, end_br)
+    else
+        _set_next_branch!(tt, br2, otherside(target_side), end_br)
     end
-    push!(tt.branches, Donut.TrainTracks.Branch())
-    return length(tt.branches)
+
+
 end
+
 
 
 
@@ -88,28 +99,45 @@ end
 # ------------------------------------
 
 function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
-    @assert 1 <= abs(newlabel) <= length(tt.branches)
+    # println("Branch neighbors ", tt.branch_neighbors)
+    # println("Extremal branches", tt.extremal_outgoing_branches)
+
+    @assert 1 <= abs(newlabel) <= size(tt.branch_endpoints)[2]
     @assert !isbranch(tt, newlabel) || abs(newlabel) == abs(branch)
 
-    # When the starting and ending points are the same, we don't want to make changes twice.
-    orbranches = branch_endpoint(tt, branch) == branch_endpoint(tt, -branch) ? (branch) : (branch, -branch)
-    for orbranch in orbranches
-        sw = branch_endpoint(tt, orbranch)
-        for i in 1:numoutgoing_branches(tt, sw)
-            br = outgoing_branch(tt, sw, i)
-            if abs(br) == abs(branch)
-                _setoutgoing_branch!(tt, BranchPosition(sw, i), sign(br)*newlabel)
-            end
+    switches = (branch_endpoint(tt, -branch), branch_endpoint(tt, branch))
+    next_branches = ((next_branch(tt, branch, LEFT), next_branch(tt, branch, RIGHT)), 
+                    (next_branch(tt, -branch, LEFT), next_branch(tt, -branch, RIGHT)))
+    twisted = istwisted(tt, branch)
+
+    for sgn in (1, -1)
+        for side in (LEFT, RIGHT)
+            _set_next_branch!(tt, sgn*branch, side, 0)
         end
     end
-    if abs(branch) != abs(newlabel)
-        copy_branch(tt.branches[abs(branch)], tt.branches[abs(newlabel)])
-        zeroout(tt.branches[abs(branch)])
+
+    for i in 1:2
+        sw = switches[i]
+        sgn = i == 1 ? 1 : -1
+        new_br = sgn*newlabel
+        for side in (LEFT, RIGHT)
+            next_br = next_branches[i][side]
+            if next_br != 0
+                _set_next_branch!(tt, next_br, otherside(side), new_br)
+            else
+                _set_extremal_branch!(tt, sw, side, new_br)
+            end
+            _set_next_branch!(tt, new_br, side, next_br)
+        end
     end
-    if sign(branch) != sign(newlabel)
-        ends = tt.branches[abs(newlabel)].endpoint
-        ends[START], ends[END] = ends[END], ends[START]
-    end
+    _set_twisted!(tt, newlabel, twisted)
+    _set_twisted!(tt, branch, false)
+    _setendpoint!(tt, branch, 0)
+    _setendpoint!(tt, -branch, 0)
+    _setendpoint!(tt, newlabel, switches[2])
+    _setendpoint!(tt, -newlabel, switches[1])
+    # println("Branch neighbors ", tt.branch_neighbors)
+    # println("Extremal branches", tt.extremal_outgoing_branches)
 end
 
 
@@ -119,114 +147,38 @@ end
 
 
 function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
-    @assert 1 <= abs(newlabel) <= length(tt.switches)
+    @assert 1 <= abs(newlabel) <= size(tt.extremal_outgoing_branches)[3]
     @assert !isswitch(tt, newlabel) || abs(newlabel) == abs(switch)
 
-    # When the starting and ending points are the same, we don't want to make changes twice.
+    extremal_branches = (
+        (extremal_branch(tt, switch, LEFT), extremal_branch(tt, switch, RIGHT)),
+        (extremal_branch(tt, -switch, LEFT), extremal_branch(tt, -switch, RIGHT))
+    )
 
-    for sgn in (1, -1)
-        signedsw = sgn*switch
-        for br in outgoing_branches(tt, signedsw)
+    for direction in (FORWARD, BACKWARD)
+        sgn = direction == FORWARD ? 1 : -1
+        for br in outgoing_branches(tt, sgn*switch)
             _setendpoint!(tt, -br, sgn*newlabel)
         end
     end
 
-    if abs(switch) != abs(newlabel)
-        copy_switch(tt.switches[abs(switch)], tt.switches[abs(newlabel)])
-        zeroout(tt.switches[abs(switch)])
+    for direction in (FORWARD, BACKWARD)
+        sgn = direction == FORWARD ? 1 : -1
+        for side in (LEFT, RIGHT)
+            _set_extremal_branch!(tt, sgn*switch, side, 0)
+        end
     end
 
-    if sign(switch) != sign(newlabel)
-        sw = tt.switches[abs(newlabel)]
-        outgoing = sw.outgoing_branch_indices
-        num = sw.numoutgoing_branches
-        outgoing[START], outgoing[END] = outgoing[END], outgoing[START]
-        num[START], num[END] = num[END], num[START]
+    for direction in (FORWARD, BACKWARD)
+        sgn = direction == FORWARD ? 1 : -1
+        for side in (LEFT, RIGHT)
+            _set_extremal_branch!(tt, sgn*newlabel, side, extremal_branches[direction][side])
+        end
     end
-
 end
 
 function reverseswitch!(tt::TrainTrack, switch::Int)
     renameswitch!(tt, switch, -switch)
-end
-
-
-
-# ------------------------------------
-# Utility surgery Operations
-# ------------------------------------
-
-
-
-"""
-Inserts some outgoing branches to the specified switch a the specified position.
-
-Only the branch indices are inserted.
-
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-function _splice_outgoing_branches!(tt::TrainTrack,
-                                    insert_range::BranchRange,
-                                    inserted_branches = AbstractArray{Int, 1})
-
-    # WARNING: This shouldn't use branch_endpoint, since that could break the reglue branches function.
-
-    switch = insert_range.switch
-    index_range = insert_range.index_range
-    start_side = insert_range.start_side
-
-    num_br = numoutgoing_branches(tt, switch)
-    arr_view = outgoing_branches(tt, switch)
-
-    try
-        arr_view[index_range]
-    catch ex
-        if isa(y, BoundsError)
-            error("Range $(index_range) is invalid for the outgoing branches at switch $(switch).")
-        else
-            error("Unexpected error.")
-        end
-    end
-
-    direction = switch > 0 ? FORWARD : BACKWARD
-    full_arr = tt.switches[abs(switch)].outgoing_branch_indices[direction]
-
-
-    if start_side == RIGHT
-        index_range = (num_br - index_range.stop + 1) : (num_br - index_range.start + 1)
-        inserted_branches = inserted_branches[end:-1:1]
-    end
-    splice!(full_arr, index_range, inserted_branches)
-
-    num_added_branches = length(inserted_branches)
-    num_deleted_branches = index_range.stop - index_range.start + 1
-    new_total = num_br + num_added_branches - num_deleted_branches
-    _set_numoutgoing_branches!(tt, switch, new_total)
-end
-
-
-
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state!
-"""
-function _insert_outgoing_branches!(tt::TrainTrack,
-                                    insert_pos::BranchPosition,
-                                    inserted_branches = AbstractArray{Int, 1})
-    range = BranchRange(insert_pos.switch,
-                                insert_pos.index+1:insert_pos.index,
-                                insert_pos.start_side)
-    _splice_outgoing_branches!(tt, range, inserted_branches)
-end
-
-
-
-
-"""
-WARNING: It leaves the TrainTrack object in an inconsistent state.
-"""
-function _delete_outgoing_branches!(tt::TrainTrack,
-                                    delete_range::BranchRange)
-    _splice_outgoing_branches!(tt, delete_range, Int[])
 end
 
 
@@ -238,49 +190,21 @@ Reglue a range of branches from one switch to another.
 It updates both the the outgoing branches of switches and endpoints of branches.
 """
 function _reglue_outgoing_branches!(
-    tt::TrainTrack,
-    from_range::BranchRange,
-    to_position::BranchPosition)
+    iter::BranchIterator,
+    target_br::Int,
+    target_side::Int)
 
-    start = from_range.index_range.start
-    stop = from_range.index_range.stop
-    delete_range = start:stop
+    # println("Branch neighbors ", iter.tt.branch_neighbors)
+    # println("Extremal branches", iter.tt.extremal_outgoing_branches)
+    sw = branch_endpoint(iter.tt, -target_br)
 
-    if from_range.switch == to_position.switch
-        if from_range.start_side == to_position.start_side
-            smallest_bad_pos = start
-            largest_bad_pos = stop-1
-        else
-            n = numoutgoing_branches(tt, from_range.switch)
-            smallest_bad_pos = n-stop+1
-            largest_bad_pos = n-start
-        end
+    _detach_branches_unsafe!(iter)
+    _attach_branches_unsafe!(iter, target_br, target_side)
+    # println("Branch neighbors ", iter.tt.branch_neighbors)
+    # println("Extremal branches", iter.tt.extremal_outgoing_branches)
 
-        # len = stop-start+1:stop
-        len = stop-start+1
-        if to_position.index < smallest_bad_pos
-            delete_range = start+len:stop+len
-        elseif smallest_bad_pos <= to_position.index <= largest_bad_pos
-            error("Cannot insert the branches from where they are being deleted.")
-        end
-    end
 
-    for idx in from_range.index_range
-        br = outgoing_branch(tt, from_range.switch, idx, from_range.start_side)
-        _setendpoint!(tt, -br, to_position.switch)
-    end
 
-    if from_range.switch != to_position.switch
-        inserted_branches = view(outgoing_branches(tt, from_range.switch, from_range.start_side), from_range.index_range)
-    else
-        # if its the same switch, we make a copy to be safe
-        inserted_branches = outgoing_branches(tt, from_range.switch, from_range.start_side)[from_range.index_range]
-    end
-
-    _insert_outgoing_branches!(tt, to_position, inserted_branches)
-    println(outgoing_branches(tt, to_position.switch))
-    fixed_range = BranchRange(from_range.switch, delete_range, from_range.start_side)
-    _delete_outgoing_branches!(tt, fixed_range)
 end
 
 
@@ -293,36 +217,35 @@ function peel!(tt::TrainTrack, switch::Int, side::Int)
         error("Cannot peel at $(switch), because there is only one branch going forward.")
     end
 
-    peeled_branch = outgoing_branch(tt, switch, 1, side)
-    backward_branch = outgoing_branch(tt, -switch, 1, otherside(side))
+    peeled_branch = extremal_branch(tt, switch, side)
+    backward_branch = extremal_branch(tt, -switch, otherside(side))
     back_sw = branch_endpoint(tt, backward_branch)
     back_side = !istwisted(tt, backward_branch) ? side : otherside(side)
-    pos = outgoing_branch_index(tt, back_sw, -backward_branch, back_side)
-    _reglue_outgoing_branches!(tt,
-                               BranchRange(switch, 1:1, side),
-                               BranchPosition(back_sw, pos-1, back_side))
+    _reglue_outgoing_branches!(BranchIterator(tt, peeled_branch, peeled_branch, side), -backward_branch, back_side)
     if istwisted(tt, backward_branch)
         twist_branch!(tt, peeled_branch)
     end
 end
 
 
-function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int)
-    # if foldedbr_index == 
-    #     error("We cannot fold onto the first branch.")
-    # end
-    folded_br = outgoing_branch(tt, switch, foldedbr_index, from_side)
-    fold_onto_br = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
+function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Int)
+    folded_br = next_branch(tt, fold_onto_br, folded_br_side)
+    if folded_br == 0
+        error("There is no branch on the $(folded_br_side==LEFT ? "left" : "right") side of branch $(fold_onto_br).")
+    end
     endsw = branch_endpoint(tt, fold_onto_br)
-    endside = !istwisted(tt, fold_onto_br) ? from_side : otherside(from_side)
-    if outgoing_branch(tt, endsw, 1, otherside(endside)) != -fold_onto_br
+    endside = !istwisted(tt, fold_onto_br) ? otherside(folded_br_side) : folded_br_side
+    if extremal_branch(tt, endsw, endside) != -fold_onto_br
         error("Branch $(folded_br) is not foldable on $(fold_onto_br), since there is a branch blocking the fold.")
     end
-    _reglue_outgoing_branches!(
-        tt,
-        BranchRange(switch, foldedbr_index:foldedbr_index, from_side),
-        BranchPosition(-endsw, 0, endside)
-    )
+    far_br = extremal_branch(tt, -endsw, otherside(endside))
+    if far_br == folded_br
+        # In this case, we are folding up along a loop, so nothing happens.
+    else
+        _reglue_outgoing_branches!(
+            BranchIterator(tt, folded_br), far_br, otherside(endside)
+        )
+    end
     if istwisted(tt, fold_onto_br)
         twist_branch!(tt, folded_br)
     end
@@ -332,28 +255,27 @@ end
 # Elementary Operations
 # ------------------------------------
 
-"""
-Create a new branch with the specified start and end switches.
+# """
+# Create a new branch with the specified start and end switches.
 
-In case ``start_switch`` equals ``end_switch``, keep in mind for
-specifying indices that the start is inserted first, and the end
-second. So if ``start_idx == 0`` and ``end_idx == 0``, then the end
-will be to the left of start. If ``end_idx == 1`` instead, then the end
-will be on the right of start.
-"""
-function add_branch!(tt::TrainTrack, start_branch_pos::BranchPosition,
-                     end_branch_pos::BranchPosition, istwisted=false)
-    br = _find_new_branch_number!(tt)
+# In case ``start_switch`` equals ``end_switch``, keep in mind for
+# specifying indices that the start is inserted first, and the end
+# second. So if ``start_idx == 0`` and ``end_idx == 0``, then the end
+# will be to the left of start. If ``end_idx == 1`` instead, then the end
+# will be on the right of start.
+# """
+# function add_branch!(tt::TrainTrack, start_br::Int, start_side::Int, end_br::Int, end_side::Int, istwisted=false)
+#     br = _find_new_branch_number!(tt)
 
-    _insert_outgoing_branches!(tt, start_branch_pos, [br])
-    _insert_outgoing_branches!(tt, end_branch_pos, [-br])
-    _setendpoint!(tt, br, end_branch_pos.switch)
-    _setendpoint!(tt, -br, start_branch_pos.switch)
-    if istwisted
-        twist_branch!(tt, br)
-    end
-    return br
-end
+#     _insert_outgoing_branches!(tt, start_branch_pos, [br])
+#     _insert_outgoing_branches!(tt, end_branch_pos, [-br])
+#     _setendpoint!(tt, br, end_branch_pos.switch)
+#     _setendpoint!(tt, -br, start_branch_pos.switch)
+#     if istwisted
+#         twist_branch!(tt, br)
+#     end
+#     return br
+# end
 
 
 function delete_branch!(tt::TrainTrack, branch::Int)
@@ -365,13 +287,11 @@ function delete_branch!(tt::TrainTrack, branch::Int)
             error("Branch $(branch) cannot be deleted, one of its endpoints has only one outgoing branches.")
         end
     end
-    start_pos = outgoing_branch_index(tt, start_sw, branch)
-    _delete_outgoing_branches!(tt, BranchRange(start_sw, start_pos:start_pos))
-    end_pos = outgoing_branch_index(tt, end_sw, -branch)
-    _delete_outgoing_branches!(tt, BranchRange(end_sw, end_pos:end_pos))
-    _delete_branch!(tt, branch)
+    _detach_branches_unsafe!(BranchIterator(tt, branch))
+    _detach_branches_unsafe!(BranchIterator(tt, -branch))
+    _setendpoint!(tt, branch, 0)
+    _setendpoint!(tt, -branch, 0)
 end
-
 
 
 """
@@ -388,58 +308,31 @@ Return: switch_removed::Int in absolute value.
 function collapse_branch!(tt::TrainTrack, branch::Int)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
-    switch_removed = end_sw
-
+    if numoutgoing_branches(tt, start_sw) != 1 || numoutgoing_branches(tt, end_sw) != 1
+        error("A branch can only be collapsed if each of its half-branches is the only outgoing branch at their switch.")
+    end
     if abs(start_sw) == abs(end_sw)
         error("A branch connecting a switch to itself is not collapsible.")
     end
 
-    if istwisted(tt, branch)
-        end_left = RIGHT
-        end_right = LEFT
-    else
-        end_left = LEFT
-        end_right = RIGHT
-    end
+    switch_removed = end_sw
+    twisted = istwisted(tt, branch)
 
-    positions = ((outgoing_branch_index(tt, start_sw, branch, LEFT),
-                  outgoing_branch_index(tt, start_sw, branch, RIGHT)),
-                 (outgoing_branch_index(tt, end_sw, -branch, end_left),
-                  outgoing_branch_index(tt, end_sw, -branch, end_right)))
+    iter = outgoing_branches(tt, -end_sw, LEFT)
+    _reglue_outgoing_branches!(iter, branch, twisted ? LEFT : RIGHT)
+    _detach_branches_unsafe!(BranchIterator(tt, branch))
+    _detach_branches_unsafe!(BranchIterator(tt, -branch))
+    _setendpoint!(tt, branch, 0)
+    _setendpoint!(tt, -branch, 0)
+    _set_twisted!(tt, branch, false)
 
-    left_side_fails = positions[START][LEFT] > 1 && positions[END][RIGHT] > 1
-    right_side_fails = positions[START][RIGHT] > 1 && positions[END][LEFT] > 1
-
-    if left_side_fails || right_side_fails
-        error("The specified branch is not collapsible: there are branches that block the collapse.")
-    end
-
-    if istwisted(tt, branch)
-        for br in Iterators.flatten((outgoing_branches(tt, -end_sw),
-                outgoing_branches(tt, end_sw)))
+    if twisted
+        for br in outgoing_branches(tt, start_sw)
             twist_branch!(tt, br)
         end
     end
-
-    from_range = BranchRange(end_sw, 1:positions[END][LEFT]-1, end_left)
-    to_position = BranchPosition(-start_sw, 0, LEFT)
-    _reglue_outgoing_branches!(tt, from_range, to_position)
-
-    from_range = BranchRange(end_sw, 1:positions[END][RIGHT]-1, end_right)
-    to_position = BranchPosition(-start_sw, 0, RIGHT)
-    _reglue_outgoing_branches!(tt, from_range, to_position)
-
-    insert_pos = outgoing_branch_index(tt, start_sw, branch)
-    _delete_outgoing_branches!(tt, BranchRange(start_sw, insert_pos:insert_pos))
-
-
-    _reglue_outgoing_branches!(
-        tt,
-        BranchRange(-end_sw, 1:numoutgoing_branches(tt, -end_sw), end_left),
-        BranchPosition(start_sw, insert_pos-1))
-
-    _delete_branch!(tt, branch)
-    _delete_switch!(tt, end_sw)
+    # println("Branch neighbors ", tt.branch_neighbors)
+    # println("Extremal branches", tt.extremal_outgoing_branches)
 
     return abs(switch_removed)
 end
@@ -453,61 +346,57 @@ The new switch is the endpoint of the newly created branch and the moved branche
 
 RETURN: (new_switch, new_branch)
 """
-function pull_switch_apart!(tt::TrainTrack,
-                           front_positions_moved::BranchRange,
-                           back_positions_stay::BranchRange)
-    if front_positions_moved.switch != -back_positions_stay.switch
-        error("The switches in the two BranchRanges should be negatives of each other.")
-    end
-
-    # front and back ranges cannot be empty
-    for rang in (front_positions_moved.index_range,
-                 back_positions_stay.index_range)
-        if rang.start > rang.stop
-            error("At least one branch has to move on the front side and stay on the back side. The specified ranges were $(front_positions_moved.index_range) for the front poisitions and $(back_positions_stay.index_range) for the back positions.")
-        end
-    end
-
-    sw = front_positions_moved.switch
+function pull_out_branches!(iter::BranchIterator)
+    tt = iter.tt
     new_sw = _find_new_switch_number!(tt)
+    new_br = _find_new_branch_number!(tt)
 
-    _reglue_outgoing_branches!(
-        tt, front_positions_moved,
-        BranchPosition(new_sw, 0, front_positions_moved.start_side))
+    br1 = next_branch(tt, iter.start_br, iter.start_side)
+    br2 = next_branch(tt, iter.end_br, otherside(iter.start_side))
+    sw = branch_endpoint(tt, -iter.start_br)
 
-    r = back_positions_stay.index_range
-    back_side = back_positions_stay.start_side
-    back_positions_moved1 = BranchRange(-sw, 1:r.start-1, back_side)
-    back_positions_moved2 = BranchRange(-sw, r.stop+1:numoutgoing_branches(tt, -sw), back_side)
+    _detach_branches_unsafe!(iter)
+    if br1 == 0 && br2 == 0
+        _set_extremal_branch!(tt, sw, LEFT, new_br)
+        _set_extremal_branch!(tt, sw, RIGHT, new_br)
+        _setendpoint!(tt, -new_br, sw)
+    elseif br1 != 0
+        _attach_branches_unsafe!(BranchIterator(tt, new_br), br1, otherside(iter.start_side))
+    else
+        _attach_branches_unsafe!(BranchIterator(tt, new_br), br2, iter.start_side)
+    end
+    _set_extremal_branch!(tt, new_sw, LEFT, iter.start_br)
+    _set_extremal_branch!(tt, new_sw, RIGHT, iter.end_br)
 
-    _reglue_outgoing_branches!(
-        tt, back_positions_moved2, BranchPosition(-new_sw, 0, back_side))
-
-    _reglue_outgoing_branches!(
-        tt, back_positions_moved1, BranchPosition(-new_sw, 0, back_side))
-
-    front_side = front_positions_moved.start_side
-
-    new_br = add_branch!(
-        tt,
-        BranchPosition(sw, front_positions_moved.index_range.start-1, front_side),
-        BranchPosition(-new_sw, back_positions_stay.index_range.start-1, back_side)
-    )
+    _set_extremal_branch!(tt, -new_sw, LEFT, -new_br)
+    _set_extremal_branch!(tt, -new_sw, RIGHT, -new_br)
+    _setendpoint!(tt, new_br, -new_sw)
+    for br in iter
+        _setendpoint!(tt, -br, new_sw)
+    end
 
     (new_sw, new_br)
 end
 
+function pull_switch_apart!(tt::TrainTrack, sw::Int)
+    pull_out_branches!(outgoing_branches(tt, sw))
+end
 
-# ----------------------------------------
+
+#----------------------------------------
 # Executing Composite Operations
 # ----------------------------------------
 
 
 function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
     last_sw, last_br = 0, 0
-    if op.optype == PULLING
-        last_sw, last_br = pull_switch_apart!(tt, op.front_positions_moved, op.back_positions_stay)
-    elseif op.optype == COLLAPSING
+    if op.optype == PEEL
+        peel!(tt, op.label1, op.label2)
+    elseif op.optype == FOLD
+        fold!(tt, op.label1, op.label2)
+    elseif op.optype == PULLOUT_BRANCHES
+        last_sw, last_br = pull_out_branches!(BranchIterator(tt, op.label1, op.label2, op.label3))
+    elseif op.optype == COLLAPSE_BRANCH
         collapse_branch!(tt, op.label1)
     elseif op.optype == RENAME_BRANCH
         renamebranch!(tt, op.label1, op.label2)
@@ -520,64 +409,70 @@ function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
 end
 
 
-function substitute_zero_inop(op::ElementaryTTOperation, last_sw::Int, last_br::Int)
-    # typ = typeof(op)
-    if op.optype == COLLAPSING
-        if op.label1 == 0
-            return collapsing_op(last_br)
-        end
-    elseif op.optype == RENAME_BRANCH
-        if op.label1 == 0
-            return renaming_branch_op(last_br, op.label2)
-        end
-    elseif op.optype == RENAME_SWITCH
-        if op.label1 == 0
-            return renaming_switch_op(last_sw, op.label2)
-        end
-    elseif op.optype == PULLING
-        nothing
-    else
-        @assert false
+# function substitute_zero_inop(op::ElementaryTTOperation, last_sw::Int, last_br::Int)
+#     # typ = typeof(op)
+#     if op.optype == COLLAPSING
+#         if op.label1 == 0
+#             return collapsing_op(last_br)
+#         end
+#     elseif op.optype == RENAME_BRANCH
+#         if op.label1 == 0
+#             return renaming_branch_op(last_br, op.label2)
+#         end
+#     elseif op.optype == RENAME_SWITCH
+#         if op.label1 == 0
+#             return renaming_switch_op(last_sw, op.label2)
+#         end
+#     elseif op.optype == PULLING
+#         nothing
+#     else
+#         @assert false
+#     end
+#     return op
+# end
+
+
+# struct TTOperationIterator
+#     tt::TrainTrack
+#     operations::Array{ElementaryTTOperation}
+# end
+
+# # TTOperationIterator(tt::TrainTrack, ops::Array{ElementaryTTOperation}) = TTOperationIterator(tt, ops, 0, 0)
+
+# function Base.iterate(ttopiter::TTOperationIterator, state=(0, 0, 0))
+#     count, last_sw, last_br = state
+#     count += 1
+#     if count > length(ttopiter.operations)
+#         return nothing
+#     end
+#     op = ttopiter.operations[count]
+#     subbed_op = substitute_zero_inop(op, last_sw, last_br)
+#     ttopiter.operations[count] = subbed_op
+#     sw, br = execute_elementaryop!(ttopiter.tt, subbed_op)
+#     if sw != 0
+#         @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
+#         last_sw = sw
+#         last_br = br
+#     end
+#     return ((ttopiter.tt, subbed_op, last_sw, last_br), (count, last_sw, last_br))
+# end
+
+
+# function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
+#     sw, br = 0, 0
+#     for (tt_afterop, lastop, last_added_switch, last_added_branch) in TTOperationIterator(tt, ops)
+#         sw, br = last_added_switch, last_added_branch
+#     end
+#     sw, br
+# end
+
+function execute_elementaryops!(tt::TrainTrack, ops)
+    added_sw, added_br = 0, 0
+    for op in ops
+        added_sw, added_br = execute_elementaryop!(tt, op)
     end
-    return op
+    added_sw, added_br
 end
-
-
-struct TTOperationIterator
-    tt::TrainTrack
-    operations::Array{ElementaryTTOperation}
-end
-
-# TTOperationIterator(tt::TrainTrack, ops::Array{ElementaryTTOperation}) = TTOperationIterator(tt, ops, 0, 0)
-
-function Base.iterate(ttopiter::TTOperationIterator, state=(0, 0, 0))
-    count, last_sw, last_br = state
-    count += 1
-    if count > length(ttopiter.operations)
-        return nothing
-    end
-    op = ttopiter.operations[count]
-    subbed_op = substitute_zero_inop(op, last_sw, last_br)
-    ttopiter.operations[count] = subbed_op
-    sw, br = execute_elementaryop!(ttopiter.tt, subbed_op)
-    if sw != 0
-        @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
-        last_sw = sw
-        last_br = br
-    end
-    return ((ttopiter.tt, subbed_op, last_sw, last_br), (count, last_sw, last_br))
-end
-
-
-function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
-    sw, br = 0, 0
-    for (tt_afterop, lastop, last_added_switch, last_added_branch) in TTOperationIterator(tt, ops)
-        sw, br = last_added_switch, last_added_branch
-    end
-    sw, br
-end
-
-
 
 # function fold!(tt::TrainTrack, switch::Int, side::Int)
 #     ops = folding_to_elementaryops(tt, switch, side)
@@ -599,6 +494,7 @@ end
 
 function add_switch_on_branch!(tt::TrainTrack, branch::Int)
     ops = add_switch_on_branch_to_elementaryops(tt, branch)
+    println(ops)
     added_sw, added_br = execute_elementaryops!(tt, ops)
     (added_sw, added_br)
 end

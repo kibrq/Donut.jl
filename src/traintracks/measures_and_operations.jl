@@ -6,10 +6,8 @@ export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_swit
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.TrainTracks.Measures: _allocatemore!, _setmeasure!
-using Donut.TrainTracks: BranchRange
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
-using Donut.TrainTracks.Operations: TTOperationIterator
 import Donut.TrainTracks.Operations.peel!
 import Donut.TrainTracks.Operations.fold!
 using Donut.Constants: FORWARD, BACKWARD
@@ -20,7 +18,7 @@ function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
         _allocatemore!(measure, newbranch)
     end
     sw = branch_endpoint(tt_afterop, -newbranch)
-    newvalue = outgoingmeasure(tt_afterop, measure, -sw) - outgoingmeasure(tt_afterop, measure, sw)
+    newvalue = outgoingmeasure(tt_afterop, measure, -sw)
     _setmeasure!(measure, newbranch, newvalue)
 end
 
@@ -49,10 +47,9 @@ function collapse_branch!(tt::TrainTrack, branch::Int, measure::Measure)
 end
 
 function pull_switch_apart!(tt::TrainTrack,
-    front_positions_moved::BranchRange,
-    back_positions_stay::BranchRange,
+    switch::Int,
     measure::Measure)
-    sw, br = pull_switch_apart!(tt, front_positions_moved, back_positions_stay)
+    sw, br = pull_switch_apart!(tt, switch)
     updatemeasure_pullswitchapart!(tt, measure, br)
 end
 
@@ -64,10 +61,13 @@ end
 
 
 function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOperation, last_added_br::Int, measure::Measure)
-    if op.optype == PULLING
+    if op.optype == PEEL
+        updatemeasure_peel!(tt_afterop, measure, op.label1, op.label2)
+    elseif op.optype == FOLD
+        updatemeasure_fold!(tt_afterop, measure, op.label1, op.label2)
+    elseif op.optype == PULL_SWITCH
         updatemeasure_pullswitchapart!(tt_afterop, measure, last_added_br)
-        # need to know the last added branch
-    elseif op.optype == COLLAPSING
+    elseif op.optype == COLLAPSE_BRANCH
         updatemeasure_collapse!(measure, op.label1)
     elseif op.optype == RENAME_BRANCH
         updatemeasure_renamebranch!(measure, op.label1, op.label2)
@@ -79,32 +79,65 @@ function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOpe
     end
 end
 
-function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation}, measure::Measure)
-    sw, br = 0, 0
-    for (tt_afterop, lastop, last_added_sw, last_added_br) in TTOperationIterator(tt, ops)
-        sw, br = last_added_sw, last_added_br
-        updatemeasure_elementaryop!(tt_afterop, lastop, last_added_br, measure) 
+# function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation}, measure::Measure)
+#     sw, br = 0, 0
+#     for (tt_afterop, lastop, last_added_sw, last_added_br) in TTOperationIterator(tt, ops)
+#         sw, br = last_added_sw, last_added_br
+#         updatemeasure_elementaryop!(tt_afterop, lastop, last_added_br, measure) 
+#     end
+#     sw, br
+# end
+
+function execute_elementaryops!(tt::TrainTrack, ops, measure::Measure)
+    added_sw, added_br = 0, 0
+    for op in ops
+        added_sw, added_br = execute_elementaryop!(tt, op)
+        updatemeasure_elementaryop!(tt, op, added_br, measure) 
     end
-    sw, br
+    added_sw, added_br
 end
 
-
-function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-    peeled_branch = outgoing_branch(tt, switch, 1, side)
-    backward_branch = outgoing_branch(tt, -switch, 1, otherside(side))
+function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
+    peel_off_branch = extremal_branch(tt, -switch, otherside(side))
+    peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? otherside(side) : side)
     newvalue = branchmeasure(measure, backward_branch) - branchmeasure(measure, peeled_branch)
-    peel!(tt, switch, side)
-    _setmeasure!(measure, backward_branch, newvalue)
+    _setmeasure!(measure, peel_off_branch, newvalue)
 end
 
-function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int, measure::Measure)
-    foldedbranch = outgoing_branch(tt, switch, foldedbr_index, from_side)
-    foldonto_branch = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
+
+
+# function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
+#     peeled_branch = outgoing_branch(tt, switch, 1, side)
+#     backward_branch = outgoing_branch(tt, -switch, 1, otherside(side))
+#     newvalue = branchmeasure(measure, backward_branch) - branchmeasure(measure, peeled_branch)
+#     peel!(tt, switch, side)
+#     _setmeasure!(measure, backward_branch, newvalue)
+# end
+
+function updatemeasure_fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Int, measure::Measure)
+    sw = branch_endpoint(tt, fold_onto_br)
+    folded_br = extremal_branch(tt, -sw, istwisted(tt, fold_onto_br) ? otherside(folded_br_side) : folded_br_side)
     newvalue = branchmeasure(measure, foldonto_branch) + branchmeasure(measure, foldedbranch)
-    fold!(tt, switch, foldedbr_index, from_side)
     _setmeasure!(measure, foldonto_branch, newvalue)
 end
 
+# function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int, measure::Measure)
+#     foldedbranch = outgoing_branch(tt, switch, foldedbr_index, from_side)
+#     foldonto_branch = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
+#     newvalue = branchmeasure(measure, foldonto_branch) + branchmeasure(measure, foldedbranch)
+#     fold!(tt, switch, foldedbr_index, from_side)
+#     _setmeasure!(measure, foldonto_branch, newvalue)
+# end
+
+function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
+    execute_elementaryop!(tt, (peel_op(tt, switch, side),), measure)
+    nothing
+end
+
+function fold!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
+    execute_elementaryop!(tt, (fold_op(tt, fold_into_br, folded_br_side),), measure)
+    nothing
+end
 
 function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int, measure::Measure)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
@@ -153,62 +186,8 @@ function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::
         end
     end
 
-    # When m1 == m2, we have a choice. We need to make sure that after the peeling we get a recurrent train track. In particular, we need to check that locally near the switch, the switch conditions can be satisfied when all the branches have positive measure. For example, this fails when the branches on one side are [7,8,9] and the branches on the other side are [-8]. That is, the branches on one side are a proper subset of the branches on the other side.
-    # for sg in (1, -1)
-    #     set1 = outgoing_branches(tt, sg*switch, sg == 1 ? side : otherside(side))
-    #     if length(set1) == 1
-    #         # there is only one branch going forward, so we cannot peel that.
-    #         continue
-    #     end
-    #     set1 = set1[2:length(set1)]
-    #     set2 = outgoing_branches(tt, -sg*switch)
-    #     backbr = sg == 1 ? br2 : br1
-    #     forwbr = sg == 1 ? br1 : br2
-    #     if branch_endpoint(tt, backbr) == branch_endpoint(tt, -backbr)
-    #         # if the back branch turns back to the back side of the switch, then after the peeling the peeled branch will connect to the opposite side of the switch
-    #         set2 = [set2; forwbr]
-    #     end
-    #     if branch_endpoint(tt, backbr) == -branch_endpoint(tt, -backbr)
-    #         # if the back branch turns back to the front side of the switch, then after the peeling the peeled branch will connect to the front side of the switch
-    #         set1 = [set1; forwbr]
-    #     end
-    #     println("Set1:", set1)
-    #     println("Set2:", set2)
-    #     println("Forwbr:", forwbr)
-    #     println("Backbr:", backbr)
-    #     if isproper_subset(set1, set2)
-    #         # Not recurrent, so this side won't work.
-    #         continue
-    #     end
-
-    #     # if we got here then our switch is OK.
-    #     # Now we have to check if the back switch is OK.
-    #     backsw = branch_endpoint(tt, backbr)
-    #     println("Backsw: ", backsw)
-    #     if abs(switch) != abs(backsw)
-    #         backset1 = [outgoing_branches(tt, backsw); forwbr]
-    #         backset2 = outgoing_branches(tt, -backsw)
-    #         println("BackSet1:", backset1)
-    #         println("BackSet2:", backset2)
-    #         # println("Forwbr:", forwbr)
-    #         # println("Backbr:", backbr)
-    #         if isproper_subset(backset2, backset1)
-    #             continue
-    #         end
-    #     end
-    #     # If we got here, then the back switch is also OK.
-    #     return sg == 1 ? FORWARD : BACKWARD
-    # end
-    # if we get here then neither side was found good. This shouldn't happen.
     @assert false
 
-    # if numoutgoing_branches(tt, switch) > 1
-    #     return FORWARD
-    # elseif numoutgoing_branches(tt, -switch) > 1
-    #     return BACKWARD
-    # else
-    #     error("Switch $(switch) is two-valent. We cannot peel either side.")
-    # end
 end
 
 
@@ -241,18 +220,6 @@ function remains_recurrent_after_peel(tt::TrainTrack, switch::Int, peelside::Int
     return false
 end
 
-# function isproper_subset(set1::AbstractArray{Int, 1}, set2::AbstractArray{Int, 1})
-#     for br in set1
-#         if !(-br in set2)
-#             # set1 is not a subset of set2, so this side is good.
-#             return false
-#         end
-#     end
-#     # if we got here, then set1 is a subset of set2. If not a proper subset, we are still good.
-#     if length(set1) == length(set2)
-#         return false
-#     end
-#     return true
-# end
+
 
 end

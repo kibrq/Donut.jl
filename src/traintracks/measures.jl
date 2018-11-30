@@ -18,8 +18,8 @@ struct Measure{T}
     end
 
     function Measure{T}(tt::TrainTrack, valuearray::Array{T, 1}, allownegatives::Bool=false) where {T}
-        if length(valuearray) != length(branches(tt))
-            error("The length of the values array ($(valuearray)) should equal the number of branches ($(length(branches(tt))))")
+        if length(valuearray) != numbranches(tt)
+            error("The length of the values array ($(valuearray)) should equal the number of branches ($(numbranches(tt))")
         end
         if !allownegatives
             for value in valuearray
@@ -28,13 +28,16 @@ struct Measure{T}
                 end
             end
         end
-        brancharray = branches(tt)
-        maxbranch_number = maximum(brancharray)
+        branchiter = branches(tt)
+        maxbranch_number = maximum(branchiter)
         values = zeros(T, maxbranch_number)
-        for i in eachindex(brancharray)
-            br = brancharray[i]
+
+        i = 1
+        for br in branchiter
             values[br] = valuearray[i]
+            i += 1
         end
+
         for sw in switches(tt)
             sums = [sum([values[abs(br)] for br in outgoing_branches(tt, sign*sw)]) for sign in (-1, 1)]
             if sums[1] != sums[2]
@@ -50,7 +53,7 @@ function copy(measure::Measure{T}) where {T}
 end
 
 function zeromeasure(tt::TrainTrack, type)
-    Measure{type}(tt, zeros(type, length(branches(tt))))
+    Measure{type}(tt, zeros(type, numbranches(tt)))
 end
 
 
