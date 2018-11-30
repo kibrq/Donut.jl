@@ -114,6 +114,7 @@ function apply_change_of_markings_to_lamination!(move::Twist, pl::PantsLaminatio
 end
 
 function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLamination)
+    # println(pmc.change_of_markings)
     for cm in reverse(pmc.change_of_markings)
         # println("----------------------------------------------------")
         # println(cm)

@@ -1,4 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, switches, branches, numbranches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, next_branch
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, switches, branches, numbranches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, next_branch, copy
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 import Base.copy
@@ -10,8 +10,6 @@ mutable struct TrainTrack
     branch_neighbors::Array{Int, 3}
     extremal_outgoing_branches::Array{Int, 3}
 
-    # branches::Array{Branch,1}
-    # switches::Array{Switch,1}
     function TrainTrack(a, b, c, d)
         new(a, b, c, d)
     end
@@ -68,7 +66,7 @@ mutable struct TrainTrack
                     branch_endpoints[br > 0 ? START : END, abs(br)] = sgn*sw
                     branch_neighbors[br > 0 ? FORWARD : BACKWARD, LEFT, abs(br)] = prev_branch
                     if prev_branch != 0
-                        branch_neighbors[br > 0 ? FORWARD : BACKWARD, RIGHT, abs(prev_branch)] = br
+                        branch_neighbors[prev_branch > 0 ? FORWARD : BACKWARD, RIGHT, abs(prev_branch)] = br
                     end
                     prev_branch = br
                 end
@@ -81,7 +79,7 @@ mutable struct TrainTrack
 end
 
 function copy(tt::TrainTrack)
-    TrainTrack(tt.branch_endpoints, tt.istwisted, tt.branch_neighbors, tt.extremal_outgoing_branches)
+    TrainTrack(copy(tt.branch_endpoints), copy(tt.istwisted), copy(tt.branch_neighbors), copy(tt.extremal_outgoing_branches))
 end
 
 function extremal_branch(tt::TrainTrack, sw::Int, side::Int=LEFT)
@@ -232,23 +230,6 @@ function is_branch_large(tt::TrainTrack, branch::Int)
     numoutgoing_branches(tt, end_sw) == 1 && numoutgoing_branches(tt, start_sw) == 1
 end
 
-
-# function is_branch_small_foldable(tt::TrainTrack, branch::Int)
-#     start_sw = branch_endpoint(tt, -branch)
-#     end_sw = branch_endpoint(tt, branch)
-#     if switchvalence(tt, start_sw) != 3 || switchvalence(tt, end_sw) != 3
-#         return false
-#     end
-#     if numoutgoing_branches(tt, start_sw) != 2 || numoutgoing_branches(tt, end_sw) != 2
-#         return false
-#     end
-#     start_side = outgoing_branch(tt, start_sw, 1, LEFT) == branch ? LEFT : RIGHT
-#     end_side = outgoing_branch(tt, end_sw, 1, LEFT) == -branch ? LEFT : RIGHT
-#     if istwisted(tt, branch)
-#         end_side = otherside(end_side)
-#     end
-#     return start_side == end_side
-# end
 
 function tt_gluinglist(tt::TrainTrack)
     [collect(collect(outgoing_branches(tt, sg*sw))) for sw in switches(tt) for sg in (1, -1)]

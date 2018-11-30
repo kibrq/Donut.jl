@@ -5,6 +5,7 @@ export dehnthurstontrack, switch_turning, pantscurve_toswitch, pantscurve_to_bra
 
 using Donut.Pants
 using Donut.TrainTracks
+using Donut.TrainTracks: BranchIterator
 using Donut.Utils: nextindex, previndex, otherside
 using Donut.Constants: LEFT, RIGHT
 
@@ -142,6 +143,7 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
         push!(branchdata, BranchData(SELFCONN, pant, typ))
     end
     tt = TrainTrack(gluinglist)
+    # println(gluinglist)
     # @assert length(branches(tt)) == numbranches
     tt, branchencodings, branchdata
 end
@@ -164,7 +166,7 @@ end
 
 function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vector{ArcInPants})
     for side in (LEFT, RIGHT)
-        br = outgoing_branch(dttraintrack, sw, 1, side)
+        br = extremal_branch(dttraintrack, sw, side)
         if ispantscurvearc(branchencodings[abs(br)])
             return side
         end
@@ -178,7 +180,7 @@ end
 function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Vector{ArcInPants})
     sw = pantscurve_toswitch(pd, pantscurveindex)
     for side in (LEFT, RIGHT)
-        br = outgoing_branch(dttraintrack, sw, 1, side)
+        br = extremal_branch(dttraintrack, sw, side)
         if ispantscurvearc(branchencodings[abs(br)])
             return br
         end
@@ -199,12 +201,13 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, p
     if turning == LEFT
         sw = -sw
     end
-    brs = outgoing_branches(dttraintrack, sw, turning)
-    branches = brs[2:length(brs)]
+    br1 = extremal_branch(dttraintrack, sw, turning)
+    next_br = next_branch(dttraintrack, br1, otherside(turning))
+    br2 = extremal_branch(dttraintrack, sw, otherside(turning))
     if turning == LEFT
-        return branches
+        return BranchIterator(dttraintrack, next_br, br2, turning)
     else
-        return reverse(branches)
+        return BranchIterator(dttraintrack, br2, next_br, otherside(turning))
     end
 end
 

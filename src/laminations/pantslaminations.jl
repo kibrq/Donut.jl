@@ -13,6 +13,8 @@ using Donut.Constants: LEFT
 using Donut.Utils: otherside
 import Base.==
 import Base.copy
+import Donut    
+import Donut.TrainTracks.copy
 
 struct PantsLamination{T}
     pd::PantsDecomposition
@@ -31,7 +33,7 @@ struct PantsLamination{T}
 end
 
 function copy(pl::PantsLamination{T}) where {T}
-    PantsLamination{T}(copy(pl.pd), copy(pl.tt), copy(pl.measure), copy(pl.encodings))
+    PantsLamination{T}(copy(pl.pd), Donut.TrainTracks.copy(pl.tt), copy(pl.measure), copy(pl.encodings))
 end
 
 function Base.show(io::IO, pl::PantsLamination)

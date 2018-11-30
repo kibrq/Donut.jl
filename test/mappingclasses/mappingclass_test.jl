@@ -11,7 +11,6 @@ using Donut.MappingClasses.GeneratingSets
 @testset "Applying twists" begin
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
     lam = lamination_from_pantscurve(pd, 2, Int(0))
-    # apply_dehntwist!(lam, -5, LEFT)
     @test pantstwist(pd, 1)*lam == lam
     @test pantstwist(pd, 2)*lam == lam
     @test pantstwist(pd, 3)*lam == lam
@@ -33,12 +32,6 @@ using Donut.MappingClasses.GeneratingSets
     @test pantstwist(pd, 1, -1)*lam == PantsLamination{Int}(pd, [(1, -1), (0, 0), (0, 0)])
     @test pantstwist(pd, 1, -5)*lam == PantsLamination{Int}(pd, [(1, -5), (0, 0), (0, 0)])
 
-
-
-    # apply_dehntwist!(lam, -3, RIGHT)
-    # @test lam == PantsLamination{Int}(pd, [(0, 1), (0, 0), (0, 0)])
-    # apply_dehntwist!(lam, 2, RIGHT)
-    # @test lam == PantsLamination{Int}(pd, [(0, 1), (0, 0), (0, 0)])
 
 end
 

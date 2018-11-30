@@ -22,8 +22,8 @@ debug = false
 
 function is_switchside_legal(tt::TrainTrack, sw::Int, side::Int, encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}})
     debug = false
-    frontbr = outgoing_branch(tt, sw, 1, side)
-    backbr = outgoing_branch(tt, -sw, 1, otherside(side))
+    frontbr = extremal_branch(tt, sw, side)
+    backbr = extremal_branch(tt, -sw, otherside(side))
     frontenc = branch_to_path(encodings, encoding_changes, frontbr)
     backenc = branch_to_path(encodings, encoding_changes, backbr)
     if debug
@@ -105,10 +105,6 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
         end
     end
 
-    # if length(switches_toconsider) == 0
-    #     switches_toconsider = collect(1:length(switches(tt)))
-    # end
-    # switches_left = copy(switches_toconsider)
     if debug
         println("***************** START PEELING! **************")
         println("Switches to consider: ", switches_toconsider)
@@ -138,8 +134,8 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, en
                         println("------------------ BEGIN: peel_loop")
                     end
 
-                    peeledbr = outgoing_branch(tt, sw, 1, side)
-                    otherbr = outgoing_branch(tt, -sw, 1, otherside(side))
+                    peeledbr = extremal_branch(tt, sw, side)
+                    otherbr = extremal_branch(tt, -sw, otherside(side))
      
                     sidetopeel = whichside_to_peel(tt, measure, sw, side)
                     if sidetopeel == FORWARD
@@ -265,18 +261,17 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector
                 signed_br = sg*br
                 start_sw = branch_endpoint(tt, -signed_br)
                 for side in (LEFT, RIGHT)
-                    if outgoing_branch(tt, start_sw, 1, otherside(side)) == signed_br
+                    if extremal_branch(tt, start_sw, otherside(side)) == signed_br
                         continue
                     end
 
-                    index = outgoing_branch_index(tt, start_sw, signed_br, side)
-                    fold_onto_br = outgoing_branch(tt, start_sw, index+1, side)
+                    fold_onto_br = next_branch(tt, signed_br, otherside(side))
                     if issubpath(encodings, encoding_changes, fold_onto_br, signed_br)
                         if debug
                             println("Folding $(signed_br) onto $(fold_onto_br)...")
                         end
                         endsw = branch_endpoint(tt, fold_onto_br)
-                        fold!(tt, start_sw, index, side, measure)
+                        fold!(tt, fold_onto_br, side, measure)
                         subtract_path!(encodings, encoding_changes, signed_br, fold_onto_br)
                         if debug
                             println("TrainTrack gluing list: ", tt_gluinglist(tt))
@@ -286,9 +281,6 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector
                             printencoding_changes(encoding_changes)
                             println()
                         end
-                        # if length(branch_to_path(encodings, encoding_changes, signed_br)) == 1                
-                        #     deleteat!(branches_left, i) 
-                        # end
                         foldfound = true
                         break
                     end
@@ -319,7 +311,7 @@ function fix_switch_orientation!(tt::TrainTrack, sw::Int, encodings::Vector{ArcI
     # println(outgoing_branches(tt, -sw))
     @assert sw > 0
     for side in (LEFT, RIGHT)
-        br = outgoing_branch(tt, sw, 1, side)
+        br = extremal_branch(tt, sw, side)
         arc = branch_to_arc(encodings, br)
         if ispantscurvearc(arc)
             if pantscurvearc_direction(arc) == BACKWARD

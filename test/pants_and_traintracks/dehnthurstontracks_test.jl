@@ -13,8 +13,8 @@ pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
 turnings = [LEFT, RIGHT, LEFT]
 tt, encodings, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
 
-@test switches(tt) == [1, 2, 3]
-@test length(branches(tt)) == 9
+@test collect(switches(tt)) == [1, 2, 3]
+@test numbranches(tt) == 9
 @test switchvalence(tt, 1) == 8
 @test switchvalence(tt, 2) == 5
 @test switchvalence(tt, 3) == 5
@@ -70,8 +70,8 @@ dehnthurstontrack(pd, [3, 1], [LEFT, LEFT])
 pd = PantsDecomposition([(6, 1, 2), (-1, 4, 5), (-2, 3, -3)])
 turnings = [RIGHT, LEFT, LEFT]
 tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
-@test switches(tt) == [1, 2, 3]
-@test length(branches(tt)) == 9
+@test collect(switches(tt)) == [1, 2, 3]
+@test numbranches(tt) == 9
 @test switchvalence(tt, 1) == 5
 @test switchvalence(tt, 2) == 7
 @test switchvalence(tt, 3) == 6

@@ -8,8 +8,8 @@ using Donut.TrainTracks.Measures
 using Donut.TrainTracks.Measures: _allocatemore!, _setmeasure!
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
-import Donut.TrainTracks.Operations.peel!
-import Donut.TrainTracks.Operations.fold!
+using Donut.TrainTracks.Operations: execute_elementaryop!
+
 using Donut.Constants: FORWARD, BACKWARD
 
 function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
@@ -79,14 +79,6 @@ function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOpe
     end
 end
 
-# function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation}, measure::Measure)
-#     sw, br = 0, 0
-#     for (tt_afterop, lastop, last_added_sw, last_added_br) in TTOperationIterator(tt, ops)
-#         sw, br = last_added_sw, last_added_br
-#         updatemeasure_elementaryop!(tt_afterop, lastop, last_added_br, measure) 
-#     end
-#     sw, br
-# end
 
 function execute_elementaryops!(tt::TrainTrack, ops, measure::Measure)
     added_sw, added_br = 0, 0
@@ -100,42 +92,26 @@ end
 function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
     peel_off_branch = extremal_branch(tt, -switch, otherside(side))
     peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? otherside(side) : side)
-    newvalue = branchmeasure(measure, backward_branch) - branchmeasure(measure, peeled_branch)
+    newvalue = branchmeasure(measure, peel_off_branch) - branchmeasure(measure, peeled_branch)
     _setmeasure!(measure, peel_off_branch, newvalue)
 end
 
 
-
-# function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-#     peeled_branch = outgoing_branch(tt, switch, 1, side)
-#     backward_branch = outgoing_branch(tt, -switch, 1, otherside(side))
-#     newvalue = branchmeasure(measure, backward_branch) - branchmeasure(measure, peeled_branch)
-#     peel!(tt, switch, side)
-#     _setmeasure!(measure, backward_branch, newvalue)
-# end
-
-function updatemeasure_fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Int, measure::Measure)
+function updatemeasure_fold!(tt::TrainTrack, measure::Measure, fold_onto_br::Int, folded_br_side::Int)
     sw = branch_endpoint(tt, fold_onto_br)
     folded_br = extremal_branch(tt, -sw, istwisted(tt, fold_onto_br) ? otherside(folded_br_side) : folded_br_side)
-    newvalue = branchmeasure(measure, foldonto_branch) + branchmeasure(measure, foldedbranch)
-    _setmeasure!(measure, foldonto_branch, newvalue)
+    newvalue = branchmeasure(measure, fold_onto_br) + branchmeasure(measure, folded_br)
+    _setmeasure!(measure, fold_onto_br, newvalue)
 end
 
-# function fold!(tt::TrainTrack, switch::Int, foldedbr_index::Int, from_side::Int, measure::Measure)
-#     foldedbranch = outgoing_branch(tt, switch, foldedbr_index, from_side)
-#     foldonto_branch = outgoing_branch(tt, switch, foldedbr_index+1, from_side)
-#     newvalue = branchmeasure(measure, foldonto_branch) + branchmeasure(measure, foldedbranch)
-#     fold!(tt, switch, foldedbr_index, from_side)
-#     _setmeasure!(measure, foldonto_branch, newvalue)
-# end
 
 function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-    execute_elementaryop!(tt, (peel_op(tt, switch, side),), measure)
+    execute_elementaryops!(tt, (peel_op(switch, side),), measure)
     nothing
 end
 
-function fold!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
-    execute_elementaryop!(tt, (fold_op(tt, fold_into_br, folded_br_side),), measure)
+function fold!(tt::TrainTrack, fold_into_br::Int, folded_br_side::Int, measure::Measure)
+    execute_elementaryops!(tt, (fold_op(fold_into_br, folded_br_side),), measure)
     nothing
 end
 
@@ -169,8 +145,8 @@ Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we c
 If the measures are equal, then we need to make sure that we are not peeling from the side where there is only one outgoing branch
 """
 function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::Int)
-    br1 = outgoing_branch(tt, switch, 1, side)
-    br2 = outgoing_branch(tt, -switch, 1, otherside(side))
+    br1 = extremal_branch(tt, switch, side)
+    br2 = extremal_branch(tt, -switch, otherside(side))
     m1 = branchmeasure(measure, br1)
     m2 = branchmeasure(measure, br2)
     if m1 < m2
@@ -192,8 +168,8 @@ end
 
 
 function remains_recurrent_after_peel(tt::TrainTrack, switch::Int, peelside::Int)
-    peeledbr = outgoing_branch(tt, switch, 1, peelside)
-    peeloffbr = outgoing_branch(tt, -switch, 1, otherside(peelside))
+    peeledbr = extremal_branch(tt, switch, peelside)
+    peeloffbr = extremal_branch(tt, -switch, otherside(peelside))
     backsw = branch_endpoint(tt, peeloffbr)
 
     switches_visited = [switch]

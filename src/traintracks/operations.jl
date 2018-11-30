@@ -99,8 +99,6 @@ end
 # ------------------------------------
 
 function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
-    # println("Branch neighbors ", tt.branch_neighbors)
-    # println("Extremal branches", tt.extremal_outgoing_branches)
 
     @assert 1 <= abs(newlabel) <= size(tt.branch_endpoints)[2]
     @assert !isbranch(tt, newlabel) || abs(newlabel) == abs(branch)
@@ -136,8 +134,6 @@ function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
     _setendpoint!(tt, -branch, 0)
     _setendpoint!(tt, newlabel, switches[2])
     _setendpoint!(tt, -newlabel, switches[1])
-    # println("Branch neighbors ", tt.branch_neighbors)
-    # println("Extremal branches", tt.extremal_outgoing_branches)
 end
 
 
@@ -194,17 +190,10 @@ function _reglue_outgoing_branches!(
     target_br::Int,
     target_side::Int)
 
-    # println("Branch neighbors ", iter.tt.branch_neighbors)
-    # println("Extremal branches", iter.tt.extremal_outgoing_branches)
     sw = branch_endpoint(iter.tt, -target_br)
 
     _detach_branches_unsafe!(iter)
     _attach_branches_unsafe!(iter, target_br, target_side)
-    # println("Branch neighbors ", iter.tt.branch_neighbors)
-    # println("Extremal branches", iter.tt.extremal_outgoing_branches)
-
-
-
 end
 
 
@@ -255,27 +244,6 @@ end
 # Elementary Operations
 # ------------------------------------
 
-# """
-# Create a new branch with the specified start and end switches.
-
-# In case ``start_switch`` equals ``end_switch``, keep in mind for
-# specifying indices that the start is inserted first, and the end
-# second. So if ``start_idx == 0`` and ``end_idx == 0``, then the end
-# will be to the left of start. If ``end_idx == 1`` instead, then the end
-# will be on the right of start.
-# """
-# function add_branch!(tt::TrainTrack, start_br::Int, start_side::Int, end_br::Int, end_side::Int, istwisted=false)
-#     br = _find_new_branch_number!(tt)
-
-#     _insert_outgoing_branches!(tt, start_branch_pos, [br])
-#     _insert_outgoing_branches!(tt, end_branch_pos, [-br])
-#     _setendpoint!(tt, br, end_branch_pos.switch)
-#     _setendpoint!(tt, -br, start_branch_pos.switch)
-#     if istwisted
-#         twist_branch!(tt, br)
-#     end
-#     return br
-# end
 
 
 function delete_branch!(tt::TrainTrack, branch::Int)
@@ -409,62 +377,6 @@ function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
 end
 
 
-# function substitute_zero_inop(op::ElementaryTTOperation, last_sw::Int, last_br::Int)
-#     # typ = typeof(op)
-#     if op.optype == COLLAPSING
-#         if op.label1 == 0
-#             return collapsing_op(last_br)
-#         end
-#     elseif op.optype == RENAME_BRANCH
-#         if op.label1 == 0
-#             return renaming_branch_op(last_br, op.label2)
-#         end
-#     elseif op.optype == RENAME_SWITCH
-#         if op.label1 == 0
-#             return renaming_switch_op(last_sw, op.label2)
-#         end
-#     elseif op.optype == PULLING
-#         nothing
-#     else
-#         @assert false
-#     end
-#     return op
-# end
-
-
-# struct TTOperationIterator
-#     tt::TrainTrack
-#     operations::Array{ElementaryTTOperation}
-# end
-
-# # TTOperationIterator(tt::TrainTrack, ops::Array{ElementaryTTOperation}) = TTOperationIterator(tt, ops, 0, 0)
-
-# function Base.iterate(ttopiter::TTOperationIterator, state=(0, 0, 0))
-#     count, last_sw, last_br = state
-#     count += 1
-#     if count > length(ttopiter.operations)
-#         return nothing
-#     end
-#     op = ttopiter.operations[count]
-#     subbed_op = substitute_zero_inop(op, last_sw, last_br)
-#     ttopiter.operations[count] = subbed_op
-#     sw, br = execute_elementaryop!(ttopiter.tt, subbed_op)
-#     if sw != 0
-#         @assert br != 0  # only pulling creates new branches and switches and in that case both a new switch and a new branch is created
-#         last_sw = sw
-#         last_br = br
-#     end
-#     return ((ttopiter.tt, subbed_op, last_sw, last_br), (count, last_sw, last_br))
-# end
-
-
-# function execute_elementaryops!(tt::TrainTrack, ops::Array{ElementaryTTOperation})
-#     sw, br = 0, 0
-#     for (tt_afterop, lastop, last_added_switch, last_added_branch) in TTOperationIterator(tt, ops)
-#         sw, br = last_added_switch, last_added_branch
-#     end
-#     sw, br
-# end
 
 function execute_elementaryops!(tt::TrainTrack, ops)
     added_sw, added_br = 0, 0
@@ -473,12 +385,6 @@ function execute_elementaryops!(tt::TrainTrack, ops)
     end
     added_sw, added_br
 end
-
-# function fold!(tt::TrainTrack, switch::Int, side::Int)
-#     ops = folding_to_elementaryops(tt, switch, side)
-#     execute_elementaryops!(tt, ops)
-#     nothing
-# end
 
 function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)

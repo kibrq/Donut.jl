@@ -123,40 +123,6 @@ end
 
 
 
-# @testset "Inserting and deleting branches" begin
-#     tt = TrainTrack([[1, 2], [-1, -2]])
-
-#     Donut.TrainTracks.Operations._insert_outgoing_branches!(tt, BranchPosition(1, 0), [3, -3])
-#     @test numoutgoing_branches(tt, 1) == 4
-#     @test collect(outgoing_branches(tt, 1)) == [3, -3, 1, 2]
-
-#     Donut.TrainTracks.Operations._insert_outgoing_branches!(tt, BranchPosition(1, 3, RIGHT), [100, 101, 102, 103])
-#     @test collect(numoutgoing_branches(tt, 1)) == 8
-#     @test outgoing_branches(tt, 1) == [3, 103, 102, 101, 100, -3, 1, 2]
-
-#     Donut.TrainTracks.Operations._insert_outgoing_branches!(tt, BranchPosition(-1, 0), [200, 201])
-#     @test numoutgoing_branches(tt, -1) == 4
-#     @test outgoing_branches(tt, -1) == [200, 201, -1, -2]
-
-#     tt = TrainTrack([[1, 2], [-1, -2]])
-#     Donut.TrainTracks.Operations._splice_outgoing_branches!(tt, BranchRange(1, 1:2, RIGHT), [4, 5, 6, 7])
-#     @test numoutgoing_branches(tt, 1) == 4
-#     @test outgoing_branches(tt, 1) == [7, 6, 5, 4]
-
-#     Donut.TrainTracks.Operations._splice_outgoing_branches!(tt, BranchRange(1, 2:3), [100, 101, 102])
-#     @test numoutgoing_branches(tt, 1) == 5
-#     @test outgoing_branches(tt, 1) == [7, 100, 101, 102, 4]
-
-#     Donut.TrainTracks.Operations._delete_outgoing_branches!(tt, BranchRange(1, 1:1))
-#     @test numoutgoing_branches(tt, 1) == 4
-#     @test outgoing_branches(tt, 1) == [100, 101, 102, 4]
-
-#     Donut.TrainTracks.Operations._delete_outgoing_branches!(tt, BranchRange(1, 3:4, RIGHT))
-#     @test numoutgoing_branches(tt, 1) == 2
-#     @test outgoing_branches(tt, 1) == [102, 4]
-# end
-
-
 @testset "Collapsing branches" begin
     tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
     @test collapse_branch!(tt, 3) == 1  # switch 1 is removed
@@ -172,16 +138,6 @@ end
     @test collect(outgoing_branches(tt, 1)) == [1, 2]
     @test collect(outgoing_branches(tt, -1)) == [-1, -2]
 
-    # tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
-    # @test collapse_branch!(tt, 1) == 2
-    # @test outgoing_branches(tt, 1) == [3, 2]
-    # @test outgoing_branches(tt, -1) == [-3, -2]
-
-    # tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
-    # @test collapse_branch!(tt, 2) == 2
-    # @test outgoing_branches(tt, 1) == [1, 3]
-    # @test outgoing_branches(tt, -1) == [-1, -3]
-    # @test_throws ErrorException collapse_branch!(tt, 1)
 
     tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]], [1, 3])
     @test collapse_branch!(tt, 3) == 1
@@ -200,21 +156,6 @@ end
     @test collect(outgoing_branches(tt, 2)) == [1, 2]
     @test collect(outgoing_branches(tt, -2)) == [-3]
 
-    # tt = TrainTrack([[1, 2], [-1, -2]])
-    # @test pull_switch_apart!(
-    #     tt, BranchRange(1, 1:1, RIGHT), BranchRange(-1, 1:1, RIGHT)) == (2, 3)
-    # @test outgoing_branches(tt, 1) == [1, 3]
-    # @test outgoing_branches(tt, -1) == [-2]
-    # @test outgoing_branches(tt, 2) == [2]
-    # @test outgoing_branches(tt, -2) == [-1, -3]
-
-    # tt = TrainTrack([[1, 2], [-1, -2]])
-    # @test_throws ErrorException pull_switch_apart!(
-    #     tt, BranchRange(1, 2:2), BranchRange(-1, 1:0))
-    # @test_throws ErrorException pull_switch_apart!(
-    #     tt, BranchRange(1, 2:1), BranchRange(-1, 1:1))
-    # @test_throws ErrorException pull_switch_apart!(
-    #     tt, BranchRange(1, 1:1), BranchRange(1, 1:1))
 
 end
 
