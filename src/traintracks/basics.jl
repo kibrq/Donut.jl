@@ -1,4 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, switches, branches, numbranches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, next_branch, copy
+export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, switches, branches, switchvalence, istrivalent, is_branch_large, is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, next_branch, numcusps, numswitches, numbranches
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
 import Base.copy
@@ -199,6 +199,24 @@ function numbranches(tt::TrainTrack)
     return count
 end
 
+function numswitches(tt::TrainTrack)
+    count = 0
+    for br in switches(tt)
+        count += 1
+    end
+    return count
+end
+
+function numcusps(tt::TrainTrack)
+    count = 0
+    for br in branched(tt)
+        if next_branch(tt, br, RIGHT) != 0
+            count += 1
+        end
+    end
+    count
+end
+
 """
 Return a positive integer suitable for an additional branch.
 
@@ -244,3 +262,16 @@ function Base.show(io::IO, tt::TrainTrack)
     end
 end
 
+
+"""Return the total extra valence (above 3) of the switches."""
+function _extra_valence(tt::TrainTrack)
+    return sum(max(switch_valence(tt, sw)-3,0) for sw in switches(tt))
+end
+
+"""Return the number of switches the train track can have if made
+trivalent."""
+numswitches_if_made_trivalent(tt::Traintrack) = numswitches(tt) + _extra_valence(tt)
+
+"""Return the number of branches the train track can have if made
+trivalent."""
+numbranches_if_made_trivalent(tt::Traintrack) = numbranches(tt) + _extra_valence(tt)
