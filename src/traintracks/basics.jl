@@ -270,8 +270,8 @@ end
 
 """Return the number of switches the train track can have if made
 trivalent."""
-numswitches_if_made_trivalent(tt::Traintrack) = numswitches(tt) + _extra_valence(tt)
+numswitches_if_made_trivalent(tt::TrainTrack) = numswitches(tt) + _extra_valence(tt)
 
 """Return the number of branches the train track can have if made
 trivalent."""
-numbranches_if_made_trivalent(tt::Traintrack) = numbranches(tt) + _extra_valence(tt)
+numbranches_if_made_trivalent(tt::TrainTrack) = numbranches(tt) + _extra_valence(tt)
