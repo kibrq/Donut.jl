@@ -55,6 +55,7 @@ mutable struct TrainTrack
             istwisted[i] = true
         end
 
+
         for sw in 1:switch_arr_size
             for direction in (FORWARD, BACKWARD)
                 ls = gluinglist[2*sw - 2 + direction]
@@ -167,6 +168,8 @@ _set_twisted!(tt::TrainTrack, branch::Int, istwisted::Bool) =
 
 twist_branch!(tt::TrainTrack, branch::Int) = 
     (tt.istwisted[abs(branch)] = !tt.istwisted[abs(branch)])
+
+
 
 isswitch(tt::TrainTrack, sw::Int) = 1 <= abs(sw) <= size(tt.extremal_outgoing_branches)[3] && tt.extremal_outgoing_branches[FORWARD, LEFT, abs(sw)] != 0
 
