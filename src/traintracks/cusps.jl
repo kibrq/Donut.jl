@@ -3,7 +3,7 @@ module Cusps
 import Donut.TrainTracks
 
 export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
-    update_cusps_fold!, cusp_to_switch
+    update_cusps_fold!, cusp_to_switch, outgoing_cusps
 import Base.copy
 
 struct CuspHandler
@@ -47,6 +47,11 @@ function branch_to_cusp(tt::TrainTrack, ch::CuspHandler, br::Int, side::Int)
     else
         return ch.branch_to_right_cusp[br > 0 ? FORWARD : BACKWARD, abs(br)]
     end
+end
+
+function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Int, start_side::Int=LEFT)
+    (branch_to_cusp(tt, ch, br, otherside(side)) for br in outgoing_branches(tt, br, side) 
+    if branch_to_cusp(tt, ch, br, otherside(side)) != 0)
 end
 
 function cusp_to_switch(tt::TrainTrack, ch::CuspHandler, cusp::Int)

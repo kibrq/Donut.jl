@@ -28,6 +28,8 @@ struct CarryingMap
     cusp_index_offset::Int
     interval_index_offset::Int
 
+    temp_int_array::Array{Int, 2} # [small switches] x 2
+
     """
     A train track carrying itself.
     """
@@ -85,12 +87,14 @@ struct CarryingMap
         cusp_index_offset = numsw
         interval_index_offset = numbr
 
+        temp_int_array = zeros(Int, numsw, 2)
+
         new(tt, copy(tt), ch, copy(ch),
         small_cusp_to_large_cusp, large_cusp_to_small_cusp, 
         extremal_intervals, interval_to_click, click_to_interval 
         small_switch_to_click, interval_to_large_switch, click_to_small_switch, 
         unused_interval_indices, unused_click_indices, paths, temp_intersections,
-        temp_paths, cusp_index_offset, interval_index_offset)
+        temp_paths, cusp_index_offset, interval_index_offset, temp_int_array)
     end
 end
 
@@ -264,7 +268,7 @@ function insert_click!(cm::CarryingMap, interval::Int, side::Int)
     new_click, new_interval
 end
 
-function delete_click_and_merge!(cm::CarryingMap, click::Int, deleted_interval_side::Int)
+function delete_click_and_merge!(cm::CarryingMap, click::Int, deleted_interval_side::Int, combine_intersections::Bool=true)
     side = deleted_interval_side
     interval_deleted = click_to_interval(cm, click, side)
     interval_kept = click_to_interval(cm, click, otherside(side))
@@ -279,7 +283,9 @@ function delete_click_and_merge!(cm::CarryingMap, click::Int, deleted_interval_s
     set_interval_to_click!(cm, interval_kept, side, next_click)
 
     # Combining the intersections.
-    add_paths_large!(cm, INTERVAL, interval_kept, INTERVAL, interval_deleted)
+    if combine_intersections
+        add_paths_large!(cm, INTERVAL, interval_kept, INTERVAL, interval_deleted)
+    end
 
     _delete_click!(click)
     _delete_interval!(interval_deleted)
@@ -589,10 +595,11 @@ function outgoing_branches_and_cusps(tt::TrainTrack, ch::CuspHandler, sw::Int)
 end
 
 
-function find_shortest_outgoing_path!(cm::CarryingMap, small_sw::Int, temp_storage_index::Int)
-    for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw)
-        if all(is_path_shorter_or_equal(cm, branch_or_cusp, label, branch_or_cusp2, label2) 
-            for (branch_or_cusp2, label2) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw))
+function find_shortest_outgoing_path_from_cone!(cm::CarryingMap, forward_paths::AbstractArray{Int, 1})
+    for (i, label) in enumerate(forward_paths)
+        branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
+        if all(is_path_shorter_or_equal(cm, branch_or_cusp, label, j % 2 == 0 ? CUSP : BRANCH, label2) 
+            for (j, label2) in enumerate(forward_paths))
             return (branch_or_cusp, label)
         end
     end
@@ -600,11 +607,15 @@ function find_shortest_outgoing_path!(cm::CarryingMap, small_sw::Int, temp_stora
 end
 
 
-function isotope_switch_as_far_as_possible(cm::CarryingMap, small_sw::Int)
-    branch_or_cusp, label = find_shortest_outgoing_path!(cm, small_sw, 1)
+function isotope_cone_as_far_as_possible(cm::CarryingMap, small_sw::Int)
+    forward_paths = forward_branches_and_cusps_from_cone(cm, small_sw)
+    branch_or_cusp, label = find_shortest_outgoing_path_from_cone!(cm, forward_paths)
 
-    # If the shortest path is collapsed, there is nothing to do
     if is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
+        # all collapsed branches are by definition belong to the cone, so 
+        # if there is a collapsed path, that has to correspond to a cusp.
+        @assert branch_or_cusp == CUSP
+        # In that case, no further isotopy is possible.
         return
     end
 
@@ -613,20 +624,24 @@ function isotope_switch_as_far_as_possible(cm::CarryingMap, small_sw::Int)
     cm.temp_paths[:, 1] .= 0
     add_paths_small!(cm, TEMP, 1, branch_or_cusp, label)
 
+    backward_paths = backward_branches_and_cusps_from_cone(cm, small_sw)
+
     # If there is non-trivial isotopy, then we begin by breaking up click
     # at the beginning and updating the intersections.
-    begin_switch_isotopy(cm, small_sw)
+    begin_switch_isotopy!(cm, small_sw, backward_paths)
 
     # Modifying paths
-    for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw)
+    for (i, label) in enumerate(forward_paths)
+        branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
         add_paths_small!(cm, branch_or_cusp, label, TEMP, 1, -1)
     end
-    for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, -small_sw)
+    for (i, label) in enumerate(backward_paths)
+        branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
         add_paths_small!(cm, branch_or_cusp, label, TEMP, 1)
     end
 
     # Finally we merge clicks at the end of the isotopy
-    end_switch_isotopy(cm, small_sw)
+    end_switch_isotopy!(cm, small_sw, forward_paths)
 end
 
 
@@ -640,9 +655,8 @@ collapsed are added. It can also happen that the click does not vanish,
 but instead breaks apart to separate
 clicks.
 """
-function begin_switch_isotopy(cm::CarryingMap, small_sw::Int)
+function begin_switch_isotopy!(cm::CarryingMap, small_sw::Int, backward_paths::AbstractArray{Int, 1})
     large_sw = small_switch_to_large_switch(cm, small_sw)
-    # is_flipped = large_sw < 0
 
     click = small_switch_to_click(cm, small_sw)
 
@@ -651,10 +665,10 @@ function begin_switch_isotopy(cm::CarryingMap, small_sw::Int)
 
     # we look backwards, so we starting from the right is the same as left,
     # when looking forward
-    iter = outgoing_branches(cm.small_tt, -small_sw, RIGHT)
-    collapsed_br = add_intersections_in_range!(cm, iter, left_interval, false, 1)
+    # iter = outgoing_branches(cm.small_tt, -small_sw, RIGHT)
+    collapsed_br_idx = add_intersections_in_range!(cm, backward_paths, 1:length(backward_paths), left_interval, false, 1)
 
-    if collapsed_br == 0
+    if collapsed_br_idx == 0
         # If we did not find any collapsed branches, then we remove the
         # click, delete the interval on the right and add its intersections
         # to the interval on the left.
@@ -665,29 +679,30 @@ function begin_switch_isotopy(cm::CarryingMap, small_sw::Int)
     # We know that at least one click remains after the isotopy.
     # Next, we add intersections on the right.
     right_interval = next_interval(cm, left_interval, RIGHT)
-    iter2 = outgoing_branches(cm.small_tt, -small_sw, LEFT)
-    collapsed_br2 = add_intersections_in_range!(cm, iter2, right_interval, false, 1)
+    collapsed_br_idx2 = add_intersections_in_range!(cm, backward_paths, length(backward_paths):-1:1, right_interval, false, 1)
 
-    current_collapsed_br = collapsed_br
+    current_collapsed_br_idx = collapsed_br_idx
     interval = left_interval
-    while current_collapsed_br != collapsed_br2
+    while current_collapsed_br_idx != collapsed_br_idx2
         click, interval = insert_click!(cm, interval, RIGHT)
 
+        current_collapsed_br = backward_paths[collapsed_br_idx]
         end_sw = branch_endpoint(cm.small_tt, current_collapsed_br)
         set_click_to_small_switch!(cm, click, end_sw)
         apply_to_switches_in_click_after_branch!(cm, current_collapsed_br, 
             sw -> set_small_switch_to_click!(cm, sw, -click))
 
         # update intersections until we bump into the next collapsed branch
-        iter = BranchIterator(cm.small_tt, current_collapsed_br, collapsed_br2, RIGHT)
+
         # we set ignore_collapsed_br_at_start to true, since we start the iteration at
         # a collapsed branch we are not interested in
-        current_collapsed_br = add_intersections_in_range!(cm, iter, interval, true, 1)
+        current_collapsed_br_idx = add_intersections_in_range!(cm, backward_paths, current_collapsed_br_idx:collapsed_br_idx2, interval, true, 1)
     end
 
     # Finally, updating the switches belonging to the last click.
-    # apply_to_switches_in_click_after_branch!(cm, collapsed_br2, 
-        # sw -> set_small_switch_to_click!(cm, sw, -click))
+    collapsed_br2 = backward_paths[collapsed_br_idx2]
+    end_sw = branch_endpoint(cm.small_tt, collapsed_br2)
+    set_click_to_small_switch!(cm, click, end_sw)
 end
 
 
@@ -701,22 +716,25 @@ returned.
 collapsed
 
 """
-function add_intersections_in_range!(cm::CarryingMap, iter::BranchIterator, interval::Int,
+function add_intersections_in_range!(cm::CarryingMap, arr::AbstractArray{Int,1}, range::AbstractRange{Int}, interval::Int,
     ignore_collapsed_br_at_start::Bool, with_sign::Int)
-    start_br = iter.start_br
 
-    for br in iter
-        if start_br != br || !ignore_collapsed_br_at_start
-            # If we find a collapsed branch, we break out to create a new interval
-            if is_branch_or_cusp_collapsed(cm, BRANCH, br)
-                return br
+    for i in range
+        label = arr[i]
+        if i % 2 == 1
+            br = label
+            if i > 1 || !ignore_collapsed_br_at_start
+                # If we find a collapsed branch, we break out to create a new interval
+                if is_branch_or_cusp_collapsed(cm, BRANCH, br)
+                    return i
+                end
+                add_intersection!(cm, BRANCH, br, INTERVAL, interval, with_sign)
             end
-            add_intersection!(cm, BRANCH, br, INTERVAL, interval)
-        end
-        cusp = branch_to_cusp(cm.small_cusphandler, branch, otherside(iter.start_side))
-
-        if cusp != 0 && !is_branch_or_cusp_collapsed(cm, CUSP, cusp)
-            add_intersection!(cm, CUSP, cusp, INTERVAL, interval)
+        else
+            cusp = label
+            if !is_branch_or_cusp_collapsed(cm, CUSP, cusp)
+                add_intersection!(cm, CUSP, cusp, INTERVAL, interval, with_sign)
+            end
         end
     end
     # No collapsed branches were found.
@@ -724,10 +742,11 @@ function add_intersections_in_range!(cm::CarryingMap, iter::BranchIterator, inte
 end
 
 
-function find_first_collapsed_br(cm::CarryingMap, small_sw::Int, start_side::Int)
-    for br in outgoing_branches(cm.small_tt, small_sw, start_side)
+function find_first_collapsed_br(cm::CarryingMap, arr::AbstractArray{Int,1}, range)
+    for i in range
+        br = arr[i]
         if is_branch_or_cusp_collapsed(cm, BRANCH, br)
-            return br
+            return i
         end
     end
     return 0
@@ -740,23 +759,22 @@ switch isotopy.
 Like begin_switch_isotopy(), this involves updating
 intersection numbers and creating and merging clicks.
 """
-function end_switch_isotopy(cm::CarryingMap, small_sw::Int)
+function end_switch_isotopy!(cm::CarryingMap, small_sw::Int, forward_paths::AbstractArray{Int, 1})
     # First we need to find the switch of the large train track where the
     # isotopy gets stuck.
 
-    first_collapsed_br = find_first_collapsed_br(cm, small_sw, LEFT)
+    first_collapsed_br_idx = find_first_collapsed_br(cm, forward_paths, 1:2:length(forward_paths))
     
-    if first_collapsed_br == 0
+    if first_collapsed_br_idx == 0
         # No branch is collapsed. Then a cusp has to be collapsed.
-        collapsed_cusp = 0
+        collapsed_cusp_idx = 0
         left_interval = 0
         right_interval = 0
-        for br in outgoing_branches(cm.small_tt, small_sw)
-            cusp = branch_to_cusp(cm.small_cusphandler, br, RIGHT)
-            if cusp != 0 && is_branch_or_cusp_collapsed(cm, CUSP, cusp)
+        for cusp_idx in 2:2:length(forward_paths)-1
+            cusp = forward_paths[cusp_idx]
+            if is_branch_or_cusp_collapsed(cm, CUSP, cusp)
                 large_cusp = small_cusp_to_large_cusp(cm, cusp)
                 large_sw = cusp_to_switch(cm.large_tt, large_cusp)
-                # is_flipped = large_sw < 0
                 click_or_interval, label, temp_storage_index =
                     large_cusp_to_position_in_click_or_interval(cm, large_cusp, LEFT)
                 # The large cusp could only be contained in a click if the small cusp
@@ -765,22 +783,23 @@ function end_switch_isotopy(cm::CarryingMap, small_sw::Int)
                 @assert click_or_interval == INTERVAL
                 left_interval = label
                 right_interval, new_click = insert_click!(cm, left_interval, RIGHT)
-                set_small_switch_to_click!(cm, small_sw, new_click)
+                apply_to_switches_in_click!(cm, small_sw, sw -> set_small_switch_to_click(cm, sw, new_click))
                 set_click_to_small_switch!(cm, new_click, small_sw)
                 add_paths_large!(cm, INTERVAL, right_interval, TEMP, temp_storage_index)
                 add_paths_large!(cm, INTERVAL, left_interval, TEMP, temp_storage_index, -1)
-                collapsed_cusp = cusp
+                collapsed_cusp_idx = cusp_idx
                 break
             end
         end
-        @assert collapsed_cusp != 0
+        @assert collapsed_cusp_idx != 0
 
         # It is possible that there are multiple cusp paths that are collapsed.
         # In that case, creating more intervals is not necessary, but we need to 
         # remove some intersections with the surrounding intervals.
 
         current_interval = left_interval
-        for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw)
+        for (i, label) in enumerate(forward_paths)
+            branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
             if branch_or_cusp == CUSP || label == collapsed_cusp
                 current_interval = right_interval
             else
@@ -793,36 +812,146 @@ function end_switch_isotopy(cm::CarryingMap, small_sw::Int)
         # There is at least one collapsed branch.
 
         # Finding the interval left of the first collapsed branch.
+        first_collapsed_br = forward_paths[first_collapsed_br_idx]
         left_end_sw = branch_endpoint(cm.small_tt, first_collapsed_br)
         left_click = small_switch_to_click(cm, -left_end_sw)
         left_interval = click_to_interval(cm, left_click, LEFT)
 
         # subtracting intersections from the interval left of the first collapsed branch.
-        iter = outgoing_branches(cm.small_tt, small_sw, LEFT)
-        left_collapsed_br = add_intersections_in_range!(cm, iter, left_interval, false, -1)
-        @assert left_collapsed_br == first_collapsed_br
+        left_collapsed_br_idx = add_intersections_in_range!(cm, forward_paths, 1:length(forward_paths), left_interval, false, -1)
+        @assert left_collapsed_br_idx == first_collapsed_br_idx
 
         # Finding the last collapsed branch and the interval to the right of it.
-        right_collapsed_br = find_first_collapsed_br(cm, small_sw, RIGHT)
+        right_collapsed_br_idx = find_first_collapsed_br(cm, forward_paths, length(forward_paths):-2:1)
+        right_collapsed_br = forward_paths[right_collapsed_br_idx]
         right_end_sw = branch_endpoint(cm.small_tt, right_collapsed_br)
         right_click = small_switch_to_click(cm, -right_end_sw)
         right_interval = click_to_interval(cm, click, RIGHT)
 
         # subtracting intersections from the interval right of the last collapsed branch.
-        iter = outgoing_branches(cm.small_tt, small_sw, RIGHT)
-        last_collapsed_br = add_intersections_in_range!(cm, iter, right_interval, false, -1)
+        last_collapsed_br = add_intersections_in_range!(cm, forward_paths, length(forward_paths):-1:1, right_interval, false, -1)
         @assert last_collapsed_br == right_collapsed_br
 
         # deleting clicks in the middle
-        br = last_collapsed_br
-        while br != first_collapsed_br
+        idx = last_collapsed_br_idx
+        while idx != first_collapsed_br_idx
+            br = br_cusp_arr[idx]
             if is_branch_or_cusp_collapsed(cm, BRANCH, br)
                 end_sw = branch_endpoint(cm.small_tt, br)
                 current_click = small_switch_to_click(cm, -end_sw)
-                apply_to_switches_in_click_after_branch!(cm, br, sw -> set_small_switch_to_click(cm, sw, left_click))
-                delete_click_and_merge!(cm, current_click, LEFT)
+                delete_click_and_merge!(cm, current_click, LEFT, false)
             end
-            br = next_branch(cm.small_tt, br, LEFT)
+            idx -= 2
+        end
+        apply_to_switches_in_click!(cm, small_sw, sw -> set_small_switch_to_click(cm, sw, left_click))
+    end
+end
+
+
+
+function save_forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int=LEFT, idx::Int=1)
+    for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw, start_side)
+        if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
+            br = label
+            new_sw = -branch_endpoint(cm.small_tt, br)
+            idx = save_forward_branches_and_cusps_from_cone(cm, new_sw, start_side, idx)
+        else
+            cm.temp_int_array[idx, FORWARD] = label
+            @assert (idx % 2 == 0) == (branch_or_cusp == CUSP)
+            idx += 1
         end
     end
+    return idx
+end
+
+function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int)
+    length_plus_1 = save_forward_branches_and_cusps_from_cone(cm, small_sw, start_side)
+    view(cm.temp_int_array, 1:length_plus_1-1, FORWARD)
+    # (label for label in cm.temp_int_array if label != 0)
+end
+
+function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int, idx::Int=1, prev_branch::Int=0,
+    stage::Int=0)
+    # stage 0 is when the function is called the very first time (the switch is the vertex of the cone)
+    # stage 1 is when the function is called with a switch on start_side
+    # stage 2 is when the function is called with a switch on the other side
+    if stage == 0 || stage == 1
+        first_br = extremal_branch(cm.small_tt, small_sw, start_side)
+        if is_branch_or_cusp_collapsed(cm, BRANCH, first_br)
+            end_sw = -branch_endpoint(cm.small_tt, first_br)
+            idx = save_backward_branches_and_cusps_from_cone(cm, end_sw, start_side, idx, first_br, 1)
+        end
+    end
+
+    if stage == 0 || stage == 1
+        start_br = extremal_branch(cm.small_tt, -small_sw, otherside(start_side))
+    else
+        start_br = -prev_branch
+    end
+
+    if stage == 0 || stage == 2
+        end_br = extremal_branch(cm.small_tt, -small_sw, start_side)
+    else
+        end_br = -prev_branch
+    end
+
+    for br in BranchIterator(cm.small_tt, start_br, end_br, otherside(start_side))
+        if br == -prev_branch
+            cm.temp_int_array[idx, BACKWARD] = br
+            @assert idx % 2 == 1
+            idx += 1
+        end
+        cusp = branch_to_cusp(cm.small_cusphandler, br, start_side)
+        if cusp != 0
+            cm.temp_int_array[idx+1, BACKWARD] = cusp
+            @assert idx % 2 == 0
+            idx += 1
+        end
+    end
+
+    if stage == 0 || stage == 2
+        last_br = extremal_branch(cm.small_tt, small_sw, otherside(start_side))
+        if is_branch_or_cusp_collapsed(cm, BRANCH, last_br)
+            end_sw = -branch_endpoint(cm.small_tt, last_br)
+            idx = save_backward_branches_and_cusps_from_cone(cm, end_sw, start_side, idx, last_br, 2)
+        end
+    end
+
+    return idx
+end
+
+function backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int)
+    length_plus_1 = save_backward_branches_and_cusps_from_cone(cm, small_sw, start_side)
+    view(cm.temp_int_array, 1:length_plus_1-1, BACKWARD)
+end
+
+
+
+"""Isotope a switch of the small train track as far as possible, by recursively
+isotoping other switches the original switch bumps into during the isotopy.
+
+INPUT:
+- ``switch`` -- the oriented switch which is isotoped forward
+- ``branch_to_collapse`` -- whenever this branch gets collapsed, we stop the isotopies.
+This is used when we want to fold in the small train track. In that case, if the two endpoints of the 
+branch to fold onto reach each other, the process can stop.
+
+"""
+function isotope_switch_recursively!(cm::CarryingMap, sw::Int, branch_to_collapse::Int)
+    while true
+        isotope_cone_as_far_as_possible!(cm, sw)
+        forward_paths = forward_branches_and_cusps_from_cone(cm, sw)
+        for (i, label) in enumerate(forward_paths)
+            if i % 2 == 0 && is_branch_or_cusp_collapsed(cm, CUSP, label)
+                # If a cusp is collapsed, there is no way to isotope further.
+                return
+            end
+        end
+        if is_branch_or_cusp_collapsed(cm, BRANCH, branch_to_collapse)
+            # If the desired branch is collapsed, we can also stop.
+            return
+        end
+    end
+    # The process has to finish, because at every iteration there are more switches
+    # in the cone that is being pushed forward.
 end
