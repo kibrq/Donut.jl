@@ -618,16 +618,6 @@ function isotope_cone_as_far_as_possible(cm::CarryingMap, small_sw::Int)
         return
     end
 
-    backward_paths = backward_branches_and_cusps_from_cone(cm, small_sw)
-
-    # If there is non-trivial isotopy, then we begin by breaking up click
-    # at the beginning and updating the intersections.
-    begin_switch_isotopy!(cm, small_sw, backward_paths)
-    # This changes clicks and intervals and intersections at the starting
-    # large switch.
-
-
-
     # We make a copy, otherwise subtracting a path from itself would make
     # the shortest path the zero array.
     cm.temp_paths[:, 1] .= 0
@@ -636,10 +626,8 @@ function isotope_cone_as_far_as_possible(cm::CarryingMap, small_sw::Int)
     # interval intersection at the end.
     if branch_or_cusp == CUSP
         cusp = branch_or_cusp
-        add_intersection!(cm, TEMP, 1, INTERVAL, interval, -1)
-
         large_cusp = small_cusp_to_large_cusp(cm, cusp)
-        click_or_interval, label, temp_storage_index =
+        click_or_interval, label, _ =
             large_cusp_to_position_in_click_or_interval(cm, large_cusp, LEFT)
         # The large cusp could only be contained in a click if the small cusp
         # was pushed up on it before the isotopy. But in that case, the isotopy
@@ -647,17 +635,17 @@ function isotope_cone_as_far_as_possible(cm::CarryingMap, small_sw::Int)
         # The large click cannot even be at the end of a click, since the branches
         # on both side of the click are strictly longer than the cusp path.
         @assert click_or_interval == INTERVAL
-        left_interval = label
-        right_interval, new_click = insert_click!(cm, left_interval, RIGHT)
-        apply_to_switches_in_click!(cm, small_sw, sw -> set_small_switch_to_click(cm, sw, new_click))
-        set_click_to_small_switch!(cm, new_click, small_sw)
-        add_paths_large!(cm, INTERVAL, right_interval, TEMP, temp_storage_index)
-        add_paths_large!(cm, INTERVAL, left_interval, TEMP, temp_storage_index, -1)
-        collapsed_cusp_idx = cusp_idx
-        break
+        interval = label
+        add_intersection!(cm, TEMP, 1, INTERVAL, interval, -1)
     end
 
-
+    backward_paths = backward_branches_and_cusps_from_cone(cm, small_sw)
+    
+    # If there is non-trivial isotopy, then we begin by breaking up click
+    # at the beginning and updating the intersections.
+    begin_switch_isotopy!(cm, small_sw, backward_paths)
+    # This changes clicks and intervals and intersections at the starting
+    # large switch.
 
     # Modifying paths
     for (i, label) in enumerate(forward_paths)
@@ -761,9 +749,7 @@ function add_intersections_in_range!(cm::CarryingMap, arr::AbstractArray{Int,1},
             end
         else
             cusp = label
-            if !is_branch_or_cusp_collapsed(cm, CUSP, cusp)
-                add_intersection!(cm, CUSP, cusp, INTERVAL, interval, with_sign)
-            end
+            add_intersection!(cm, CUSP, cusp, INTERVAL, interval, with_sign)
         end
     end
     # No collapsed branches were found.
@@ -811,6 +797,7 @@ function end_switch_isotopy!(cm::CarryingMap, small_sw::Int, forward_paths::Abst
                 # would not be possible, so we would not be here.
                 @assert click_or_interval == INTERVAL
                 left_interval = label
+                # add_intersections_in_range!(cm, forward_paths, 1:length(forward_paths), left_interval, false, -1)
                 right_interval, new_click = insert_click!(cm, left_interval, RIGHT)
                 apply_to_switches_in_click!(cm, small_sw, sw -> set_small_switch_to_click(cm, sw, new_click))
                 set_click_to_small_switch!(cm, new_click, small_sw)
@@ -829,12 +816,10 @@ function end_switch_isotopy!(cm::CarryingMap, small_sw::Int, forward_paths::Abst
         current_interval = left_interval
         for (i, label) in enumerate(forward_paths)
             branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
-            if branch_or_cusp == CUSP || label == collapsed_cusp
+            add_intersection!(cm, branch_or_cusp, label, INTERVAL, current_interval, -1)
+            if branch_or_cusp == CUSP && label == collapsed_cusp
                 current_interval = right_interval
-            else
-                if !is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
-                    add_intersection!(cm, branch_or_cusp, label, INTERVAL, current_interval, -1)
-                end
+                # TODO: check if we are not off by 1.
             end
         end
     else
@@ -969,24 +954,24 @@ function is_isotopy_stuck_at_cusp(cm::CarryingMap, sw::Int)
 end
 
 
-"""Isotope a switch of the small train track as far as possible, by recursively
-isotoping other switches the original switch bumps into during the isotopy.
+# """Isotope a switch of the small train track as far as possible, by recursively
+# isotoping other switches the original switch bumps into during the isotopy.
 
-INPUT:
-- ``switch`` -- the oriented switch which is isotoped forward
-- ``branch_to_collapse`` -- whenever this branch gets collapsed, we stop the isotopies.
-This is used when we want to fold in the small train track. In that case, if the two endpoints of the 
-branch to fold onto reach each other, the process can stop.
+# INPUT:
+# - ``switch`` -- the oriented switch which is isotoped forward
+# - ``branch_to_collapse`` -- whenever this branch gets collapsed, we stop the isotopies.
+# This is used when we want to fold in the small train track. In that case, if the two endpoints of the 
+# branch to fold onto reach each other, the process can stop.
 
-"""
-function isotope_switch_recursively!(cm::CarryingMap, sw::Int, branch_to_collapse::Int)
-    while true
-        isotope_cone_as_far_as_possible!(cm, sw)
+# """
+# function isotope_switch_recursively!(cm::CarryingMap, sw::Int, branch_to_collapse::Int)
+#     while true
+#         isotope_cone_as_far_as_possible!(cm, sw)
 
-        if 
-    end
+#         if 
+#     end
 
-end
+# end
 
 
 """Perform a fold in the small train track if possible.
