@@ -557,6 +557,84 @@ function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, st
     # (label for label in cm.temp_int_array if label != 0)
 end
 
+COMING_FROM_BEHIND = 0
+COMING_FROM_FRONT_STARTSIDE = 1
+COMING_FROM_FRONT_OTHERSIDE = 2
+
+function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, temp_index::Int,
+    start_side::Int=LEFT, coming_from::Int=COMING_FROM_BEHIND, branch_leading_here::Int=0, idx::Int=1)
+
+    # Recursively collect all branches and cusps on the starting side
+    # We do this if COMING_FROM_BEHIND or COMING_FROM_FRONT_OTHERSIDE,
+    # but not if COMING_FROM_FRONT_STARTSIDE
+    if coming_from != COMING_FROM_FRONT_STARTSIDE
+        back_br = extremal_branch(cm.small_tt, -small_sw, otherside(start_side))
+        if back_br != -branch_leading_here
+            back_sw = branch_endpoint(cm.small_tt, back_br)
+            idx = save_forward_branches_and_cusps_from_click(cm, back_sw, temp_index, COMING_FROM_FRONT_OTHERSIDE,
+                back_br, idx)
+        end
+    end
+
+    # Determine the forward branches to iterate over.
+    if coming_from == COMING_FROM_BEHIND
+        # We iterate over all branches
+        # The initial step of the recursion is also this case
+        iter = outgoing_branches(cm.small_tt, small_sw, start_side)
+    elseif coming_from == COMING_FROM_FRONT_STARTSIDE
+        end_br = extremal_branch(cm.small_tt, small_sw, otherside(start_side))
+        iter = BranchIterator(cm.small_tt, -branch_leading_here, end_br, start_side)
+    elseif coming_from == COMING_FROM_FRONT_OTHERSIDE
+        start_br = extremal_branch(cm.small_tt, small_sw, start_side)
+        iter = BranchIterator(cm.small_tt, start_br, -branch_leading_here, start_side)
+    else
+        @assert false
+    end
+
+    # Iterate over forward branches.
+    for br in iter
+        if br != -branch_leading_here
+            if is_branch_or_cusp_collapsed(cm, BRANCH, br) 
+                new_sw = -branch_endpoint(cm.small_tt, br)
+                idx = save_forward_branches_and_cusps_from_click(cm, new_sw, temp_index, 
+                    start_side, COMING_FROM_BEHIND, -br, idx)
+            else
+                cm.temp_int_array[idx, temp_index] = br
+                idx += 1
+            end
+        else
+            if coming_from == COMING_FROM_FRONT_OTHERSIDE
+                # this case, branch_leading_here is the sign for stopping the iteration
+                break
+            end
+        end
+        cusp = branch_to_cusp(cm.small_tt, cm.small_cusphandler, br, otherside(start_side))
+        if cusp == 0
+            break
+        end
+        cm.temp_int_array[idx, temp_index] = cusp
+        idx += 1
+    end
+
+    # Recursively iterate over branches and cusps on the other side
+    if coming_from != COMING_FROM_FRONT_OTHERSIDE
+        back_br = extremal_branch(cm.small_tt, -small_sw, start_side)
+        if back_br != -branch_leading_here
+            back_sw = branch_endpoint(cm.small_tt, back_br)
+            idx = save_forward_branches_and_cusps_from_click(cm, back_sw, temp_index, COMING_FROM_FRONT_STARTSIDE,
+                back_br, idx)
+        end
+    end
+
+    return idx
+end
+
+function forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, 
+        temp_index::Int, start_side::Int=LEFT)
+    length_plus_1 = save_forward_branches_and_cusps_from_click(cm, small_sw, temp_index, start_side)
+    view(cm.temp_int_array, 1:length_plus_1-1, temp_index)
+end
+
 function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int, idx::Int=1, prev_branch::Int=0,
     stage::Int=0)
     # stage 0 is when the function is called the very first time (the switch is the vertex of the cone)
