@@ -375,7 +375,7 @@ OUTPUT: A triple is returned
 (INTERVAL, interval_label, temp_index) or (CLICK, click_label, temp_index) where 
 temp_index is the index of cm.temp_intersections that contains the intersections in the interval 
 or outgoing paths from a click on
-the side of position that is opposite of the starting side.
+the side ``starting_side`` of position, again including the position as an intersection.
 
 """
 function position_in_large_switch_to_click_or_interval(cm::CarryingMap, 
@@ -397,13 +397,13 @@ function position_in_large_switch_to_click_or_interval(cm::CarryingMap,
                 interval = click_to_interval(cm, label, otherside(start_side))
             end
             add_paths_large!(cm, TEMP, running_index, click_or_interval, label, -1)
-            if all(arr[running_index, i] <= 0 for i in eachindex(size(arr)[2]))
-                for i in eachindex(size(arr)[2])
-                    arr[running_index, i] *= -1
-                end
-                return (click_or_interval, label, running_index)
+            if any(arr[running_index, i] > 0 for i in eachindex(size(arr)[2]))
+                @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
+                continue
             end
+            add_paths_large!(cm, TEMP, running_index, click_or_interval, label)
             @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
+            return (click_or_interval, label, running_index)
         end
     end
 
@@ -416,8 +416,7 @@ function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_
 
     arr = cm.temp_intersections
     forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-    intersection_sum = sum(arr[branches_cusps_on_otherside_index, i] for i in eachindex(size(arr)[2]))
-    pos = length(forward_paths) - intersection_sum
+    pos = sum(arr[branches_cusps_on_otherside_index, i] for i in eachindex(size(arr)[2]))
     return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
 end
 
@@ -456,6 +455,11 @@ function branch_or_cusp_to_position_in_click(cm::CarryingMap, branch_or_cusp::In
 end
 
 
+function position_in_click_or_interval_to_large_switch(cm::CarryingMap, 
+    click_or_interval::Int, label::Int, start_side::Int, )
+
+
+end
 
 """Find the click or interval containing a cusp of the large train track.
 
