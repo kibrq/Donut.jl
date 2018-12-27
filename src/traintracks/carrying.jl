@@ -89,7 +89,7 @@ struct CarryingMap
         unused_click_indices = Int[]
 
         paths = zeros(BigInt, numbr + 2*numsw, numbr + ncusps)
-        temp_intersections = zeros(BigInt, 2, numbr + ncusps)
+        temp_intersections = zeros(BigInt, 1, numbr + ncusps)
         temp_paths = zeros(BigInt, numbr + 2*numsw, 1)
 
         for br in branches(tt)
@@ -341,214 +341,6 @@ end
 
 
 
-
-#---------------------------------------------------
-# Converting positions
-#---------------------------------------------------
-
-"""
-Compute the total paths in all outgoing large branches on the specified side of a large cusp.
-The result is stored in a preallocated temporary array with specified index.
-"""
-function compute_paths_on_one_side_of_large_cusp!(cm::CarryingMap, large_cusp::Int, side::Int,
-    temp_storage_index::Int)
-    cm.temp_intersections[temp_storage_index, :] .= 0
-
-    large_sw = cusp_to_switch(cm.large_tt, cm.large_cusphandler, large_cusp)
-    is_flipped = large_sw < 0
-
-    br1 = extremal_branch(cm.large_tt, large_sw, is_flipped ? otherside(side) : side)
-    br2 = cusp_to_branch(cm.large_tt, cm.large_cusphandler, large_cusp, side)
-    for br in BranchIterator(cm.large_tt, br1, br2, side)
-        add_paths_large!(cm, TEMP, temp_storage_index, BRANCH, br)
-        lg_cusp = branch_to_cusp(cm.large_tt, cm.large_cusphandler, br, otherside(side))
-        sm_cusp = large_cusp_to_small_cusp(cm, lg_cusp)
-        if sm_cusp != 0
-            # we also need to take this cusp into account, since the intersection of
-            # the cusp path with the interval would also be recorded.
-            add_intersection!(cm, CUSP, sm_cusp, TEMP, temp_storage_index)
-        end
-    end
-end
-
-
-"""
-Convert the position at a switch of the large train track to
-position in an interval. The position is specified by specifying the outgoing paths
-at the large switch on the left or on the right of the position. These paths are stored
-is a temporary storage whose index is also given as input.
-
-- temp_storage_index -- the index of the intersection array counting the intersections
-on side ``start_side```. The intersection at position IS included in this count.
-
-OUTPUT: A triple is returned 
-(INTERVAL, interval_label, temp_index) or (CLICK, click_label, temp_index) where 
-temp_index is the index of cm.temp_intersections that contains the intersections in the interval 
-or outgoing paths from a click on
-the side ``starting_side`` of position, again including the position as an intersection.
-
-"""
-function position_in_large_switch_to_click_or_interval(cm::CarryingMap, 
-    large_sw::Int, start_side::Int, temp_storage_index::Int)
-    running_index = temp_storage_index == 2 ? 1 : 2
-
-    arr = cm.temp_intersections
-    arr[running_index, :] = arr[temp_storage_index, :] 
-    interval = extremal_interval(cm, large_sw, start_side)
-
-    while true
-        for i in 1:2
-            if i == 1
-                add_paths_large!(cm, TEMP, running_index, INTERVAL, interval, -1)
-            else
-                click = interval_to_click(cm, interval, otherside(start_side))
-                add_paths_from_click!(cm, TEMP, running_index, click, -1)
-                interval = click_to_interval(cm, click, otherside(start_side))
-            end
-            if any(arr[running_index, i] > 0 for i in eachindex(size(arr)[2]))
-                @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
-                continue
-            end
-            if i == 1
-                add_paths_large!(cm, TEMP, running_index, INTERVAL, interval)
-            else
-                add_paths_from_click!(cm, TEMP, running_index, click)
-            end
-            @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
-            return i == 1 ? (INTERVAL, interval, running_index) : (CLICK, click, running_index)
-        end
-    end
-
-    @assert false
-end
-
-
-function position_in_click_or_interval_to_large_switch(cm::CarryingMap, 
-    click_or_interval::Int, label::Int, start_side::Int, temp_storage_index::Int)
-
-    running_index = temp_storage_index == 2 ? 1 : 2    
-    arr = cm.temp_intersections
-    arr[running_index, :] = arr[temp_storage_index, :] 
-    while true
-        if click_or_interval == CLICK
-            # click_or_interval = INTERVAL
-            interval = click_to_interval(cm, click, start_side)
-            add_paths_large!(cm, TEMP, running_index, INTERVAL, interval)
-        else
-            # click_or_interval == CLICK
-            click = interval_to_click(cm, interval, start_side)
-            if click == 0
-                return
-            end
-            add_paths_from_click!(cm, TEMP, running_index, click)
-        end
-    end
-end
-
-
-function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_side::Int,
-    temp_storage_index::Int)
-
-    arr = cm.temp_intersections
-    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-    pos = sum(arr[temp_storage_index, i] for i in eachindex(size(arr)[2]))
-    return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
-end
-
-"""
-
-- temp_storage_index -- the index of the array containing the outgoing paths on side
-``start_side``, including the branch or cusp itself.
-"""
-function branch_or_cusp_to_position_in_click(cm::CarryingMap, branch_or_cusp::Int,
-    label::Int, start_side::Int, temp_storage_index::Int)
-
-    if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
-        error("A collapsed branch does not count as an outgoing path from a click.")
-    end
-
-    cm.temp_intersections[temp_storage_index, :] .= 0
-    
-    if branch_or_cusp == BRANCH
-        sw = branch_endpoint(cm.small_tt, -label)
-    elseif branch_or_cusp == CUSP
-        sw = cusp_to_switch(cm.small_cusphandler, label)
-    else
-        @assert false
-    end
-    click = small_switch_to_click(cm, sw)
-
-    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-    for i in eachindex(forward_paths)
-        current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
-        add_intersection!(cm, current_br_or_cusp, forward_paths[i], TEMP, temp_storage_index)
-        if current_br_or_cusp == branch_or_cusp && forward_paths[i] == label
-            return
-        end
-    end
-    @assert false
-end
-
-
-
-
-"""Find the click or interval containing a cusp of the large train track.
-
-Two things can happen:
-- if a cusp of the small train track is pushed onto the large cusp,
-then we there is a containing click. This happens if and only
-if the cusp path corresponding to the large cusp is collapsed.
-- Otherwise there is a containing interval.
-
-"""
-function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Int, start_side::Int)
-    compute_paths_on_one_side_of_large_cusp!(cm, large_cusp, start_side, 1)
-    large_sw = cusp_to_switch(cm.large_cusphandler, large_cusp)
-
-    click_or_interval, label, temp_storage_index = position_in_large_switch_to_click_or_interval(
-        cm, large_sw, start_side, 1)
-    return (click_or_interval, label, temp_storage_index)
-end
-
-
-
-
-"""Applies a function for the switches connected to the endpoint of a
-branch by collapsed branches.
-
-The specified branch is not allowed to use as a connection. Hence the
-switches considered is a component of a click minus a switch.
-
-INPUT:
-- ``branch`` -- a branch of the small train track
-
-"""
-function apply_to_switches_in_click_after_branch!(cm::CarryingMap, branch::Int, fn::Function)
-    sw = branch_endpoint(cm.small_tt, branch)
-    return apply_to_switches_in_click!(cm, sw, fn, -branch)
-end
-
-
-"""Applies a function for the switches of the small train track in the specified click.
-
-The tree of switches in the click is traversed via collapsed branches. If ``illegal_br`` is nonzero, then we are not allowed to traverse that branch and as a result we get the switches in a component of a click minus a switch.
-
-The traversed switches are all oriented in the same direction as the starting switch. 
-"""
-function apply_to_switches_in_click!(cm::CarryingMap, start_sw::Int, fn::Function, illegal_br::Int=0)
-    fn(start_sw)
-    for sgn in (-1, 1)
-        for br in outgoing_branches(cm.small_tt, sgn*start_sw)
-            if br != illegal_br && is_branch_or_cusp_collapsed(cm, BRANCH, br)
-                end_sw = branch_endpoint(cm.small_tt, br)
-                apply_to_switches_in_click!(cm, end_sw, fn, -br)
-            end
-        end
-    end
-end
-
-
-
 #---------------------------------------------------
 # Iterating over branches, switches
 #---------------------------------------------------
@@ -739,6 +531,264 @@ function backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int)
     length_plus_1 = save_backward_branches_and_cusps_from_cone(cm, small_sw, start_side)
     view(cm.temp_int_array, 1:length_plus_1-1, BACKWARD)
 end
+
+
+
+
+"""Applies a function for the switches connected to the endpoint of a
+branch by collapsed branches.
+
+The specified branch is not allowed to use as a connection. Hence the
+switches considered is a component of a click minus a switch.
+
+INPUT:
+- ``branch`` -- a branch of the small train track
+
+"""
+function apply_to_switches_in_click_after_branch!(cm::CarryingMap, branch::Int, fn::Function)
+    sw = branch_endpoint(cm.small_tt, branch)
+    return apply_to_switches_in_click!(cm, sw, fn, -branch)
+end
+
+
+"""Applies a function for the switches of the small train track in the specified click.
+
+The tree of switches in the click is traversed via collapsed branches. If ``illegal_br`` is nonzero, then we are not allowed to traverse that branch and as a result we get the switches in a component of a click minus a switch.
+
+The traversed switches are all oriented in the same direction as the starting switch. 
+"""
+function apply_to_switches_in_click!(cm::CarryingMap, start_sw::Int, fn::Function, illegal_br::Int=0)
+    fn(start_sw)
+    for sgn in (-1, 1)
+        for br in outgoing_branches(cm.small_tt, sgn*start_sw)
+            if br != illegal_br && is_branch_or_cusp_collapsed(cm, BRANCH, br)
+                end_sw = branch_endpoint(cm.small_tt, br)
+                apply_to_switches_in_click!(cm, end_sw, fn, -br)
+            end
+        end
+    end
+end
+
+
+#---------------------------------------------------
+# Converting positions
+#---------------------------------------------------
+
+
+function do_temp_intersections_contain_positive(cm)
+    arr = cm.temp_intersections
+    if any(arr[1, i] > 0 for i in eachindex(arr))
+        @assert all(arr[1, i] >= 0 for i in eachindex(arr)))
+        return true
+    end
+    return false
+end
+
+function are_temp_intersections_nonnegative(cm)
+    arr = cm.temp_intersections
+    all(arr[1, i] >= 0 for i in eachindex(arr))
+end
+
+function are_temp_intersections_zero(cm)
+    arr = cm.temp_intersections
+    all(arr[1, i] == 0 for i in eachindex(arr))
+end
+
+
+"""
+Convert the position at a switch of the large train track to
+position in an interval. The position is specified by specifying the outgoing paths
+at the large switch on the left or on the right of the position. These paths are stored
+is a temporary storage whose index is also given as input.
+
+- temp_storage_index -- the index of the intersection array counting the intersections
+on side ``start_side```. The intersection at position IS included in this count.
+
+OUTPUT: A triple is returned 
+(INTERVAL, interval_label, temp_index) or (CLICK, click_label, temp_index) where 
+temp_index is the index of cm.temp_intersections that contains the intersections in the interval 
+or outgoing paths from a click on
+the side ``starting_side`` of position, again including the position as an intersection.
+
+"""
+function position_in_large_switch_to_click_or_interval!(cm::CarryingMap, 
+    large_sw::Int, start_side::Int)
+
+    arr = cm.temp_intersections
+    interval = extremal_interval(cm, large_sw, start_side)
+
+    while true
+        for i in 1:2
+            if i == 1
+                add_paths_large!(cm, TEMP, TEMP_INDEX, INTERVAL, interval, -1)
+            else
+                click = interval_to_click(cm, interval, otherside(start_side))
+                add_paths_from_click!(cm, TEMP, TEMP_INDEX, click, -1)
+                interval = click_to_interval(cm, click, otherside(start_side))
+            end
+            if do_temp_intersections_contain_positive(cm)
+                continue
+            end
+            if i == 1
+                add_paths_large!(cm, TEMP, TEMP_INDEX, INTERVAL, interval)
+            else
+                add_paths_from_click!(cm, TEMP, TEMP_INDEX, click)
+            end
+            @assert are_temp_intersections_nonnegative(cm)
+            return i == 1 ? (INTERVAL, interval) : (CLICK, click)
+        end
+    end
+
+    @assert false
+end
+
+
+function position_in_click_or_interval_to_large_switch!(cm::CarryingMap, 
+    click_or_interval::Int, label::Int, start_side::Int)
+
+    while true
+        if click_or_interval == CLICK
+            click_or_interval = INTERVAL
+            interval = click_to_interval(cm, click, start_side)
+            add_paths_large!(cm, TEMP, TEMP_INDEX, INTERVAL, interval)
+        else
+            click_or_interval = CLICK
+            click = interval_to_click(cm, interval, start_side)
+            if click == 0
+                return
+            end
+            add_paths_from_click!(cm, TEMP, TEMP_INDEX, click)
+        end
+    end
+end
+
+
+function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_side::Int)
+    arr = cm.temp_intersections
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    pos = sum(arr[1, i] for i in eachindex(size(arr)[2]))
+    return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
+end
+
+"""
+
+- temp_storage_index -- the index of the array containing the outgoing paths on side
+``start_side``, including the branch or cusp itself.
+"""
+function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::Int,
+    label::Int, start_side::Int)
+
+    if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
+        error("A collapsed branch does not count as an outgoing path from a click.")
+    end
+
+    cm.temp_intersections[1, :] .= 0
+    
+    if branch_or_cusp == BRANCH
+        sw = branch_endpoint(cm.small_tt, -label)
+    elseif branch_or_cusp == CUSP
+        sw = cusp_to_switch(cm.small_cusphandler, label)
+    else
+        @assert false
+    end
+    click = small_switch_to_click(cm, sw)
+
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    for i in eachindex(forward_paths)
+        current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
+        add_intersection!(cm, current_br_or_cusp, forward_paths[i], TEMP, TEMP_INDEX)
+        if current_br_or_cusp == branch_or_cusp && forward_paths[i] == label
+            return
+        end
+    end
+    @assert false
+end
+
+TEMP_INDEX = 1
+
+function position_in_large_switch_to_large_branch_or_cusp!(cm::CarryingMap, 
+    large_sw::Int, start_side::Int)
+    br = extremal_branch(cm.large_tt, large_sw, start_side)
+    while true
+        add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, br, -1)
+        if !do_temp_intersections_contain_positive(cm)
+            add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, br)
+            @assert are_temp_intersections_nonnegative(cm)
+            return (BRANCH, br)
+        end
+        large_cusp = branch_to_cusp(cm.large_cusphandler, br, otherside(start_side))
+
+        @assert large_cusp != 0 
+        # if it was 0, then we would have subtracted all branches already, so 
+        # we should have found the right position.
+
+        small_cusp = small_cusp_to_large_cusp(cm, large_cusp)
+        if small_cusp != 0
+            add_intersection!(cm, TEMP, TEMP_INDEX, CUSP, small_cusp, -1)
+            if !do_temp_intersections_contain_positive(cm)
+                @assert are_temp_intersections_zero(cm)
+                return (CUSP, large_cusp)
+            end
+        end
+        br = next_branch(cm.large_tt, br, otherside(start_side))
+    end
+end
+
+
+function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
+    branch_or_cusp::Int, label::Int, start_side::Int)
+
+    while true
+        if branch_or_cusp == BRANCH
+            branch_or_cusp = CUSP
+            label = branch_to_cusp(cm.large_tt, cm.large_cusphandler, label, otherside(start_side))
+            if label == 0
+                return
+            end
+            small_cusp = large_cusp_to_small_cusp(cm.large_tt, large_cusp)
+            if small_cusp != 0
+                add_intersection!(cm, TEMP, TEMP_INDEX, CUSP, label)
+            end
+        else
+            branch_or_cusp = BRANCH
+            label = cusp_to_branch(cm.large_tt, cm.large_cusphandler, label, otherside(start_side))
+            add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, label)
+        end
+    end
+end
+
+
+"""
+Compute the total paths in all outgoing large branches on the specified side of a large cusp.
+The result is stored in a preallocated temporary array with specified index.
+"""
+function large_cusp_to_position_in_large_switch!(cm::CarryingMap, large_cusp::Int, start_side::Int)
+    cm.temp_intersections[TEMP_INDEX, :] .= 0
+    small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
+    if small_cusp != 0
+        add_intersection!(cm, TEMP, TEMP_INDEX, CUSP, small_cusp)
+    end
+    position_in_large_branch_or_cusp_to_large_switch!(cm, CUSP, large_cusp, start_side)
+end
+
+"""Find the click or interval containing a cusp of the large train track.
+
+Two things can happen:
+- if a cusp of the small train track is pushed onto the large cusp,
+then we there is a containing click. This happens if and only
+if the cusp path corresponding to the large cusp is collapsed.
+- Otherwise there is a containing interval.
+
+"""
+function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Int, start_side::Int)
+    large_cusp_to_position_in_large_switch!(cm, large_cusp, start_side)
+    large_sw = cusp_to_switch(cm.large_cusphandler, large_cusp)
+    position_in_large_switch_to_click_or_interval!(cm, large_sw, start_side)
+end
+
+
+
+
 
 
 
