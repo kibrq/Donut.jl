@@ -211,6 +211,16 @@ function add_paths_large!(cm::CarryingMap, branch_interval_or_temp1::Int, add_to
     end
 end
 
+function add_paths_from_click!(cm::CarryingMap, branch_interval_or_temp::Int, add_to_label::Int, 
+    click::Int, with_sign::Int=-1)
+
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, LEFT, FORWARD)
+    for i in eachindex(forward_paths)
+        branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
+        add_intersection!(cm, branch_or_cusp, forward_paths[i], branch_interval_or_temp, add_to_label, -1)            
+    end
+end
+
 function add_intersection!(cm::CarryingMap, branch_cusp_or_temp::Int, label::Int, branch_interval_or_temp::Int, label2::Int, with_sign::Int=1)
     idx1 = branch_or_cusp_to_index(branch_cusp_or_temp, label)
     idx2 = branch_or_interval_to_index(branch_interval_or_temp, label2)
@@ -389,21 +399,23 @@ function position_in_large_switch_to_click_or_interval(cm::CarryingMap,
     while true
         for i in 1:2
             if i == 1
-                click_or_interval = INTERVAL
-                label = interval
+                add_paths_large!(cm, TEMP, running_index, INTERVAL, interval, -1)
             else
-                click_or_interval = CLICK
-                label = interval_to_click(cm, interval, otherside(start_side))
-                interval = click_to_interval(cm, label, otherside(start_side))
+                click = interval_to_click(cm, interval, otherside(start_side))
+                add_paths_from_click!(cm, TEMP, running_index, click, -1)
+                interval = click_to_interval(cm, click, otherside(start_side))
             end
-            add_paths_large!(cm, TEMP, running_index, click_or_interval, label, -1)
             if any(arr[running_index, i] > 0 for i in eachindex(size(arr)[2]))
                 @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
                 continue
             end
-            add_paths_large!(cm, TEMP, running_index, click_or_interval, label)
+            if i == 1
+                add_paths_large!(cm, TEMP, running_index, INTERVAL, interval)
+            else
+                add_paths_from_click!(cm, TEMP, running_index, click)
+            end
             @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
-            return (click_or_interval, label, running_index)
+            return i == 1 ? (INTERVAL, interval, running_index) : (CLICK, click, running_index)
         end
     end
 
@@ -411,12 +423,35 @@ function position_in_large_switch_to_click_or_interval(cm::CarryingMap,
 end
 
 
+function position_in_click_or_interval_to_large_switch(cm::CarryingMap, 
+    click_or_interval::Int, label::Int, start_side::Int, temp_storage_index::Int)
+
+    running_index = temp_storage_index == 2 ? 1 : 2    
+    arr = cm.temp_intersections
+    arr[running_index, :] = arr[temp_storage_index, :] 
+    while true
+        if click_or_interval == CLICK
+            # click_or_interval = INTERVAL
+            interval = click_to_interval(cm, click, start_side)
+            add_paths_large!(cm, TEMP, running_index, INTERVAL, interval)
+        else
+            # click_or_interval == CLICK
+            click = interval_to_click(cm, interval, start_side)
+            if click == 0
+                return
+            end
+            add_paths_from_click!(cm, TEMP, running_index, click)
+        end
+    end
+end
+
+
 function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_side::Int,
-    branches_cusps_on_otherside_index::Int)
+    temp_storage_index::Int)
 
     arr = cm.temp_intersections
     forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-    pos = sum(arr[branches_cusps_on_otherside_index, i] for i in eachindex(size(arr)[2]))
+    pos = sum(arr[temp_storage_index, i] for i in eachindex(size(arr)[2]))
     return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
 end
 
@@ -455,11 +490,7 @@ function branch_or_cusp_to_position_in_click(cm::CarryingMap, branch_or_cusp::In
 end
 
 
-function position_in_click_or_interval_to_large_switch(cm::CarryingMap, 
-    click_or_interval::Int, label::Int, start_side::Int, )
 
-
-end
 
 """Find the click or interval containing a cusp of the large train track.
 
