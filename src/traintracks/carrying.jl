@@ -423,11 +423,36 @@ end
 
 """
 
-- temp_storage_index -- the index of the array containing the outgoing paths and branches
+- temp_storage_index -- the index of the array containing the outgoing paths on side
+``start_side``, including the branch or cusp itself.
 """
-function position_in_click_to_branch_or_cusp(cm::CarryingMap,
-    click::Int, start_side::Int, temp_storage_index::Int, )
+function branch_or_cusp_to_position_in_click(cm::CarryingMap, branch_or_cusp::Int,
+    label::Int, start_side::Int, temp_storage_index::Int)
 
+    if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
+        error("A collapsed branch does not count as an outgoing path from a click.")
+    end
+
+    cm.temp_intersections[temp_storage_index, :] .= 0
+    
+    if branch_or_cusp == BRANCH
+        sw = branch_endpoint(cm.small_tt, -label)
+    elseif branch_or_cusp == CUSP
+        sw = cusp_to_switch(cm.small_cusphandler, label)
+    else
+        @assert false
+    end
+    click = small_switch_to_click(cm, sw)
+
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    for i in eachindex(forward_paths)
+        current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
+        add_intersection!(cm, current_br_or_cusp, forward_paths[i], TEMP, temp_storage_index)
+        if current_br_or_cusp == branch_or_cusp && forward_paths[i] == label
+            return
+        end
+    end
+    @assert false
 end
 
 
