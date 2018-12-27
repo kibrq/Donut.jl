@@ -2,25 +2,23 @@ module CarryingTest
 
 using Test
 using Donut.TrainTracks
-using Donut.Carrying
-
+using Donut.TrainTracks.Cusps
+using Donut.TrainTracks.Carrying
+using Donut.TrainTracks.Carrying: trajectory_of_small_branch_or_path
+using Donut.Constants: LEFT, RIGHT
 
 tt = TrainTrack([[1, 2], [-1, -2]])
-cm = CarryingMap(tt)
+cm = CarryingMap(tt, CuspHandler(tt))
 
-@test cusp_nextto_branch(cm, 1, LEFT) == 0
-@test cusp_nextto_branch(cm, 1, RIGHT) == 1
-@test cusp_nextto_branch(cm, 2, LEFT) == 1
-@test cusp_nextto_branch(cm, 2, RIGHT) == 0
-@test cusp_nextto_branch(cm, -1, LEFT) == 0
-@test cusp_nextto_branch(cm, -1, RIGHT) == 2
-@test cusp_nextto_branch(cm, -2, LEFT) == 2
-@test cusp_nextto_branch(cm, -2, RIGHT) == 0
-
-@test interval_next_to_small_switch(cm, 1, LEFT) == 1
-@test interval_next_to_small_switch(cm, 1, RIGHT) == 2
-@test interval_next_to_small_switch(cm, -1, LEFT) == -2
-@test interval_next_to_small_switch(cm, -2, RIGHT) == -1
+@test trajectory_of_small_branch_or_path(cm, BRANCH, 1) == [(1, 1), (-1, 1)]
+@test trajectory_of_small_branch_or_path(cm, BRANCH, -1) == [(-1, 1), (1, 1)]
+@test trajectory_of_small_branch_or_path(cm, BRANCH, 2) == [(1, 3), (-1, 3)]
+@test trajectory_of_small_branch_or_path(cm, BRANCH, -2) == [(-1, 3), (1, 3)]
+cusp1 = branch_to_cusp(cm.large_tt, cm.large_cusphandler, 1, RIGHT)
+# println("CUSP = ", CUSP)
+@test trajectory_of_small_branch_or_path(cm, CUSP, cusp1) == [(1, 2), cusp1]
+cusp2 = branch_to_cusp(cm.large_tt, cm.large_cusphandler, -1, RIGHT)
+@test trajectory_of_small_branch_or_path(cm, CUSP, cusp2) == [(-1, 2), cusp2]
 
 
 end

@@ -400,7 +400,7 @@ end
 
 function add_switch_on_branch!(tt::TrainTrack, branch::Int)
     ops = add_switch_on_branch_to_elementaryops(tt, branch)
-    println(ops)
+    # println(ops)
     added_sw, added_br = execute_elementaryops!(tt, ops)
     (added_sw, added_br)
 end

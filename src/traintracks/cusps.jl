@@ -1,10 +1,12 @@
 module Cusps
 
-import Donut.TrainTracks
+using Donut.TrainTracks
+using Donut.TrainTracks: numbranches_if_made_trivalent
 
 export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
     update_cusps_fold!, cusp_to_switch, outgoing_cusps
 import Base.copy
+using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
 
 struct CuspHandler
     cusp_to_left_branch::Array{Int}
@@ -16,14 +18,16 @@ struct CuspHandler
 
     function CuspHandler(tt::TrainTrack)
         cusp = 1
-        branch_to_right_cusp = fill(Int, 0, numbranches(tt))
-        cusp_to_left_branch = Int[]
+        branch_to_right_cusp = zeros(Int, 2, numbranches_if_made_trivalent(tt))
+        cusp_to_left_branch = zeros(Int, numcusps(tt))
 
         for br in branches(tt)
-            if next_branch(tt, br, RIGHT) != 0
-                branch_to_right_cusp[br > 0 ? FORWARD : BACKWARD, abs(br)] = cusp
-                cusp_to_left_branch[cusp] = br
-                cusp += 1
+            for sgn in (-1, 1)
+                if next_branch(tt, sgn*br, RIGHT) != 0
+                    branch_to_right_cusp[sgn > 0 ? FORWARD : BACKWARD, br] = cusp
+                    cusp_to_left_branch[cusp] = sgn*br
+                    cusp += 1
+                end
             end
         end
         new(cusp_to_left_branch, branch_to_right_cusp)
@@ -126,4 +130,6 @@ function update_cusps_fold!(tt_before_fold::TrainTrack, fold_onto_br::Int, folde
             set_cusp_to_left_branch!(ch, other_cusp, fold_onto_br)
         end
     end
+end
+
 end

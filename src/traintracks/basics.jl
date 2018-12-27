@@ -212,9 +212,11 @@ end
 
 function numcusps(tt::TrainTrack)
     count = 0
-    for br in branched(tt)
-        if next_branch(tt, br, RIGHT) != 0
-            count += 1
+    for br in branches(tt)
+        for sgn in (-1, 1)
+            if next_branch(tt, sgn*br, RIGHT) != 0
+                count += 1
+            end
         end
     end
     count
@@ -268,7 +270,7 @@ end
 
 """Return the total extra valence (above 3) of the switches."""
 function _extra_valence(tt::TrainTrack)
-    return sum(max(switch_valence(tt, sw)-3,0) for sw in switches(tt))
+    return sum(max(switchvalence(tt, sw)-3,0) for sw in switches(tt))
 end
 
 """Return the number of switches the train track can have if made
