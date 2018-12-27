@@ -369,15 +369,13 @@ at the large switch on the left or on the right of the position. These paths are
 is a temporary storage whose index is also given as input.
 
 - temp_storage_index -- the index of the intersection array counting the intersections
-on side ``start_side```.
+on side ``start_side```. The intersection at position IS included in this count.
 
-OUTPUT: If the position in an interval, then a triple is returned 
-(INTERVAL, interval_label, temp_index), where temp_index is the index
-of cm.temp_intersections that contains the intersections in the interval on
+OUTPUT: A triple is returned 
+(INTERVAL, interval_label, temp_index) or (CLICK, click_label, temp_index) where 
+temp_index is the index of cm.temp_intersections that contains the intersections in the interval 
+or outgoing paths from a click on
 the side of position that is opposite of the starting side.
-
-If the position is at a click, then a pair is returned, (branch_or_cusp, label), where
-the first entry is BRANCH or CUSP and the second entry is the label or the branch or cusp.
 
 """
 function position_in_large_switch_to_click_or_interval(cm::CarryingMap, 
@@ -386,50 +384,42 @@ function position_in_large_switch_to_click_or_interval(cm::CarryingMap,
 
     arr = cm.temp_intersections
     arr[running_index, :] = arr[temp_storage_index, :] 
-    iterval = extremal_interval(cm, large_sw, start_side)
+    interval = extremal_interval(cm, large_sw, start_side)
 
     while true
-        add_paths_large!(cm, TEMP, running_index, INTERVAL, interval, -1)
-        if all(arr[running_index, i] <= 0 for i in eachindex(size(arr)[2]))
-            for i in eachindex(size(arr)[2])
-                arr[running_index, i] *= -1
-            end
-            return (click_or_interval, label, running_index)
-        end
-        @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
-        click = interval_to_click(cm, interval, otherside(start_side))
-        forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-        remaining_sum = sum(arr[running_index, i] for i in eachindex(size(arr)[2]))
-        for i in eachindex(forward_paths)
-            label = forward_paths[i]
-            if i % 2 == 1
-                branch_or_cusp = BRANCH
+        for i in 1:2
+            if i == 1
+                click_or_interval = INTERVAL
+                label = interval
             else
-                if label == 0
-                    # this can happen if a large cusp does not correspond to a small cusp
-                    continue
+                click_or_interval = CLICK
+                label = interval_to_click(cm, interval, otherside(start_side))
+                interval = click_to_interval(cm, label, otherside(start_side))
+            end
+            add_paths_large!(cm, TEMP, running_index, click_or_interval, label, -1)
+            if all(arr[running_index, i] <= 0 for i in eachindex(size(arr)[2]))
+                for i in eachindex(size(arr)[2])
+                    arr[running_index, i] *= -1
                 end
-                branch_or_cusp = CUSP
+                return (click_or_interval, label, running_index)
             end
-            add_intersection!(cm, branch_or_cusp, label, TEMP, running_index, -1)
-            remaining_sum -= 1
-            if remaining_sum == 0
-                @assert all(arr[running_index, i] == 0 for i in eachindex(size(arr)[2]))
-                return (branch_or_cusp, label)
-            end
+            @assert all(arr[running_index, i] >= 0 for i in eachindex(size(arr)[2]))
         end
     end
 
-    for (click_or_interval, label) in accumulate_intersections_at_large_switch!(
-        cm, large_sw, start_side, running_index)
-        if _is_smaller_or_equal(arr, temp_storage_index, arr, running_index)
-            add_paths_large!(cm, TEMP, running_index, TEMP, temp_storage_index, -1)
-            return (click_or_interval, label, running_index)
-        end
-    end
     @assert false
 end
 
+
+function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_side::Int,
+    branches_cusps_on_otherside_index::Int)
+
+    arr = cm.temp_intersections
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    intersection_sum = sum(arr[branches_cusps_on_otherside_index, i] for i in eachindex(size(arr)[2]))
+    pos = length(forward_paths) - intersection_sum
+    return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
+end
 
 """
 
