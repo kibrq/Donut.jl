@@ -574,11 +574,13 @@ end
 # Converting positions
 #---------------------------------------------------
 
+TEMP_INDEX = 1
+
 
 function do_temp_intersections_contain_positive(cm)
     arr = cm.temp_intersections
-    if any(arr[1, i] > 0 for i in eachindex(arr))
-        @assert all(arr[1, i] >= 0 for i in eachindex(arr)))
+    if any(arr[TEMP_INDEX, i] > 0 for i in eachindex(arr))
+        @assert all(arr[TEMP_INDEX, i] >= 0 for i in eachindex(arr)))
         return true
     end
     return false
@@ -586,12 +588,24 @@ end
 
 function are_temp_intersections_nonnegative(cm)
     arr = cm.temp_intersections
-    all(arr[1, i] >= 0 for i in eachindex(arr))
+    all(arr[TEMP_INDEX, i] >= 0 for i in eachindex(arr))
 end
 
 function are_temp_intersections_zero(cm)
     arr = cm.temp_intersections
-    all(arr[1, i] == 0 for i in eachindex(arr))
+    all(arr[TEMP_INDEX, i] == 0 for i in eachindex(arr))
+end
+
+function negate_temp_intersections(cm)
+    arr = cm.temp_intersections
+    for i in eachindex(arr)
+        arr[TEMP_INDEX, i] *= -1
+    end
+end
+
+function temp_intersection_sum(cm)
+    arr = cm.temp_intersections
+    sum(arr[TEMP_INDEX, i] for i in eachindex(size(arr)[2]))
 end
 
 
@@ -612,7 +626,7 @@ the side ``starting_side`` of position, again including the position as an inter
 
 """
 function position_in_large_switch_to_click_or_interval!(cm::CarryingMap, 
-    large_sw::Int, start_side::Int)
+    large_sw::Int, start_side::Int=LEFT)
 
     arr = cm.temp_intersections
     interval = extremal_interval(cm, large_sw, start_side)
@@ -644,7 +658,7 @@ end
 
 
 function position_in_click_or_interval_to_large_switch!(cm::CarryingMap, 
-    click_or_interval::Int, label::Int, start_side::Int)
+    click_or_interval::Int, label::Int, start_side::Int=LEFT)
 
     while true
         if click_or_interval == CLICK
@@ -663,10 +677,11 @@ function position_in_click_or_interval_to_large_switch!(cm::CarryingMap,
 end
 
 
-function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, start_side::Int)
+function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, 
+        start_side::Int=LEFT)
     arr = cm.temp_intersections
     forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
-    pos = sum(arr[1, i] for i in eachindex(size(arr)[2]))
+    pos = temp_intersection_sum(cm)
     return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
 end
 
@@ -676,13 +691,13 @@ end
 ``start_side``, including the branch or cusp itself.
 """
 function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::Int,
-    label::Int, start_side::Int)
+    label::Int, start_side::Int=LEFT)
 
     if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
         error("A collapsed branch does not count as an outgoing path from a click.")
     end
 
-    cm.temp_intersections[1, :] .= 0
+    cm.temp_intersections[TEMP_INDEX, :] .= 0
     
     if branch_or_cusp == BRANCH
         sw = branch_endpoint(cm.small_tt, -label)
@@ -698,16 +713,15 @@ function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::I
         current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
         add_intersection!(cm, current_br_or_cusp, forward_paths[i], TEMP, TEMP_INDEX)
         if current_br_or_cusp == branch_or_cusp && forward_paths[i] == label
-            return
+            return click
         end
     end
     @assert false
 end
 
-TEMP_INDEX = 1
 
 function position_in_large_switch_to_large_branch_or_cusp!(cm::CarryingMap, 
-    large_sw::Int, start_side::Int)
+    large_sw::Int, start_side::Int=LEFT)
     br = extremal_branch(cm.large_tt, large_sw, start_side)
     while true
         add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, br, -1)
@@ -736,7 +750,7 @@ end
 
 
 function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
-    branch_or_cusp::Int, label::Int, start_side::Int)
+    branch_or_cusp::Int, label::Int, start_side::Int=LEFT)
 
     while true
         if branch_or_cusp == BRANCH
@@ -762,7 +776,8 @@ end
 Compute the total paths in all outgoing large branches on the specified side of a large cusp.
 The result is stored in a preallocated temporary array with specified index.
 """
-function large_cusp_to_position_in_large_switch!(cm::CarryingMap, large_cusp::Int, start_side::Int)
+function large_cusp_to_position_in_large_switch!(cm::CarryingMap, large_cusp::Int, 
+        start_side::Int=LEFT)
     cm.temp_intersections[TEMP_INDEX, :] .= 0
     small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
     if small_cusp != 0
@@ -780,17 +795,63 @@ if the cusp path corresponding to the large cusp is collapsed.
 - Otherwise there is a containing interval.
 
 """
-function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Int, start_side::Int)
+function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Int, 
+        start_side::Int=LEFT)
     large_cusp_to_position_in_large_switch!(cm, large_cusp, start_side)
     large_sw = cusp_to_switch(cm.large_cusphandler, large_cusp)
     position_in_large_switch_to_click_or_interval!(cm, large_sw, start_side)
 end
 
 
+function position_in_reversed_branch!(cm::CarryingMap, large_br::Int, small_br_or_cusp::Int, label::Int)
+    add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, large_br, -1)
+    negate_temp_intersections!(cm)
+    add_intersection!(cm, TEMP, TEMP_INDEX, small_br_or_cusp, label)
+end
 
+#---------------------------------------------------
+# Reconstruction
+#---------------------------------------------------
 
+function trajectory_of_small_branch_or_path(cm::CarryingMap, branch_or_cusp::Int, label::Int)
+    trajectory = []
+    click = branch_or_cusp_to_position_in_click!(cm, branch_or_cusp, label)
+    position_in_click_or_interval_to_large_switch!(cm, CLICK, click)
+    large_sw = click_to_large_switch(cm, click)
 
+    while true
+        pos = temp_intersection_sum(cm)
+        push!(trajectory, (large_sw, pos))
+    
+        large_br_or_cusp, large_label = position_in_large_switch_to_large_branch_or_cusp!(cm, large_sw)
+        if large_br_or_cusp == CUSP
+            @assert branch_or_cusp == CUSP
+            push!(trajectory, large_label)
+            break
+        end
+        
+        position_in_reversed_branch!(cm, large_label, branch_or_cusp, label)
+        position_in_large_branch_or_cusp_to_large_switch!(cm, BRANCH, -large_label)
+        large_sw = branch_endpoint(cm.large_tt, large_label)
+        pos = temp_intersection_sum(cm)
+        push!(trajectory, (large_sw, pos))
+        click_or_interval, ci_label = position_in_large_switch_to_click_or_interval!(cm, large_sw)
+        if click_or_interval == CLICK
+            small_br_or_cusp, small_label = position_in_click_to_branch_or_cusp!(cm, ci_label)
 
+            # We need to get back the same branch as we started with.
+            # We have to get a branch, not a cusp, since a cusp path would end 
+            # at a large cusp and not a click.
+            @assert small_br_or_cusp == BRANCH && branch_or_cusp == BRANCH
+            @assert small_label == -label
+            break
+        else
+            position_in_click_or_interval_to_large_switch!(cm, INTERVAL, ci_label)
+            large_sw = interval_to_large_switch(cm, ci_label)
+        end
+    end
+    return trajectory
+end
 
 
 #---------------------------------------------------
