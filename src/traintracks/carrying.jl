@@ -1,12 +1,15 @@
 
 module Carrying
 
-export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, trajectory_of_small_branch_or_cusp, pullout_branches_small!
+export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, 
+    trajectory_of_small_branch_or_cusp, pullout_branches_small!,
+    pullout_branches_large!
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
 using Donut.TrainTracks.MeasuresAndOperations
-using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_trivalent, BranchIterator
+using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_trivalent, 
+    BranchIterator
 using Donut.TrainTracks.Cusps
 
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
@@ -304,9 +307,9 @@ Insert a click on a specified side of in interval. A new interval is also create
 on the opposite side of the new click.
 """
 function insert_click!(cm::CarryingMap, interval::Int, side::Int)
-    new_interval = create_interval!(cm)
+    new_interval = _create_interval!(cm)
     new_interval = sign(interval) * new_interval
-    new_click = create_click!(cm)
+    new_click = _create_click!(cm)
     new_click = sign(interval) * new_click
 
     next_click = interval_to_click(cm, interval, side)
@@ -409,7 +412,6 @@ function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, st
 end
 
 @enum ComingFromWhere COMING_FROM_BEHIND COMING_FROM_FRONT_STARTSIDE COMING_FROM_FRONT_OTHERSIDE
-
 
 function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, start_side::Int,
     temp_index::Int, coming_from::ComingFromWhere=COMING_FROM_BEHIND, branch_leading_here::Int=0, idx::Int=1)
@@ -874,15 +876,17 @@ function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp
 end
 
 
-function position_in_reversed_branch!(cm::CarryingMap, large_br::Int, small_br_or_cusp::Int, label::Int)
-    add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, large_br, -1)
+function position_in_reversed_branch_or_interval!(cm::CarryingMap, branch_or_interval::Int, 
+        label1::Int, small_br_or_cusp::Int, label2::Int)
+    add_paths_large!(cm, TEMP, TEMP_INDEX, branch_or_interval, label1, -1)
     # println("Subtracting large branch $(large_br): ", cm.temp_intersections)
 
     negate_temp_intersections!(cm)
     # println("Multiplying by -1: ", cm.temp_intersections)
-    add_intersection!(cm, small_br_or_cusp, label, TEMP, TEMP_INDEX)
+    add_intersection!(cm, small_br_or_cusp, label2, TEMP, TEMP_INDEX)
     # println("Adding back $(small_br_or_cusp == BRANCH ? "branch" : "cusp") $(label): ", cm.temp_intersections)
 end
+
 
 #---------------------------------------------------
 # Reconstruction
@@ -928,7 +932,7 @@ function trajectory_of_small_branch_or_cusp(cm::CarryingMap, branch_or_cusp::Int
             println("Position in branch $(large_label): ", cm.temp_intersections)
         end
         
-        position_in_reversed_branch!(cm, large_label, branch_or_cusp, label)
+        position_in_reversed_branch_or_interval!(cm, BRANCH, large_label, branch_or_cusp, label)
         if debug
             println("Position in reversed branch $(-large_label): ", cm.temp_intersections)
         end
@@ -958,10 +962,15 @@ function trajectory_of_small_branch_or_cusp(cm::CarryingMap, branch_or_cusp::Int
             break
         else
             if debug
-                println("Position in interval: ", cm.temp_intersections)
+                println("Position in interval $(ci_label):", cm.temp_intersections)
             end
-            position_in_click_or_interval_to_large_switch!(cm, INTERVAL, ci_label)
-            large_sw = interval_to_large_switch(cm, ci_label)
+            position_in_reversed_branch_or_interval!(cm, INTERVAL, ci_label,
+                branch_or_cusp, label)
+            if debug
+                println("Position in reversed interval $(-ci_label): ", cm.temp_intersections)
+            end
+            position_in_click_or_interval_to_large_switch!(cm, INTERVAL, -ci_label)
+            large_sw = interval_to_large_switch(cm, -ci_label)
             if debug
                 println("Position in large switch $(large_sw): ", cm.temp_intersections)
             end
@@ -1097,7 +1106,36 @@ end
 
 
 function pullout_branches_large!(cm::CarryingMap, iter::BranchIterator)
+    new_sw, new_br = pullout_branches!(iter)
 
+    # Creating new interval at the new switch
+    new_interval = _create_interval!(cm)
+    set_interval_to_large_switch!(cm, new_interval, new_sw)
+    set_extremal_interval!(cm, new_sw, LEFT, new_interval)
+    set_extremal_interval!(cm, new_sw, RIGHT, new_interval)
+
+    # Updating cusphandler
+    update_cusps_pullout_branches!(cm.large_tt, cm.large_cusphandler, new_br)
+
+    
+    # Updating intersections for new interval
+    for large_br in outgoing_branches(cm.large_tt, new_sw)
+        add_paths_large!(cm, INTERVAL, new_interval, BRANCH, large_br)
+        large_cusp = branch_to_cusp(cm.large_cusphandler, large_br, RIGHT)
+        if large_cusp == 0
+            break
+        end
+        small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
+        if small_cusp != 0
+            add_intersection!(cm, CUSP, small_cusp, INTERVAL, new_interval)
+        end
+    end
+
+    # Updating intersections for new large branch
+    # with the same intersections as the interval
+    add_paths_large!(cm, BRANCH, new_br, INTERVAL, new_interval)
+
+    new_sw, new_br
 end
 
 
