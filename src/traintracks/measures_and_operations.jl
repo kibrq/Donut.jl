@@ -14,7 +14,7 @@ import Donut.TrainTracks.Operations: pullout_branches!
 
 using Donut.Constants: FORWARD, BACKWARD
 
-function updatemeasure_pullout_branch!(tt_afterop::TrainTrack,
+function updatemeasure_pullout_branches!(tt_afterop::TrainTrack,
     measure::Measure, newbranch::Int)
     if newbranch > length(measure.values)
         _allocatemore!(measure, newbranch)
@@ -50,7 +50,7 @@ end
 
 function pullout_branches!(iter::BranchIterator, measure::Measure)
     new_sw, new_br = pullout_branches!(iter)
-    updatemeasure_pullout_branch!(iter.tt, measure, new_br)
+    updatemeasure_pullout_branches!(iter.tt, measure, new_br)
     new_sw, new_br
 end
 
@@ -71,7 +71,7 @@ function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOpe
     elseif op.optype == FOLD
         updatemeasure_fold!(tt_afterop, measure, op.label1, op.label2)
     elseif op.optype == PULLOUT_BRANCHES
-        updatemeasure_pullout_branch!(tt_afterop, measure, last_added_br)
+        updatemeasure_pullout_branches!(tt_afterop, measure, last_added_br)
     elseif op.optype == COLLAPSE_BRANCH
         updatemeasure_collapse!(measure, op.label1)
     elseif op.optype == RENAME_BRANCH

@@ -1,7 +1,7 @@
 
 module Carrying
 
-export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, trajectory_of_small_branch_or_cusp
+export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, trajectory_of_small_branch_or_cusp, pullout_branches_small!
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
@@ -61,6 +61,7 @@ struct CarryingMap
         small_cusp_to_large_cusp = zeros(Int, ncusps)
         large_cusp_to_small_cusp = zeros(Int, ncusps)
 
+        # println("CUSPS: ", collect(cusps(ch)))
         for cusp in cusps(ch)
             small_cusp_to_large_cusp[cusp] = cusp
             large_cusp_to_small_cusp[cusp] = cusp
@@ -222,6 +223,7 @@ function add_paths_from_click!(cm::CarryingMap, branch_interval_or_temp::Int, ad
     click::Int, with_sign::Int=1)
 
     forward_paths = forward_branches_and_cusps_from_click(cm, click, LEFT, FORWARD)
+    # println(forward_paths)
     for i in eachindex(forward_paths)
         branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
         add_intersection!(cm, branch_or_cusp, forward_paths[i], 
@@ -368,7 +370,7 @@ function Base.iterate(iter::BranchAndCuspIterator, state::Tuple{Int, Int}=(0,0))
         return ((BRANCH, br), (br, BRANCH))
     else
         if branch_or_cusp == BRANCH
-            cusp = branch_to_cusp(iter.tt, iter.ch, br, RIGHT)
+            cusp = branch_to_cusp(iter.ch, br, RIGHT)
             if cusp != 0
                 return ((CUSP, cusp), (br, CUSP))
             else
@@ -406,13 +408,22 @@ function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, st
     # (label for label in cm.temp_int_array if label != 0)
 end
 
-COMING_FROM_BEHIND = 0
-COMING_FROM_FRONT_STARTSIDE = 1
-COMING_FROM_FRONT_OTHERSIDE = 2
+@enum ComingFromWhere COMING_FROM_BEHIND COMING_FROM_FRONT_STARTSIDE COMING_FROM_FRONT_OTHERSIDE
+
 
 function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, start_side::Int,
-    temp_index::Int, coming_from::Int=COMING_FROM_BEHIND, branch_leading_here::Int=0, idx::Int=1)
-
+    temp_index::Int, coming_from::ComingFromWhere=COMING_FROM_BEHIND, branch_leading_here::Int=0, idx::Int=1)
+    debug = false
+    if debug
+        println("------------")
+        println("Finding branches and cusps from small switch $(small_sw)")
+        println("Start side: ", start_side == LEFT ? "LEFT" : "RIGHT")
+        println("Coming from: ", coming_from)
+        println("Branch leading here: ", branch_leading_here)
+        println("Index: ", idx)
+        println("Outgoing branches and cusps so far: ", 
+            view(cm.temp_int_array, 1:idx-1, temp_index))
+    end
     # Recursively collect all branches and cusps on the starting side
     # We do this if COMING_FROM_BEHIND or COMING_FROM_FRONT_OTHERSIDE,
     # but not if COMING_FROM_FRONT_STARTSIDE
@@ -439,14 +450,20 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
     else
         @assert false
     end
+    if debug
+        println("Iterating over forward branches: ", collect(iter))
+    end
 
     # Iterate over forward branches.
     for br in iter
+        if debug
+            println("Considering branch $(br)...")
+        end
         if br != -branch_leading_here
             if is_branch_or_cusp_collapsed(cm, BRANCH, br) 
                 new_sw = -branch_endpoint(cm.small_tt, br)
                 idx = save_forward_branches_and_cusps_from_click(cm, new_sw, start_side, temp_index, 
-                    COMING_FROM_BEHIND, -br, idx)
+                    COMING_FROM_BEHIND, br, idx)
             else
                 cm.temp_int_array[idx, temp_index] = br
                 idx += 1
@@ -457,12 +474,20 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
                 break
             end
         end
-        cusp = branch_to_cusp(cm.small_tt, cm.small_cusphandler, br, otherside(start_side))
+        cusp = branch_to_cusp(cm.small_cusphandler, br, otherside(start_side))
+        if debug
+            println("Considering cusp $(cusp)...")
+        end
         if cusp == 0
             break
         end
         cm.temp_int_array[idx, temp_index] = cusp
         idx += 1
+    end
+
+    if debug
+        println("Outgoing branches and cusps after adding forward branches: ", 
+            view(cm.temp_int_array, 1:idx-1, temp_index))
     end
 
     # Recursively iterate over branches and cusps on the other side
@@ -475,6 +500,10 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
         end
     end
 
+    if debug
+        println("Finished finding branches and cusps from small switch $(small_sw)")
+        println()
+    end
     return idx
 end
 
@@ -482,6 +511,8 @@ function forward_branches_and_cusps_from_click(cm::CarryingMap, click::Int, star
         temp_index::Int)
     small_sw = click_to_small_switch(cm, click)
     length_plus_1 = save_forward_branches_and_cusps_from_click(cm, small_sw, start_side, temp_index)
+    # println(    view(cm.temp_int_array, 1:length_plus_1-1, temp_index)    )
+    @assert length_plus_1 % 2 == 0
     view(cm.temp_int_array, 1:length_plus_1-1, temp_index)
 end
 
@@ -516,7 +547,7 @@ function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::I
             @assert idx % 2 == 1
             idx += 1
         end
-        cusp = branch_to_cusp(cm.small_tt, cm.small_cusphandler, br, start_side)
+        cusp = branch_to_cusp(cm.small_cusphandler, br, start_side)
         if cusp != 0
             cm.temp_int_array[idx+1, BACKWARD] = cusp
             @assert idx % 2 == 0
@@ -722,6 +753,7 @@ function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::I
     click = small_switch_to_click(cm, sw)
 
     forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    # println(forward_paths)
     for i in eachindex(forward_paths)
         current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
         add_intersection!(cm, current_br_or_cusp, forward_paths[i], TEMP, TEMP_INDEX)
@@ -734,31 +766,51 @@ end
 
 
 function position_in_large_switch_to_large_branch_or_cusp!(cm::CarryingMap, 
-    large_sw::Int, start_side::Int=LEFT)
+        large_sw::Int, start_side::Int=LEFT)
+    debug = false
     br = extremal_branch(cm.large_tt, large_sw, start_side)
-    # println("Starting... ", cm.temp_intersections)
+    if debug
+        println("************************")
+        println("Starting... ", cm.temp_intersections)
+    end
     while true
         # println(cm.paths)
         add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, br, -1)
-        # println("Subtracting branch $(br)... ", cm.temp_intersections)
+        if debug
+            println("Subtracting branch $(br)... ", cm.temp_intersections)
+        end
         if !do_temp_intersections_contain_positive(cm)
             add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, br)
-            # println("Adding branch $(br) back... ", cm.temp_intersections)
+            if debug
+                println("Adding branch $(br) back... ", cm.temp_intersections)
+                println("************************")
+            end
             @assert are_temp_intersections_nonnegative(cm)
             return (BRANCH, br)
         end
-        large_cusp = branch_to_cusp(cm.large_tt, cm.large_cusphandler, br, otherside(start_side))
+        large_cusp = branch_to_cusp(cm.large_cusphandler, br, otherside(start_side))
+        if debug
+            println("Large cusp: ", large_cusp)
+        end
 
         @assert large_cusp != 0 
         # if it was 0, then we would have subtracted all branches already, so 
         # we should have found the right position.
 
-        small_cusp = small_cusp_to_large_cusp(cm, large_cusp)
+        small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
+        if debug
+            println("Small cusp: ", small_cusp)
+        end
         if small_cusp != 0
             add_intersection!(cm, CUSP, small_cusp, TEMP, TEMP_INDEX, -1)
-            # println("Subtracting cusp $(small_cusp)... ", cm.temp_intersections)
+            if debug
+                println("Subtracting cusp $(small_cusp)... ", cm.temp_intersections)
+            end
             if !do_temp_intersections_contain_positive(cm)
                 @assert are_temp_intersections_zero(cm)
+                if debug
+                    println("************************")
+                end
                 return (CUSP, large_cusp)
             end
         end
@@ -773,7 +825,7 @@ function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
     while true
         if branch_or_cusp == BRANCH
             branch_or_cusp = CUSP
-            label = branch_to_cusp(cm.large_tt, cm.large_cusphandler, label, start_side)
+            label = branch_to_cusp(cm.large_cusphandler, label, start_side)
             if label == 0
                 return
             end
@@ -783,7 +835,7 @@ function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
             end
         else
             branch_or_cusp = BRANCH
-            label = cusp_to_branch(cm.large_tt, cm.large_cusphandler, label, start_side)
+            label = cusp_to_branch(cm.large_cusphandler, label, start_side)
             add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, label)
         end
     end
@@ -884,11 +936,12 @@ function trajectory_of_small_branch_or_cusp(cm::CarryingMap, branch_or_cusp::Int
         position_in_large_branch_or_cusp_to_large_switch!(cm, BRANCH, -large_label)
 
         large_sw = branch_endpoint(cm.large_tt, large_label)
+        pos = temp_intersection_sum(cm)
+
         if debug
             println("Position in large switch $(large_sw): ", cm.temp_intersections)
             println("Current position", (large_sw, pos))
         end
-        pos = temp_intersection_sum(cm)
         push!(trajectory, (large_sw, pos))
         click_or_interval, ci_label = position_in_large_switch_to_click_or_interval!(cm, large_sw)
         if click_or_interval == CLICK
@@ -917,13 +970,34 @@ function trajectory_of_small_branch_or_cusp(cm::CarryingMap, branch_or_cusp::Int
     return trajectory
 end
 
-function are_trajectories_consistent(cm)
+function are_trajectories_consistent(cm::CarryingMap, printout=false)
     trajectories = []
+    if printout
+        println("--------------------------")
+        println("Trajectories")
+        println()
+        println("BRANCHES:")
+    end
     for br in branches(cm.small_tt)
-        append!(trajectories, trajectory_of_small_branch_or_cusp(cm, BRANCH, br))
+        traj = trajectory_of_small_branch_or_cusp(cm, BRANCH, br)
+        if printout
+            println(br, ": ", traj)
+        end
+        append!(trajectories, traj)
+    end
+    if printout
+        println()
+        println("CUSPS:")
     end
     for cusp in cusps(cm.small_cusphandler)
-        append!(trajectories, trajectory_of_small_branch_or_cusp(cm, CUSP, cusp))
+        traj = trajectory_of_small_branch_or_cusp(cm, CUSP, cusp)
+        if printout
+            println(cusp, ": ", traj)
+        end
+        append!(trajectories, traj)
+    end
+    if printout
+        println("-------------------------")
     end
     sort!(trajectories)
 
@@ -961,7 +1035,7 @@ function peel_small!(cm::CarryingMap, switch::Int, side::Int)
         # but they would not do anything.
         add_paths_small!(cm, BRANCH, peeled_branch, BRANCH, thick_branch)
     
-        cusp_to_append_to = branch_to_cusp(cm.small_tt, cm.small_cusphandler, thick_branch, side)
+        cusp_to_append_to = branch_to_cusp(cm.small_cusphandler, thick_branch, side)
         add_paths_small!(cm, CUSP, cusp_to_append_to, BRANCH, thick_branch)
     
         click = small_switch_to_click(cm, switch)
@@ -998,7 +1072,7 @@ function fold_large!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
 
     # Also add branch and interval intersection with a cusp path, since the
     # cusp path at between the folded branches become longer.
-    large_cusp = branch_to_cusp(cm.large_tt, cm.large_cusphandler, fold_onto_branch, folded_branch_side)
+    large_cusp = branch_to_cusp(cm.large_cusphandler, fold_onto_branch, folded_branch_side)
     small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
     if small_cusp != 0 
         add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_branch)
@@ -1009,9 +1083,15 @@ end
 
 function pullout_branches_small!(cm::CarryingMap, iter::BranchIterator, small_measure::Measure)
     new_sw, new_br = pullout_branches!(iter, small_measure)
+
+    # Updating small switch to click
     old_sw = branch_endpoint(cm.small_tt, -new_br)
     click = small_switch_to_click(cm, old_sw)
     set_small_switch_to_click!(cm, new_sw, click)
+
+    # Updating cusphandler
+    update_cusps_pullout_branches!(cm.small_tt, cm.small_cusphandler, new_br)
+
     new_sw, new_br
 end
 
@@ -1047,9 +1127,15 @@ function make_small_tt_trivalent!(cm::CarryingMap, small_measure::Measure)
                         return
                     end
                     br = new_br
+                else
+                    # No more branches
+                    break
                 end
             end
         end
+        # When should get here, since there should be enough branches to 
+        # pull out to reduce the valence to 3.
+        @assert false
     end
 end
 
@@ -1406,7 +1492,7 @@ function fold_small!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
         folded_end_sw = branch_endpoint(cm.small_tt, folded_branch)
 
 
-        cusp = branch_to_cusp(cm.small_tt, cm.small_cusphandler, fold_onto_branch, folded_branch_side)
+        cusp = branch_to_cusp(cm.small_cusphandler, fold_onto_branch, folded_branch_side)
         if !is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, CUSP, cusp)
             # In order for the fold to be possible, after the isotopy,
             # fold_onto_branch has to be shorter or equal than the cusp path

@@ -15,9 +15,9 @@ function invariant_tt(mc::MappingClass)
     # triangulation marking.
 
     # TODO: figure out the list of exponents we have to look at. 
-    for ex in 1:eulerchar(surface)^2
+    for exp in 1:eulerchar(surface)^2
         # Computing an iterate of the curve
-        apply_mappingclass_to_lamination!(mc^ex, lam)
+        apply_mappingclass_to_lamination!(mc^exp, lam)
 
         # The lamination lam is represented as a measured Dehn-Thurston
         # train track. We create a CarryingMap from this.
@@ -26,7 +26,7 @@ function invariant_tt(mc::MappingClass)
         cm = CarryingMap(tt)
 
         # Make the small train track trivalent.
-        make_small_tt_trivelent!(cm, measure)
+        make_small_tt_trivalent!(cm, measure)
     end
 end
 
