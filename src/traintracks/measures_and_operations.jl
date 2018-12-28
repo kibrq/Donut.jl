@@ -115,8 +115,8 @@ function peel!(tt::TrainTrack, switch::Int, side::Int, measure::Measure)
     nothing
 end
 
-function fold!(tt::TrainTrack, fold_into_br::Int, folded_br_side::Int, measure::Measure)
-    execute_elementaryops!(tt, (fold_op(fold_into_br, folded_br_side),), measure)
+function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Int, measure::Measure)
+    execute_elementaryops!(tt, (fold_op(fold_onto_br, folded_br_side),), measure)
     nothing
 end
 

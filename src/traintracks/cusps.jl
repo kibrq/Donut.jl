@@ -110,9 +110,9 @@ function update_cusps_fold!(tt_after_op::TrainTrack, ch::CuspHandler, fold_onto_
     @assert !istwisted(tt, fold_onto_br)   # TODO: handle twisted branch
 
     cusp = branch_to_cusp(ch, fold_onto_br, folded_br_side)
-    other_cusp = branch_to_cusp(ch, folded_br, folded_br_side)
     end_sw = -branch_endpoint(tt, fold_onto_br)
     folded_br = extremal_branch(tt, end_sw, folded_br_side)
+    other_cusp = branch_to_cusp(ch, folded_br, folded_br_side)
     other_br = next_branch(tt, folded_br, otherside(folded_br_side))
 
     set_cusp_to_branch!(ch, cusp, otherside(folded_br_side), other_br)

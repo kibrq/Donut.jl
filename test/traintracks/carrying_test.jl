@@ -103,5 +103,20 @@ end
     @test are_trajectories_consistent(cm, false)
 end
 
+@testset "Folding the large train track" begin
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]])
+    cm = CarryingMap(tt)
+    cusp = branch_to_cusp(cm.small_cusphandler, 1, RIGHT)
+    fold_large!(cm, 1, RIGHT)
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 1) == 
+        [(1, 1), (-1, 3)]
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 2) == 
+        [(1, 3), (-1, 1), (1, 11), (-1, 5)]
+    @test trajectory_of_small_branch_or_cusp(cm, CUSP, cusp) == 
+        [(1, 2), (-1, 2), (1, 10)]
+
+    @test are_trajectories_consistent(cm, false)
+end
+
 
 end

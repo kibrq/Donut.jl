@@ -7,6 +7,8 @@ export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!,
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
+import Donut
+import Donut.TrainTracks.Operations
 using Donut.TrainTracks.MeasuresAndOperations
 using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_trivalent, 
     BranchIterator
@@ -736,7 +738,7 @@ end
 """
 
 - temp_storage_index -- the index of the array containing the outgoing paths on side
-``start_side``, including the branch or cusp itself.
+  ``start_side```, including the branch or cusp itself.
 """
 function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::Int,
     label::Int, start_side::Int=LEFT)
@@ -1078,23 +1080,29 @@ function peel_small!(cm::CarryingMap, switch::Int, side::Int, measure::Measure)
 end
 
 
-function fold_large!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
-    folded_branch_side::Int)
-    # Adding the intersections with the folded branch to fold_onto_branch ...
-    add_paths_large!(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
+function fold_large!(cm::CarryingMap, fold_onto_br::Int, folded_br_side::Int)
+    Donut.TrainTracks.Operations.fold!(cm.large_tt, fold_onto_br, folded_br_side)
+
+    # Updating cusps
+    update_cusps_fold!(cm.large_tt, cm.large_cusphandler, fold_onto_br, folded_br_side)
+
+    large_sw = -branch_endpoint(cm.large_tt, fold_onto_br)
+    folded_br = extremal_branch(cm.large_tt, large_sw, folded_br_side) 
+
+    # Adding the intersections with the folded branch to fold_onto_br ...
+    add_paths_large!(cm, BRANCH, fold_onto_br, BRANCH, folded_br)
 
     # ... and also the left- or rightmost interval at the merged switch
-    large_sw = branch_endpoint(cm.large_tt, fold_onto_branch)
     # TODO: twisted branch
-    interval = extremal_interval(cm, large_sw, folded_branch_side)
-    add_paths_large!(cm, INTERVAL, interval, BRANCH, folded_branch)
+    interval = extremal_interval(cm, large_sw, folded_br_side)
+    add_paths_large!(cm, INTERVAL, interval, BRANCH, folded_br)
 
     # Also add branch and interval intersection with a cusp path, since the
     # cusp path at between the folded branches become longer.
-    large_cusp = branch_to_cusp(cm.large_cusphandler, fold_onto_branch, folded_branch_side)
+    large_cusp = branch_to_cusp(cm.large_cusphandler, folded_br, otherside(folded_br_side))
     small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
     if small_cusp != 0 
-        add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_branch)
+        add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_br)
         add_intersection!(cm, CUSP, small_cusp, INTERVAL, interval)
     end
 end
