@@ -84,53 +84,43 @@ function set_branch_to_cusp!(ch::CuspHandler, br::Int, side::Int, cusp::Int)
 end
 
 
-function update_cusps_peel!(tt_before_peel::TrainTrack, ch::CuspHandler, switch::Int, side::Int)
-    # tt = tt_before_peel
-    # peeled_branch = extremal_branch(tt, switch, side)
-    # peel_off_branch = extremal_branch(tt, -switch, otherside(side))
-    # cusp = branch_to_cusp(tt, ch, peeled_branch, otherside(side))
+function update_cusps_peel!(tt_after_op::TrainTrack, ch::CuspHandler, switch::Int, side::Int)
+    tt = tt_after_op
+    peel_off_branch = -extremal_branch(tt, -switch, otherside(side))
+    @assert !is_twisted(tt, peel_off_branch)   # TODO: handle twisted branch
+    peeled_branch = next_branch(tt, peel_off_branch, side)
+    forward_branch = extremal_branch(tt, switch, side)
+    cusp = branch_to_cusp(tt, ch, peeled_branch, otherside(side))
+    next_cusp = branch_to_cusp(tt, ch, peel_off_branch, side)
 
-    # @assert !is_twisted(tt, peel_off_branch)   # TODO: handle twisted branch
-    # if side == LEFT
-    #     # if we peel on the left, the branch left of the cusp stays peeled_branch,
-    #     # so there is nothing to do
-    # else
-    #     other_cusp = branch_to_cusp(tt, ch, -peel_off_branch, RIGHT)
-    #     set_cusp_to_left_branch!(ch, cusp, LEFT, -peel_off_branch)
-    #     set_branch_to_right_cusp!(ch, -peel_off_branch, cusp)
-    #     if other_cusp != 0
-    #         set_cusp_to_left_branch!(ch, other_cusp, peeled_branch)
-    #         set_branch_to_right_cusp!(ch, peeled_branch, other_cusp)
-    #     end
-    #     new_ext_br = next_branch(tt, peeled_branch, otherside(side))
-    #     set_branch_to_right_cusp!(ch, new_ext_br, 0)
-    # end
+    set_branch_to_cusp!(ch, peel_off_branch, side, cusp)
+    set_cusp_to_branch!(ch, cusp, otherside(side), peel_off_branch)
+    set_branch_to_cusp!(ch, forward_branch, side, 0)
+    if next_cusp != 0
+        set_branch_to_cusp!(ch, peeled_branch, side, next_cusp)
+        set_cusp_to_branch!(ch, next_cusp, otherside(side), peeled_branch)
+    end
 end
 
 
-function update_cusps_fold!(tt_before_fold::TrainTrack, ch::CuspHandler, fold_onto_br::Int, 
+function update_cusps_fold!(tt_after_op::TrainTrack, ch::CuspHandler, fold_onto_br::Int, 
         folded_br_side::Int)
-    # tt = tt_before_fold
+    tt = tt_after_op
+    @assert !is_twisted(tt, fold_onto_br)   # TODO: handle twisted branch
 
-    # @assert !is_twisted(tt, fold_onto_br)   # TODO: handle twisted branch
-    # if folded_br_side == LEFT
-    #     # if we fold on the left, the branch left of the cusp stays the folded branch,
-    #     # so there is nothing to do
-    # else
-    #     end_sw = branch_endpoint(tt, fold_onto_br)
-    #     end_br = extremal_branch(tt, -end_sw, folded_br_side)
-    #     cusp = branch_to_cusp(tt, ch, fold_onto_br, folded_br_side)
-    #     folded_br = next_branch(tt, fold_onto_br, folded_br_side)
-    #     other_cusp = branch_to_cusp(tt, ch, folded_br, folded_br_side)
+    cusp = branch_to_cusp(ch, fold_onto_br, folded_br_side)
+    other_cusp = branch_to_cusp(ch, folded_br, folded_br_side)
+    end_sw = -branch_endpoint(tt, fold_onto_br)
+    folded_br = extremal_branch(tt, end_sw, folded_br_side)
+    other_br = next_branch(tt, folded_br, otherside(folded_br_side))
 
-    #     set_cusp_to_left_branch!(ch, cusp, end_br)
-    #     set_branch_to_right_cusp!(ch, end_br, cusp)
-    #     set_branch_to_right_cusp!(ch, folded_br, 0)
-    #     if other_cusp != 0
-    #         set_branch_to_right_cusp!(ch, fold_onto_br, other_cusp)
-    #         set_cusp_to_left_branch!(ch, other_cusp, fold_onto_br)
-    #     end
-    # end
+    set_cusp_to_branch!(ch, cusp, otherside(folded_br_side), other_br)
+    set_branch_to_cusp!(ch, other_br, folded_br_side, cusp)
+    set_branch_to_cusp!(ch, folded_br, folded_br_side, 0)
+    set_branch_to_cusp!(ch, fold_onto_br, folded_br_side, other_cusp)
+    if other_cusp != 0
+        set_cusp_to_branch!(ch, other_cusp, otherside(folded_br_side), fold_onto_br)
+    end
 end
 
 
