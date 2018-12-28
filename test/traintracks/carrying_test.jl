@@ -74,5 +74,34 @@ end
 end
 
 
+@testset "Peeling the small train track" begin
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]])
+    measure = Measure{BigInt}(tt, BigInt[1, 2, 6, 14, 100])
+    cm = CarryingMap(tt)
+    cusp = branch_to_cusp(cm.small_cusphandler, 1, RIGHT)
+    peel_small!(cm, 1, LEFT, measure)
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 1) == 
+        [(1, 9), (-1, 11), (1, 1), (-1, 1)]
+    @test trajectory_of_small_branch_or_cusp(cm, CUSP, cusp) == 
+        [(1, 10), (-1, 10), (1, 2)]
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 2) == 
+        [(1, 3), (-1, 3)]
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 5) ==
+        [(1, 11), (-1, 9)]
+
+    @test are_trajectories_consistent(cm, false)
+
+    peel_small!(cm, -1, LEFT, measure)
+    @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 1) == 
+        [(1, 9), (-1, 13), (1, 1), (-1, 1), (1, 13), (-1, 9)]
+    @test trajectory_of_small_branch_or_cusp(cm, CUSP, cusp) == 
+        [(1, 10), (-1, 12), (1, 2)]
+    cusp2 = branch_to_cusp(cm.small_cusphandler, -1, RIGHT)
+    @test trajectory_of_small_branch_or_cusp(cm, CUSP, cusp2) == 
+        [(-1, 10), (1, 12), (-1, 2)]  
+        
+    @test are_trajectories_consistent(cm, false)
+end
+
 
 end

@@ -3,7 +3,7 @@ module Carrying
 
 export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, 
     trajectory_of_small_branch_or_cusp, pullout_branches_small!,
-    pullout_branches_large!
+    pullout_branches_large!, peel_small!, fold_large!
 
 using Donut.TrainTracks
 using Donut.TrainTracks.Measures
@@ -202,8 +202,8 @@ end
 
 function add_paths_small!(cm::CarryingMap, branch_cusp_or_temp1::Int, add_to_label::Int, 
     branch_cusp_or_temp2::Int, added_label::Int, with_sign::Int=1)
-    idx1 = branch_or_cusp_to_index(cm, branch_cusp_or_temp1, append_to_label)
-    idx2 = branch_or_cusp_to_index(cm, branch_cusp_or_temp2, appended_label)
+    idx1 = branch_or_cusp_to_index(cm, branch_cusp_or_temp1, add_to_label)
+    idx2 = branch_or_cusp_to_index(cm, branch_cusp_or_temp2, added_label)
     arr1 = branch_cusp_or_temp1 == TEMP ? cm.temp_paths : cm.paths
     arr2 = branch_cusp_or_temp2 == TEMP ? cm.temp_paths : cm.paths
     for i in 1:size(cm.paths)[1]
@@ -711,6 +711,7 @@ function position_in_click_or_interval_to_large_switch!(cm::CarryingMap,
             click_or_interval = INTERVAL
             label = click_to_interval(cm, label, start_side)
             add_paths_large!(cm, TEMP, TEMP_INDEX, INTERVAL, label)
+            # println("Adding interval $(label): ", cm.temp_intersections)
         else
             click_or_interval = CLICK
             label = interval_to_click(cm, label, start_side)
@@ -718,6 +719,7 @@ function position_in_click_or_interval_to_large_switch!(cm::CarryingMap,
                 return
             end
             add_paths_from_click!(cm, TEMP, TEMP_INDEX, label)
+            # println("Adding paths from click $(label): ", cm.temp_intersections)
         end
     end
 end
@@ -1031,9 +1033,17 @@ end
 
 """Update the carrying map after peeling in the small train track
 """
-function peel_small!(cm::CarryingMap, switch::Int, side::Int)
-    peeled_branch = extremal_branch(cm.small_tt, switch, side)
-    thick_branch = extremal_branch(cm.small_tt, -switch, otherside(side))
+function peel_small!(cm::CarryingMap, switch::Int, side::Int, measure::Measure)
+    peel!(cm.small_tt, switch, side, measure)
+
+    # Updating cusps
+    update_cusps_peel!(cm.small_tt, cm.small_cusphandler, switch, side)
+
+    # Updating intersections, clicks and intervals.
+    thick_branch = -extremal_branch(cm.small_tt, -switch, otherside(side))
+    peeled_branch = next_branch(cm.small_tt, thick_branch, side)
+    # println("Thick branch: ", thick_branch)
+    # println("Peeled branch: ", peeled_branch)
 
     is_thick_collapsed = is_branch_or_cusp_collapsed(cm, BRANCH, thick_branch)
 
@@ -1044,7 +1054,7 @@ function peel_small!(cm::CarryingMap, switch::Int, side::Int)
         # but they would not do anything.
         add_paths_small!(cm, BRANCH, peeled_branch, BRANCH, thick_branch)
     
-        cusp_to_append_to = branch_to_cusp(cm.small_cusphandler, thick_branch, side)
+        cusp_to_append_to = branch_to_cusp(cm.small_cusphandler, peeled_branch, otherside(side))
         add_paths_small!(cm, CUSP, cusp_to_append_to, BRANCH, thick_branch)
     
         click = small_switch_to_click(cm, switch)

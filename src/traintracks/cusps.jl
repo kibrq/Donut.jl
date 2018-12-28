@@ -7,6 +7,7 @@ export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, upda
     update_cusps_fold!, cusp_to_switch, outgoing_cusps, update_cusps_pullout_branches!
 import Base.copy
 using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
+using Donut.Utils: otherside
 
 struct CuspHandler
     cusp_to_branch::Array{Int, 2}
@@ -87,11 +88,11 @@ end
 function update_cusps_peel!(tt_after_op::TrainTrack, ch::CuspHandler, switch::Int, side::Int)
     tt = tt_after_op
     peel_off_branch = -extremal_branch(tt, -switch, otherside(side))
-    @assert !is_twisted(tt, peel_off_branch)   # TODO: handle twisted branch
+    @assert !istwisted(tt, peel_off_branch)   # TODO: handle twisted branch
     peeled_branch = next_branch(tt, peel_off_branch, side)
     forward_branch = extremal_branch(tt, switch, side)
-    cusp = branch_to_cusp(tt, ch, peeled_branch, otherside(side))
-    next_cusp = branch_to_cusp(tt, ch, peel_off_branch, side)
+    cusp = branch_to_cusp(ch, peeled_branch, otherside(side))
+    next_cusp = branch_to_cusp(ch, peel_off_branch, side)
 
     set_branch_to_cusp!(ch, peel_off_branch, side, cusp)
     set_cusp_to_branch!(ch, cusp, otherside(side), peel_off_branch)
@@ -106,7 +107,7 @@ end
 function update_cusps_fold!(tt_after_op::TrainTrack, ch::CuspHandler, fold_onto_br::Int, 
         folded_br_side::Int)
     tt = tt_after_op
-    @assert !is_twisted(tt, fold_onto_br)   # TODO: handle twisted branch
+    @assert !istwisted(tt, fold_onto_br)   # TODO: handle twisted branch
 
     cusp = branch_to_cusp(ch, fold_onto_br, folded_br_side)
     other_cusp = branch_to_cusp(ch, folded_br, folded_br_side)
