@@ -23,7 +23,12 @@ function invariant_tt(mc::MappingClass)
         # train track. We create a CarryingMap from this.
         tt = lam.tt
         measure = lam.measure
-        cm = CarryingMap(tt)
+
+        ttwd = TrainTracksWithData()
+        small_tt_index = add_train_track!(ttwd, tt)
+        large_tt_index = add_carryingmap_as_small_tt!(ttwd, small_tt_index)
+        large_tt_index2 = add_carryingmap_as_small_tt!(ttwd, small_tt_index)
+
 
         # Make the small train track trivalent.
         make_small_tt_trivalent!(cm, measure)

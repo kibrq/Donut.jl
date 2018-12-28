@@ -54,9 +54,14 @@ struct CarryingMap
 
     """
     A train track carrying itself.
+
+    The provided train track and cusphandler are used as the small train track
+    without copying.
     """
-    function CarryingMap(tt::TrainTrack)
-        ch = CuspHandler(tt)
+    function CarryingMap(tt::TrainTrack, ch::Union{CuspHandler, Nothing}=nothing)
+        if ch == nothing
+            ch = CuspHandler(tt)
+        end
         numsw = numswitches_if_made_trivalent(tt)
         numbr = numbranches_if_made_trivalent(tt)
         # ncusps = numcusps(tt)
@@ -113,7 +118,7 @@ struct CarryingMap
 
         temp_int_array = zeros(Int, 2*numbr, 2)
 
-        new(tt, copy(tt), ch, copy(ch),
+        new(copy(tt), tt, copy(ch), ch,
         small_cusp_to_large_cusp, large_cusp_to_small_cusp, 
         extremal_intervals, interval_to_click, click_to_interval, 
         small_switch_to_click, interval_to_large_switch, click_to_small_switch, 
