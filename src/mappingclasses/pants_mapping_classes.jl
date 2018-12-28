@@ -171,3 +171,13 @@ function Base.show(io::IO, pmc::PantsMappingClass)
         println(io, cm)
     end
 end
+
+
+function marked_surface(pmc::PantsMappingClass)
+    return pmc.pd
+end
+
+function example_curve(pmc::PantsMappingClass)
+    return lamination_from_pantscurve(pmc.pd, 1, BigInt(0))
+end
+

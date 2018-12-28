@@ -1,23 +1,25 @@
 
 module MeasuresAndOperations
 
-export collapse_branch!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!, whichside_to_peel
+export collapse_branch!, pullout_branches!, pull_switch_apart!, delete_two_valent_switch!, add_switch_on_branch!, peel!, fold!, split_trivalent!, fold_trivalent!, renamebranch!, whichside_to_peel
 
 using Donut.TrainTracks
+using Donut.TrainTracks: BranchIterator
 using Donut.TrainTracks.Measures
 using Donut.TrainTracks.Measures: _allocatemore!, _setmeasure!
 using Donut.Utils: otherside
 using Donut.TrainTracks.ElementaryOps
 using Donut.TrainTracks.Operations: execute_elementaryop!
+import Donut.TrainTracks.Operations: pullout_branches!
 
 using Donut.Constants: FORWARD, BACKWARD
 
-function updatemeasure_pullswitchapart!(tt_afterop::TrainTrack,
+function updatemeasure_pullout_branch!(tt_afterop::TrainTrack,
     measure::Measure, newbranch::Int)
     if newbranch > length(measure.values)
         _allocatemore!(measure, newbranch)
     end
-    sw = branch_endpoint(tt_afterop, -newbranch)
+    sw = branch_endpoint(tt_afterop, newbranch)
     newvalue = outgoingmeasure(tt_afterop, measure, -sw)
     _setmeasure!(measure, newbranch, newvalue)
 end
@@ -46,11 +48,14 @@ function collapse_branch!(tt::TrainTrack, branch::Int, measure::Measure)
     updatemeasure_collapse!(measure, branch)
 end
 
-function pull_switch_apart!(tt::TrainTrack,
-    switch::Int,
-    measure::Measure)
-    sw, br = pull_switch_apart!(tt, switch)
-    updatemeasure_pullswitchapart!(tt, measure, br)
+function pullout_branches!(iter::BranchIterator, measure::Measure)
+    new_sw, new_br = pullout_branches!(iter)
+    updatemeasure_pullout_branch!(iter.tt, measure, new_br)
+    new_sw, new_br
+end
+
+function pull_switch_apart!(tt::TrainTrack, switch::Int, measure::Measure)
+    pullout_branches!(outgoing_branches(tt, switch), measure)
 end
 
 function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int, measure::Measure)
@@ -65,8 +70,8 @@ function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOpe
         updatemeasure_peel!(tt_afterop, measure, op.label1, op.label2)
     elseif op.optype == FOLD
         updatemeasure_fold!(tt_afterop, measure, op.label1, op.label2)
-    elseif op.optype == PULL_SWITCH
-        updatemeasure_pullswitchapart!(tt_afterop, measure, last_added_br)
+    elseif op.optype == PULLOUT_BRANCHES
+        updatemeasure_pullout_branch!(tt_afterop, measure, last_added_br)
     elseif op.optype == COLLAPSE_BRANCH
         updatemeasure_collapse!(measure, op.label1)
     elseif op.optype == RENAME_BRANCH

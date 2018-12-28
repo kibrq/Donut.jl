@@ -1,7 +1,7 @@
 
 module Operations
 
-export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitch!, add_branch!, delete_branch!, collapse_branch!, pull_out_branches!, pull_switch_apart!, add_switch_on_branch!, delete_two_valent_switch!, peel!, fold!, split_trivalent!, fold_trivalent!
+export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitch!, add_branch!, delete_branch!, collapse_branch!, pullout_branches!, pull_switch_apart!, add_switch_on_branch!, delete_two_valent_switch!, peel!, fold!, split_trivalent!, fold_trivalent!
 
 
 using Donut.TrainTracks
@@ -314,7 +314,7 @@ The new switch is the endpoint of the newly created branch and the moved branche
 
 RETURN: (new_switch, new_branch)
 """
-function pull_out_branches!(iter::BranchIterator)
+function pullout_branches!(iter::BranchIterator)
     tt = iter.tt
     new_sw = _find_new_switch_number!(tt)
     new_br = _find_new_branch_number!(tt)
@@ -347,7 +347,7 @@ function pull_out_branches!(iter::BranchIterator)
 end
 
 function pull_switch_apart!(tt::TrainTrack, sw::Int)
-    pull_out_branches!(outgoing_branches(tt, sw))
+    pullout_branches!(outgoing_branches(tt, sw))
 end
 
 
@@ -363,7 +363,7 @@ function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
     elseif op.optype == FOLD
         fold!(tt, op.label1, op.label2)
     elseif op.optype == PULLOUT_BRANCHES
-        last_sw, last_br = pull_out_branches!(BranchIterator(tt, op.label1, op.label2, op.label3))
+        last_sw, last_br = pullout_branches!(BranchIterator(tt, op.label1, op.label2, op.label3))
     elseif op.optype == COLLAPSE_BRANCH
         collapse_branch!(tt, op.label1)
     elseif op.optype == RENAME_BRANCH

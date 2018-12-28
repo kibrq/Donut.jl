@@ -1,9 +1,11 @@
 
 module Carrying
 
-export CarryingMap, BRANCH, CUSP, INTERVAL
+export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, trajectory_of_small_branch_or_cusp
 
 using Donut.TrainTracks
+using Donut.TrainTracks.Measures
+using Donut.TrainTracks.MeasuresAndOperations
 using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_trivalent, BranchIterator
 using Donut.TrainTracks.Cusps
 
@@ -48,7 +50,8 @@ struct CarryingMap
     """
     A train track carrying itself.
     """
-    function CarryingMap(tt::TrainTrack, ch::CuspHandler)
+    function CarryingMap(tt::TrainTrack)
+        ch = CuspHandler(tt)
         numsw = numswitches_if_made_trivalent(tt)
         numbr = numbranches_if_made_trivalent(tt)
         # ncusps = numcusps(tt)
@@ -833,45 +836,66 @@ end
 # Reconstruction
 #---------------------------------------------------
 
-function trajectory_of_small_branch_or_path(cm::CarryingMap, branch_or_cusp::Int, label::Int)
-    println("---------------------------")
-    println("Starting following trajectory of $(branch_or_cusp == BRANCH ? "branch" : "cusp") $(label)...")
-    println("---------------------------")
+function trajectory_of_small_branch_or_cusp(cm::CarryingMap, branch_or_cusp::Int, label::Int)
+    debug = false
+    if debug
+        println("---------------------------")
+        println("Starting following trajectory of $(branch_or_cusp == BRANCH ? "branch" : "cusp") $(label)...")
+        println("---------------------------")
+    end
     trajectory = []
+    if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
+        # For a collapsed branch, the trajectory is the empty path.
+        return []
+    end
     click = branch_or_cusp_to_position_in_click!(cm, branch_or_cusp, label)
-    println("Position in click: ", cm.temp_intersections)
+    if debug
+        println("Position in click: ", cm.temp_intersections)
+    end
 
     position_in_click_or_interval_to_large_switch!(cm, CLICK, click)
     large_sw = click_to_large_switch(cm, click)
-    println("Position in large switch $(large_sw): ", cm.temp_intersections)
+    if debug
+        println("Position in large switch $(large_sw): ", cm.temp_intersections)
+    end
 
     while true
         pos = temp_intersection_sum(cm)
-        println("Current position", (large_sw, pos))
+        if debug
+            println("Current position", (large_sw, pos))
+        end
         push!(trajectory, (large_sw, pos))
     
         large_br_or_cusp, large_label = position_in_large_switch_to_large_branch_or_cusp!(cm, large_sw)
         if large_br_or_cusp == CUSP
             @assert branch_or_cusp == CUSP
-            push!(trajectory, large_label)
+            # push!(trajectory, large_label)
             break
         end
-        println("Position in branch $(large_label): ", cm.temp_intersections)
+        if debug
+            println("Position in branch $(large_label): ", cm.temp_intersections)
+        end
         
         position_in_reversed_branch!(cm, large_label, branch_or_cusp, label)
-        println("Position in reversed branch $(-large_label): ", cm.temp_intersections)
+        if debug
+            println("Position in reversed branch $(-large_label): ", cm.temp_intersections)
+        end
 
         position_in_large_branch_or_cusp_to_large_switch!(cm, BRANCH, -large_label)
 
         large_sw = branch_endpoint(cm.large_tt, large_label)
-        println("Position in large switch $(large_sw): ", cm.temp_intersections)
-        println("Current position", (large_sw, pos))
+        if debug
+            println("Position in large switch $(large_sw): ", cm.temp_intersections)
+            println("Current position", (large_sw, pos))
+        end
         pos = temp_intersection_sum(cm)
         push!(trajectory, (large_sw, pos))
         click_or_interval, ci_label = position_in_large_switch_to_click_or_interval!(cm, large_sw)
         if click_or_interval == CLICK
             small_br_or_cusp, small_label = position_in_click_to_branch_or_cusp(cm, ci_label)
-            println("Position in click: ", cm.temp_intersections)
+            if debug
+                println("Position in click: ", cm.temp_intersections)
+            end
 
             # We need to get back the same branch as we started with.
             # We have to get a branch, not a cusp, since a cusp path would end 
@@ -880,14 +904,155 @@ function trajectory_of_small_branch_or_path(cm::CarryingMap, branch_or_cusp::Int
             @assert small_label == -label
             break
         else
-            println("Position in interval: ", cm.temp_intersections)
+            if debug
+                println("Position in interval: ", cm.temp_intersections)
+            end
             position_in_click_or_interval_to_large_switch!(cm, INTERVAL, ci_label)
             large_sw = interval_to_large_switch(cm, ci_label)
-            println("Position in large switch $(large_sw): ", cm.temp_intersections)
+            if debug
+                println("Position in large switch $(large_sw): ", cm.temp_intersections)
+            end
         end
     end
     return trajectory
 end
+
+function are_trajectories_consistent(cm)
+    trajectories = []
+    for br in branches(cm.small_tt)
+        append!(trajectories, trajectory_of_small_branch_or_cusp(cm, BRANCH, br))
+    end
+    for cusp in cusps(cm.small_cusphandler)
+        append!(trajectories, trajectory_of_small_branch_or_cusp(cm, CUSP, cusp))
+    end
+    sort!(trajectories)
+
+    prev_large_sw = 0
+    prev_pos = 0
+    for (large_sw, pos) in trajectories
+        if large_sw != prev_large_sw
+            prev_large_sw = large_sw
+            @assert pos == 1
+        else
+            @assert pos == prev_pos+1
+        end
+        prev_pos = pos
+    end
+    return true
+end
+
+#---------------------------------------------------
+# Operations without isotopy
+#---------------------------------------------------
+
+
+"""Update the carrying map after peeling in the small train track
+"""
+function peel_small!(cm::CarryingMap, switch::Int, side::Int)
+    peeled_branch = extremal_branch(cm.small_tt, switch, side)
+    thick_branch = extremal_branch(cm.small_tt, -switch, otherside(side))
+
+    is_thick_collapsed = is_branch_or_cusp_collapsed(cm, BRANCH, thick_branch)
+
+    if !is_thick_collapsed
+        is_peeled_collapsed = is_branch_or_cusp_collapsed(cm, BRANCH, peeled_branch)
+
+        # if the large branch was collapsed, we could still do the appends,
+        # but they would not do anything.
+        add_paths_small!(cm, BRANCH, peeled_branch, BRANCH, thick_branch)
+    
+        cusp_to_append_to = branch_to_cusp(cm.small_tt, cm.small_cusphandler, thick_branch, side)
+        add_paths_small!(cm, CUSP, cusp_to_append_to, BRANCH, thick_branch)
+    
+        click = small_switch_to_click(cm, switch)
+        interval = click_to_interval(cm, click, side)
+        if !is_peeled_collapsed
+            # New intersections with an interval next to the switch are
+            # only created when none of the two branches are collapsed.
+            add_intersection!(cm, BRANCH, peeled_branch, INTERVAL, interval)
+            add_intersection!(cm, CUSP, cusp_to_append_to, INTERVAL, interval)
+        else
+            # If the peel_off_of branch is not collapsed, but the peeled branch
+            # is, then our click breaks apart after the peeling.
+            new_click, new_interval = insert_click!(cm, interval, otherside(side))
+            end_sw = branch_endpoint(cm.small_tt, peeled_branch)
+            set_click_to_small_switch(cm, new_click, -end_sw)
+            apply_to_switches_in_click_after_branch!(cm, peeled_branch, sw -> set_small_switch_to_click!(cm, sw, new_click))
+            add_intersection!(cm, CUSP, cusp_to_append_to, INTERVAL, new_interval)
+        end
+    end
+
+end
+
+
+function fold_large!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
+    folded_branch_side::Int)
+    # Adding the intersections with the folded branch to fold_onto_branch ...
+    add_paths_large!(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
+
+    # ... and also the left- or rightmost interval at the merged switch
+    large_sw = branch_endpoint(cm.large_tt, fold_onto_branch)
+    # TODO: twisted branch
+    interval = extremal_interval(cm, large_sw, folded_branch_side)
+    add_paths_large!(cm, INTERVAL, interval, BRANCH, folded_branch)
+
+    # Also add branch and interval intersection with a cusp path, since the
+    # cusp path at between the folded branches become longer.
+    large_cusp = branch_to_cusp(cm.large_tt, cm.large_cusphandler, fold_onto_branch, folded_branch_side)
+    small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
+    if small_cusp != 0 
+        add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_branch)
+        add_intersection!(cm, CUSP, small_cusp, INTERVAL, interval)
+    end
+end
+
+
+function pullout_branches_small!(cm::CarryingMap, iter::BranchIterator, small_measure::Measure)
+    new_sw, new_br = pullout_branches!(iter, small_measure)
+    old_sw = branch_endpoint(cm.small_tt, -new_br)
+    click = small_switch_to_click(cm, old_sw)
+    set_small_switch_to_click!(cm, new_sw, click)
+    new_sw, new_br
+end
+
+
+function pullout_branches_large!(cm::CarryingMap, iter::BranchIterator)
+
+end
+
+
+function make_small_tt_trivalent!(cm::CarryingMap, small_measure::Measure)
+    tt = cm.small_tt
+    small_switches = collect(switches(tt))
+    # we collect, because iterating on the iterator is dangerous, since
+    # the internals of the train track change during the iteration.
+
+    for sw in small_switches
+        valence = switchvalence(tt, sw)
+        num_pulls = valence - 3
+        @assert num_pulls >= 0
+        if num_pulls == 0
+            return
+        end
+        for sgn in (1, -1)
+            br = extremal_branch(tt, sgn*sw, LEFT)
+            while true
+                prev_br = br
+                br = next_branch(tt, br, RIGHT)
+                if br != 0
+                    iter = BranchIterator(tt, prev_br, br, LEFT)
+                    _, new_br = pullout_branches_small!(cm, iter, small_measure)
+                    num_pulls -= 1
+                    if num_pulls == 0
+                        return
+                    end
+                    br = new_br
+                end
+            end
+        end
+    end
+end
+
 
 
 #---------------------------------------------------
@@ -1179,70 +1344,8 @@ end
 
 
 #---------------------------------------------------
-# Operations
+# Operations involving isotopy
 #---------------------------------------------------
-
-
-"""Update the carrying map after peeling in the small train track
-"""
-function peel_small!(cm::CarryingMap, switch::Int, side::Int)
-    peeled_branch = extremal_branch(cm.small_tt, switch, side)
-    thick_branch = extremal_branch(cm.small_tt, -switch, otherside(side))
-
-    is_thick_collapsed = is_branch_or_cusp_collapsed(cm, BRANCH, thick_branch)
-
-    if !is_thick_collapsed
-        is_peeled_collapsed = is_branch_or_cusp_collapsed(cm, BRANCH, peeled_branch)
-
-        # if the large branch was collapsed, we could still do the appends,
-        # but they would not do anything.
-        add_paths_small!(cm, BRANCH, peeled_branch, BRANCH, thick_branch)
-    
-        cusp_to_append_to = branch_to_cusp(cm.small_tt, cm.small_cusphandler, thick_branch, side)
-        add_paths_small!(cm, CUSP, cusp_to_append_to, BRANCH, thick_branch)
-    
-        click = small_switch_to_click(cm, switch)
-        interval = click_to_interval(cm, click, side)
-        if !is_peeled_collapsed
-            # New intersections with an interval next to the switch are
-            # only created when none of the two branches are collapsed.
-            add_intersection!(cm, BRANCH, peeled_branch, INTERVAL, interval)
-            add_intersection!(cm, CUSP, cusp_to_append_to, INTERVAL, interval)
-        else
-            # If the peel_off_of branch is not collapsed, but the peeled branch
-            # is, then our click breaks apart after the peeling.
-            new_click, new_interval = insert_click!(cm, interval, otherside(side))
-            end_sw = branch_endpoint(cm.small_tt, peeled_branch)
-            set_click_to_small_switch(cm, new_click, -end_sw)
-            apply_to_switches_in_click_after_branch!(cm, peeled_branch, sw -> set_small_switch_to_click!(cm, sw, new_click))
-            add_intersection!(cm, CUSP, cusp_to_append_to, INTERVAL, new_interval)
-        end
-    end
-
-end
-
-
-function fold_large!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
-    folded_branch_side::Int)
-    # Adding the intersections with the folded branch to fold_onto_branch ...
-    add_paths_large!(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
-
-    # ... and also the left- or rightmost interval at the merged switch
-    large_sw = branch_endpoint(cm.large_tt, fold_onto_branch)
-    # TODO: twisted branch
-    interval = extremal_interval(cm, large_sw, folded_branch_side)
-    add_paths_large!(cm, INTERVAL, interval, BRANCH, folded_branch)
-
-    # Also add branch and interval intersection with a cusp path, since the
-    # cusp path at between the folded branches become longer.
-    large_cusp = branch_to_cusp(cm.large_tt, cm.large_cusphandler, fold_onto_branch, folded_branch_side)
-    small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
-    if small_cusp != 0 
-        add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_branch)
-        add_intersection!(cm, CUSP, small_cusp, INTERVAL, interval)
-    end
-end
-
 
 
 
@@ -1369,5 +1472,16 @@ end
         #     self.delete_click_and_merge(folded_click, RIGHT)
 
 
+
+function collapse_small!(cm::CarryingMap, small_br::Int)
+
+
+end
+
+
+function collapse_large!(cm::CarryingMap, large_br::Int)
+
+end
+        
 
 end
