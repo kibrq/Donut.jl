@@ -20,8 +20,8 @@ import Donut.TrainTracks.Operations
 
 debug = false
 
-function is_switchside_legal(tt::TrainTrack, sw::Int, side::Side, 
-        encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}})
+function is_switchside_legal(tt::TrainTrack, sw::Integer, side::Side, 
+        encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}})
     debug = false
     frontbr = extremal_branch(tt, sw, side)
     backbr = extremal_branch(tt, -sw, otherside(side))
@@ -48,7 +48,7 @@ function is_switchside_legal(tt::TrainTrack, sw::Int, side::Side,
     true
 end
 
-function branch_to_path(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, branch::Int)
+function branch_to_path(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, branch::Integer)
     for (br, enc_arr) in encoding_changes
         @assert br > 0
         if br == abs(branch)
@@ -58,12 +58,12 @@ function branch_to_path(encodings::Vector{ArcInPants}, encoding_changes::Vector{
     branch > 0 ? [encodings[branch]] : [reversed(encodings[-branch])]
 end
 
-function branch_to_arc(encodings::Vector{ArcInPants}, branch::Int)
+function branch_to_arc(encodings::Vector{ArcInPants}, branch::Integer)
     branch > 0 ? encodings[branch] : reversed(encodings[-branch])
 end
 
 function add_path!(encodings::Vector{ArcInPants}, 
-        encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, addto_br::Int, added_br::Int)
+        encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, addto_br::Integer, added_br::Integer)
     added_branches = branch_to_path(encodings, encoding_changes, added_br)
     for (br, enc_arr) in encoding_changes
         if br == abs(addto_br)
@@ -98,7 +98,7 @@ end
 
 function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition, 
         encodings::Vector{ArcInPants}, measure::Measure, 
-        encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}})
+        encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}})
     switches_toconsider = Set(abs(branch_endpoint(tt, sg*br)) for (br, enc_arr) in encoding_changes for sg in (1, -1))
 
     for i in length(encoding_changes):-1:1
@@ -201,7 +201,7 @@ function peel_to_remove_illegalturns!(tt::TrainTrack, pd::PantsDecomposition,
     return switches_toconsider
 end
 
-function issubpath(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, br1::Int, br2::Int)
+function issubpath(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, br1::Integer, br2::Integer)
     path1 = branch_to_path(encodings, encoding_changes, br1)
     path2 = branch_to_path(encodings, encoding_changes, br2)
     if length(path1) > length(path2)
@@ -211,8 +211,8 @@ function issubpath(encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple
 end
 
 function subtract_path!(encodings::Vector{ArcInPants}, 
-        encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, subtract_from_br::Int, 
-        subtracted_br::Int)
+        encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, subtract_from_br::Integer, 
+        subtracted_br::Integer)
     @assert issubpath(encodings, encoding_changes, subtracted_br, subtract_from_br)
     subtracted_enc = branch_to_path(encodings, encoding_changes, subtracted_br)
 
@@ -235,7 +235,7 @@ function subtract_path!(encodings::Vector{ArcInPants},
 end
 
 function store_length1_path!(encodings::Vector{ArcInPants}, 
-        encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, changeindex::Int)
+        encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, changeindex::Integer)
     br, enc_arr = encoding_changes[changeindex]
     @assert length(enc_arr) == 1
     encodings[br] = enc_arr[1]
@@ -244,7 +244,7 @@ end
 
 
 function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector{ArcInPants}, 
-        encoding_changes::Vector{Tuple{Int, Vector{ArcInPants}}}, switches_toconsider::Set{Int})
+        encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}}, switches_toconsider::Set{Int16})
     # switches to consider for fixing the switch orientations.
     if debug
         println("***************** START FOLDING! **************")
@@ -317,7 +317,7 @@ function fold_peeledtt_back!(tt::TrainTrack, measure::Measure, encodings::Vector
     end
 end
 
-function fix_switch_orientation!(tt::TrainTrack, sw::Int, encodings::Vector{ArcInPants})
+function fix_switch_orientation!(tt::TrainTrack, sw::Integer, encodings::Vector{ArcInPants})
     # println(encodings)
     # println(outgoing_branches(tt, sw))
     # println(outgoing_branches(tt, -sw))
@@ -344,19 +344,19 @@ function peel_fold_elementarymove!(tt::TrainTrack, measure::Measure, pd::PantsDe
 end
 
 function peel_fold_secondmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, 
-        curveindex::Int, encodings::Vector{ArcInPants})
+        curveindex::Integer, encodings::Vector{ArcInPants})
     peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_secondmove!(tt, pd, curveindex, encodings), encodings)
 end
 
 
 function peel_fold_firstmove!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, 
-        curveindex::Int, encodings::Vector{ArcInPants}, inverse=false)
+        curveindex::Integer, encodings::Vector{ArcInPants}, inverse=false)
     peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, encodings, inverse), encodings)
 end
 
 
 function peel_fold_dehntwist!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, 
-        curveindex::Int, encodings::Vector{ArcInPants}, twistdirection::Side)
+        curveindex::Integer, encodings::Vector{ArcInPants}, twistdirection::Side)
     pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
     bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
     peel_fold_elementarymove!(tt, measure, pd, (
@@ -366,7 +366,7 @@ end
 
 
 function peel_fold_halftwist!(tt::TrainTrack, measure::Measure, pd::PantsDecomposition, 
-        curveindex::Int, encodings::Vector{ArcInPants}, twistdirection::Side)
+        curveindex::Integer, encodings::Vector{ArcInPants}, twistdirection::Side)
     pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
     bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
     peel_fold_elementarymove!(tt, measure, pd, (tt, pd, encodings)->update_encodings_after_halftwist!(tt, pd, pantindex, bdyindex, twistdirection, encodings), encodings)

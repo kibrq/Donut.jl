@@ -4,7 +4,6 @@ using Test
 using Donut.TrainTracks
 using Donut.Constants
 
-
 @test_throws ErrorException TrainTrack([[1, 2], [-2], [-1]])
 @test_throws ErrorException TrainTrack([[1, 2], [2, -1]])
 @test_throws ErrorException TrainTrack([[1, 2, -2, -1], Int[]])

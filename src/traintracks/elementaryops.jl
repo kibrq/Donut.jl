@@ -18,8 +18,8 @@ using Donut.Constants
 
 struct ElementaryTTOperation
     optype::TTOperationType
-    label1::Int
-    label2::Int
+    label1::Int16
+    label2::Int16
     side::Side
 end
 
@@ -29,19 +29,19 @@ end
 # ElementaryTTOperation(a, b, c) = ElementaryTTOperation(a, b, c, 0)
 
 
-peel_op(switch::Int, side::Side) = ElementaryTTOperation(PEEL, switch, 0, side)
+peel_op(switch::Integer, side::Side) = ElementaryTTOperation(PEEL, switch, 0, side)
 
-fold_op(fold_onto_br::Int, folded_br_side::Side) = ElementaryTTOperation(FOLD, fold_onto_br, 0, folded_br_side)
+fold_op(fold_onto_br::Integer, folded_br_side::Side) = ElementaryTTOperation(FOLD, fold_onto_br, 0, folded_br_side)
 
-# pull_switch_op(switch::Int) = ElementaryTTOperation(PULL_SWITCH, switch)
-pullout_branches_op(start_br::Int, end_br::Int, start_side::Side=LEFT) = 
+# pull_switch_op(switch::Integer) = ElementaryTTOperation(PULL_SWITCH, switch)
+pullout_branches_op(start_br::Integer, end_br::Integer, start_side::Side=LEFT) = 
     ElementaryTTOperation(PULLOUT_BRANCHES, start_br, end_br, start_side)
 
-collapse_branch_op(branch::Int) = ElementaryTTOperation(COLLAPSE_BRANCH, branch, 0, LEFT)
+collapse_branch_op(branch::Integer) = ElementaryTTOperation(COLLAPSE_BRANCH, branch, 0, LEFT)
 
-renaming_branch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel, LEFT)
+renaming_branch_op(oldlabel::Integer, newlabel::Integer) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel, LEFT)
 
-renaming_switch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel, LEFT)
+renaming_switch_op(oldlabel::Integer, newlabel::Integer) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel, LEFT)
 
 
 
@@ -58,7 +58,7 @@ The branch behind the switch is collapsed.
 If the switch is not two-valent, an error is thrown.
 
 """
-function delete_two_valent_switch_to_elementaryops(tt::TrainTrack, switch::Int)
+function delete_two_valent_switch_to_elementaryops(tt::TrainTrack, switch::Integer)
     @assert switchvalence(tt, switch) == 2
     br_removed = extremal_branch(tt, -switch, LEFT)
     # br_removed = outgoing_branch(tt, -switch, 1)
@@ -75,7 +75,7 @@ added before the switch. The new branch is always untwisted.
 
 RETURN: (new_switch, new_branch)
 """
-function add_switch_on_branch_to_elementaryops(tt::TrainTrack, branch::Int)
+function add_switch_on_branch_to_elementaryops(tt::TrainTrack, branch::Integer)
     return (pullout_branches_op(branch, branch),)
 end
 
@@ -85,7 +85,7 @@ Left split: central branch is turning left after the splitting.
 
 TODO: we could write this in terms of two peels with safer code, but we would get more elementary operations that way.
 """
-function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int, 
+function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer, 
     left_right_or_central::TrivalentSplitType)
     if !is_branch_large(tt, branch)
         error("The split branch should be a large branch.")
@@ -105,7 +105,7 @@ function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int,
 end
 
 
-function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Int)
+function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer)
     # if !is_branch_small_foldable(tt, branch)
     #     error("Branch $(branch) is not small foldable.")
     # end

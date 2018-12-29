@@ -16,7 +16,7 @@ using Donut.Constants: FORWARD, BACKWARD
 using Donut.Constants
 
 function updatemeasure_pullout_branches!(tt_afterop::TrainTrack,
-    measure::Measure, newbranch::Int)
+    measure::Measure, newbranch::Integer)
     if newbranch > length(measure.values)
         _allocatemore!(measure, newbranch)
     end
@@ -26,17 +26,17 @@ function updatemeasure_pullout_branches!(tt_afterop::TrainTrack,
 end
 
 
-function updatemeasure_collapse!(measure::Measure, collapsedbranch::Int)
+function updatemeasure_collapse!(measure::Measure, collapsedbranch::Integer)
     _setmeasure!(measure, collapsedbranch, 0)
 end
 
-function updatemeasure_deletebranch!(measure::Measure, deletedbranch::Int)
+function updatemeasure_deletebranch!(measure::Measure, deletedbranch::Integer)
     if branchmeasure(measure, deletedbranch) != 0
         error("Cannot delete branch $(deletedbranch), because its measure is not zero.")
     end
 end
 
-function updatemeasure_renamebranch!(measure::Measure, oldlabel::Int, newlabel::Int)
+function updatemeasure_renamebranch!(measure::Measure, oldlabel::Integer, newlabel::Integer)
     value = branchmeasure(measure, oldlabel)
     _setmeasure!(measure, oldlabel, 0)
     _setmeasure!(measure, newlabel, value)
@@ -44,7 +44,7 @@ end
 
 
 
-function collapse_branch!(tt::TrainTrack, branch::Int, measure::Measure)
+function collapse_branch!(tt::TrainTrack, branch::Integer, measure::Measure)
     collapse_branch!(tt, branch)
     updatemeasure_collapse!(measure, branch)
 end
@@ -55,18 +55,18 @@ function pullout_branches!(iter::BranchIterator, measure::Measure)
     new_sw, new_br
 end
 
-function pull_switch_apart!(tt::TrainTrack, switch::Int, measure::Measure)
+function pull_switch_apart!(tt::TrainTrack, switch::Integer, measure::Measure)
     pullout_branches!(outgoing_branches(tt, switch), measure)
 end
 
-function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int, measure::Measure)
+function renamebranch!(tt::TrainTrack, branch::Integer, newlabel::Integer, measure::Measure)
     renamebranch!(tt, branch, newlabel)
     updatemeasure_renamebranch!(measure, branch, newlabel)
 end
 
 
 
-function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOperation, last_added_br::Int, measure::Measure)
+function updatemeasure_elementaryop!(tt_afterop::TrainTrack, op::ElementaryTTOperation, last_added_br::Integer, measure::Measure)
     if op.optype == PEEL
         updatemeasure_peel!(tt_afterop, measure, op.label1, op.side)
     elseif op.optype == FOLD
@@ -95,7 +95,7 @@ function execute_elementaryops!(tt::TrainTrack, ops, measure::Measure)
     added_sw, added_br
 end
 
-function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Int, side::Side)
+function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Integer, side::Side)
     peel_off_branch = extremal_branch(tt, -switch, otherside(side))
     peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? otherside(side) : side)
     newvalue = branchmeasure(measure, peel_off_branch) - branchmeasure(measure, peeled_branch)
@@ -103,7 +103,7 @@ function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Int, side
 end
 
 
-function updatemeasure_fold!(tt::TrainTrack, measure::Measure, fold_onto_br::Int, folded_br_side::Side)
+function updatemeasure_fold!(tt::TrainTrack, measure::Measure, fold_onto_br::Integer, folded_br_side::Side)
     sw = branch_endpoint(tt, fold_onto_br)
     folded_br = extremal_branch(tt, -sw, istwisted(tt, fold_onto_br) ? otherside(folded_br_side) : folded_br_side)
     newvalue = branchmeasure(measure, fold_onto_br) + branchmeasure(measure, folded_br)
@@ -111,36 +111,36 @@ function updatemeasure_fold!(tt::TrainTrack, measure::Measure, fold_onto_br::Int
 end
 
 
-function peel!(tt::TrainTrack, switch::Int, side::Side, measure::Measure)
+function peel!(tt::TrainTrack, switch::Integer, side::Side, measure::Measure)
     execute_elementaryops!(tt, (peel_op(switch, side),), measure)
     nothing
 end
 
-function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Side, measure::Measure)
+function fold!(tt::TrainTrack, fold_onto_br::Integer, folded_br_side::Side, measure::Measure)
     execute_elementaryops!(tt, (fold_op(fold_onto_br, folded_br_side),), measure)
     nothing
 end
 
-function split_trivalent!(tt::TrainTrack, branch::Int, 
+function split_trivalent!(tt::TrainTrack, branch::Integer, 
         left_right_or_central::TrivalentSplitType, measure::Measure)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
     execute_elementaryops!(tt, ops, measure)
     nothing
 end
 
-function fold_trivalent!(tt::TrainTrack, branch::Int, measure::Measure)
+function fold_trivalent!(tt::TrainTrack, branch::Integer, measure::Measure)
     ops = fold_trivalent_to_elementaryops(tt, branch)
     execute_elementaryops!(tt, ops, measure)
     nothing
 end
 
-function add_switch_on_branch!(tt::TrainTrack, branch::Int, measure::Measure)
+function add_switch_on_branch!(tt::TrainTrack, branch::Integer, measure::Measure)
     ops = add_switch_on_branch_to_elementaryops(tt, branch)
     added_sw, added_br = execute_elementaryops!(tt, ops, measure)
     (added_sw, added_br)
 end
 
-function delete_two_valent_switch!(tt::TrainTrack, switch::Int, measure::Measure)
+function delete_two_valent_switch!(tt::TrainTrack, switch::Integer, measure::Measure)
     ops = delete_two_valent_switch_to_elementaryops(tt, switch)
     execute_elementaryops!(tt, ops, measure)
     nothing
@@ -151,7 +151,7 @@ Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we c
 
 If the measures are equal, then we need to make sure that we are not peeling from the side where there is only one outgoing branch
 """
-function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::Side)
+function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Integer, side::Side)
     br1 = extremal_branch(tt, switch, side)
     br2 = extremal_branch(tt, -switch, otherside(side))
     m1 = branchmeasure(measure, br1)
@@ -174,7 +174,7 @@ function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Int, side::
 end
 
 
-function remains_recurrent_after_peel(tt::TrainTrack, switch::Int, peelside::Side)
+function remains_recurrent_after_peel(tt::TrainTrack, switch::Integer, peelside::Side)
     peeledbr = extremal_branch(tt, switch, peelside)
     peeloffbr = extremal_branch(tt, -switch, otherside(peelside))
     backsw = branch_endpoint(tt, peeloffbr)

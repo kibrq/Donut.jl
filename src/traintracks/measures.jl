@@ -57,25 +57,25 @@ function zeromeasure(tt::TrainTrack, type)
 end
 
 
-function branchmeasure(measure::Measure, branchindex::Int)
+function branchmeasure(measure::Measure, branchindex::Integer)
     measure.values[abs(branchindex)]
 end
 
-function outgoingmeasure(tt::TrainTrack, measure::Measure, switch::Int)
+function outgoingmeasure(tt::TrainTrack, measure::Measure, switch::Integer)
     sum(branchmeasure(measure, br) for br in outgoing_branches(tt, switch))
 end
 
 """
 Can mess up switch conditions.
 """
-function _setmeasure!(measure::Measure, branchindex::Int, newvalue)
+function _setmeasure!(measure::Measure, branchindex::Integer, newvalue)
     measure.values[abs(branchindex)] = newvalue 
 end
 
 """
 Allocate a larger array internally and fill it with zeros.
 """
-function _allocatemore!(measure::Measure, newlength::Int)
+function _allocatemore!(measure::Measure, newlength::Integer)
     len = length(measure.values)
     resize!(measure.values, newlength)
     for i in len+1:newlength

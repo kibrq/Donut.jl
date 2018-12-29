@@ -109,8 +109,8 @@ function compile_newbranches(replacement_rules, compile_fn::Function)
 end
 
 function update_branchencodings!(branchencodings::Vector{ArcInPants}, 
-        compiledrules::Vector{Tuple{Int, Vector{ArcInPants}}})
-    encoding_changes = Tuple{Int, Vector{ArcInPants}}[]
+        compiledrules::Vector{Tuple{Int16, Vector{ArcInPants}}})
+    encoding_changes = Tuple{Int16, Vector{ArcInPants}}[]
     for (br, newencoding) in compiledrules
         if br > 0
             push!(encoding_changes, (br, newencoding))

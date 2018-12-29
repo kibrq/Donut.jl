@@ -48,7 +48,7 @@ end
 
 
 function _attach_branches_unsafe!(
-    iter::BranchIterator, target_br::Int, target_side::Side)
+    iter::BranchIterator, target_br::Integer, target_side::Side)
     # we don't check if start_br can be obtained from end_br by going in start_side direction.
     tt = iter.tt
     start_br = iter.start_br
@@ -96,7 +96,7 @@ end
 # Renaming switches, branches
 # ------------------------------------
 
-function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
+function renamebranch!(tt::TrainTrack, branch::Integer, newlabel::Integer)
 
     @assert 1 <= abs(newlabel) <= size(tt.branch_endpoints)[2]
     @assert !isbranch(tt, newlabel) || abs(newlabel) == abs(branch)
@@ -135,12 +135,12 @@ function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
 end
 
 
-function reversebranch!(tt::TrainTrack, branch::Int)
+function reversebranch!(tt::TrainTrack, branch::Integer)
     renamebranch!(tt, branch, -branch)
 end
 
 
-function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
+function renameswitch!(tt::TrainTrack, switch::Integer, newlabel::Integer)
     @assert 1 <= abs(newlabel) <= size(tt.extremal_outgoing_branches)[3]
     @assert !isswitch(tt, newlabel) || abs(newlabel) == abs(switch)
 
@@ -171,7 +171,7 @@ function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
     end
 end
 
-function reverseswitch!(tt::TrainTrack, switch::Int)
+function reverseswitch!(tt::TrainTrack, switch::Integer)
     renameswitch!(tt, switch, -switch)
 end
 
@@ -185,7 +185,7 @@ It updates both the the outgoing branches of switches and endpoints of branches.
 """
 function _reglue_outgoing_branches!(
     iter::BranchIterator,
-    target_br::Int,
+    target_br::Integer,
     target_side::Side)
 
     sw = branch_endpoint(iter.tt, -target_br)
@@ -199,7 +199,7 @@ end
 # Peeling and folding
 # ------------------------------------
 
-function peel!(tt::TrainTrack, switch::Int, side::Side)
+function peel!(tt::TrainTrack, switch::Integer, side::Side)
     if numoutgoing_branches(tt, switch) == 1
         error("Cannot peel at $(switch), because there is only one branch going forward.")
     end
@@ -215,7 +215,7 @@ function peel!(tt::TrainTrack, switch::Int, side::Side)
 end
 
 
-function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Side)
+function fold!(tt::TrainTrack, fold_onto_br::Integer, folded_br_side::Side)
     folded_br = next_branch(tt, fold_onto_br, folded_br_side)
     if folded_br == 0
         error("There is no branch on the $(folded_br_side==LEFT ? "left" : "right") side of branch $(fold_onto_br).")
@@ -244,7 +244,7 @@ end
 
 
 
-function delete_branch!(tt::TrainTrack, branch::Int)
+function delete_branch!(tt::TrainTrack, branch::Integer)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
 
@@ -268,10 +268,10 @@ branches emanating towards `b` from both the ending and the starting point of `b
 
 After the collapse, the two endpoints of `b` merge together and, as a result, one switch is removed. The starting switch is kept and the ending switch is deleted.
 
-Return: switch_removed::Int in absolute value.
+Return: switch_removed::Integer in absolute value.
 
 """
-function collapse_branch!(tt::TrainTrack, branch::Int)
+function collapse_branch!(tt::TrainTrack, branch::Integer)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
     if numoutgoing_branches(tt, start_sw) != 1 || numoutgoing_branches(tt, end_sw) != 1
@@ -344,7 +344,7 @@ function pullout_branches!(iter::BranchIterator)
     (new_sw, new_br)
 end
 
-function pull_switch_apart!(tt::TrainTrack, sw::Int)
+function pull_switch_apart!(tt::TrainTrack, sw::Integer)
     pullout_branches!(outgoing_branches(tt, sw))
 end
 
@@ -384,27 +384,27 @@ function execute_elementaryops!(tt::TrainTrack, ops)
     added_sw, added_br
 end
 
-function split_trivalent!(tt::TrainTrack, branch::Int, 
+function split_trivalent!(tt::TrainTrack, branch::Integer, 
         left_right_or_central::TrivalentSplitType)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
     execute_elementaryops!(tt, ops)
     nothing
 end
 
-function fold_trivalent!(tt::TrainTrack, branch::Int)
+function fold_trivalent!(tt::TrainTrack, branch::Integer)
     ops = fold_trivalent_to_elementaryops(tt, branch)
     execute_elementaryops!(tt, ops)
     nothing
 end
 
-function add_switch_on_branch!(tt::TrainTrack, branch::Int)
+function add_switch_on_branch!(tt::TrainTrack, branch::Integer)
     ops = add_switch_on_branch_to_elementaryops(tt, branch)
     # println(ops)
     added_sw, added_br = execute_elementaryops!(tt, ops)
     (added_sw, added_br)
 end
 
-function delete_two_valent_switch!(tt::TrainTrack, switch::Int)
+function delete_two_valent_switch!(tt::TrainTrack, switch::Integer)
     ops = delete_two_valent_switch_to_elementaryops(tt, switch)
     execute_elementaryops!(tt, ops)
     nothing

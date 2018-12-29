@@ -9,11 +9,11 @@ abstract type AbstractSurface end
 Compact surface with finitely many of points removed.
 """
 struct Surface <: AbstractSurface
-    genus::Int
-    numpunctures::Int
+    genus::Int16
+    numpunctures::Int16
     isorientable::Bool
 
-    function Surface(genus::Int=0, numpunctures::Int=0, isorientable::Bool=true)
+    function Surface(genus::Integer=0, numpunctures::Integer=0, isorientable::Bool=true)
         if !isorientable
             if genus < 1
                 error("The genus of a nonorientable surface should be positive.")
@@ -31,7 +31,7 @@ struct Surface <: AbstractSurface
     end
 end
 
-function surface_from_eulerchar(eulerchar::Int=2, numpunctures::Int=0, isorientable::Bool=true)
+function surface_from_eulerchar(eulerchar::Integer=2, numpunctures::Integer=0, isorientable::Bool=true)
     genus = 2 - numpunctures - eulerchar
     if isorientable
         if genus % 2 == 1
