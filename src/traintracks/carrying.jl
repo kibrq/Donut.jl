@@ -14,8 +14,9 @@ using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_triv
     BranchIterator
 using Donut.TrainTracks.Cusps
 
-using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
-using Donut.Utils: otherside
+using Donut.Constants
+
+
 
 """
 
@@ -87,14 +88,14 @@ struct CarryingMap
         i = 1
         for sw in switches(tt)
             @assert sw == i
-            extremal_intervals[LEFT, i] = 2*i-1
-            extremal_intervals[RIGHT, i] = 2*i
-            interval_to_click[LEFT, 2*i-1] = 0
-            interval_to_click[RIGHT, 2*i-1] = i
-            click_to_interval[LEFT, i] = 2*i-1
-            interval_to_click[LEFT, 2*i] = i
-            click_to_interval[RIGHT, i] = 2*i
-            interval_to_click[RIGHT, 2*i] = 0
+            extremal_intervals[Int(LEFT), i] = 2*i-1
+            extremal_intervals[Int(RIGHT), i] = 2*i
+            interval_to_click[Int(LEFT), 2*i-1] = 0
+            interval_to_click[Int(RIGHT), 2*i-1] = i
+            click_to_interval[Int(LEFT), i] = 2*i-1
+            interval_to_click[Int(LEFT), 2*i] = i
+            click_to_interval[Int(RIGHT), i] = 2*i
+            interval_to_click[Int(RIGHT), 2*i] = 0
 
             small_switch_to_click[sw] = i
             interval_to_large_switch[2*i-1] = i
@@ -232,7 +233,7 @@ end
 function add_paths_from_click!(cm::CarryingMap, branch_interval_or_temp::Int, add_to_label::Int, 
     click::Int, with_sign::Int=1)
 
-    forward_paths = forward_branches_and_cusps_from_click(cm, click, LEFT, FORWARD)
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, LEFT, Int(FORWARD))
     # println(forward_paths)
     for i in eachindex(forward_paths)
         branch_or_cusp = i % 2 == 0 ? CUSP : BRANCH
@@ -256,20 +257,20 @@ end
 
 
 
-function click_to_interval(cm::CarryingMap, click::Int, side::Int)
-    return sign(click)*cm.click_to_interval[click > 0 ? side : otherside(side), abs(click)]
+function click_to_interval(cm::CarryingMap, click::Int, side::Side)
+    return sign(click)*cm.click_to_interval[Int(click > 0 ? side : otherside(side)), abs(click)]
 end
 
-function set_click_to_interval!(cm::CarryingMap, click::Int, side::Int, new_value::Int)
-    cm.click_to_interval[click > 0 ? side : otherside(side), abs(click)] = abs(click)*new_value
+function set_click_to_interval!(cm::CarryingMap, click::Int, side::Side, new_value::Int)
+    cm.click_to_interval[Int(click > 0 ? side : otherside(side)), abs(click)] = abs(click)*new_value
 end
 
-function interval_to_click(cm::CarryingMap, interval::Int, side::Int)
-    return sign(interval)*cm.interval_to_click[interval > 0 ? side : otherside(side), abs(interval)]
+function interval_to_click(cm::CarryingMap, interval::Int, side::Side)
+    return sign(interval)*cm.interval_to_click[Int(interval > 0 ? side : otherside(side)), abs(interval)]
 end
 
-function set_interval_to_click!(cm::CarryingMap, interval::Int, side::Int, new_value::Int)
-    cm.interval_to_click[interval > 0 ? side : otherside(side), abs(interval)] = abs(interval)*new_value
+function set_interval_to_click!(cm::CarryingMap, interval::Int, side::Side, new_value::Int)
+    cm.interval_to_click[Int(interval > 0 ? side : otherside(side)), abs(interval)] = abs(interval)*new_value
 end
 
 
@@ -300,20 +301,20 @@ function _delete_click!(cm::CarryingMap, click::Int)
     set_click_to_small_switch!(cm, click, 0)
 end
 
-function extremal_interval(cm::CarryingMap, large_sw::Int, side::Int)
-    sign(large_sw)*cm.extremal_intervals[large_sw > 0 ? side : otherside(side), abs(large_sw)]
+function extremal_interval(cm::CarryingMap, large_sw::Int, side::Side)
+    sign(large_sw)*cm.extremal_intervals[Int(large_sw > 0 ? side : otherside(side)), abs(large_sw)]
 end
 
-function set_extremal_interval!(cm::CarryingMap, large_sw::Int, side::Int, new_value::Int)
+function set_extremal_interval!(cm::CarryingMap, large_sw::Int, side::Side, new_value::Int)
     @assert sign(large_sw) == sign(new_value)
-    cm.extremal_intervals[large_sw > 0 ? side : otherside(side), abs(large_sw)] = abs(new_value)
+    cm.extremal_intervals[Int(large_sw > 0 ? side : otherside(side))    , abs(large_sw)] = abs(new_value)
 end
 
 """
 Insert a click on a specified side of in interval. A new interval is also created 
 on the opposite side of the new click.
 """
-function insert_click!(cm::CarryingMap, interval::Int, side::Int)
+function insert_click!(cm::CarryingMap, interval::Int, side::Side)
     new_interval = _create_interval!(cm)
     new_interval = sign(interval) * new_interval
     new_click = _create_click!(cm)
@@ -336,7 +337,7 @@ function insert_click!(cm::CarryingMap, interval::Int, side::Int)
     new_click, new_interval
 end
 
-function delete_click_and_merge!(cm::CarryingMap, click::Int, deleted_interval_side::Int, combine_intersections::Bool=true)
+function delete_click_and_merge!(cm::CarryingMap, click::Int, deleted_interval_side::Side, combine_intersections::Bool=true)
     side = deleted_interval_side
     interval_deleted = click_to_interval(cm, click, side)
     interval_kept = click_to_interval(cm, click, otherside(side))
@@ -397,7 +398,7 @@ function outgoing_branches_and_cusps(tt::TrainTrack, ch::CuspHandler, sw::Int)
     BranchAndCuspIterator(tt, ch, sw)
 end
 
-function save_forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int=LEFT, idx::Int=1)
+function save_forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Side=LEFT, idx::Int=1)
     for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw, start_side)
         if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
             br = label
@@ -412,7 +413,7 @@ function save_forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::In
     return idx
 end
 
-function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int)
+function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Side)
     length_plus_1 = save_forward_branches_and_cusps_from_cone(cm, small_sw, start_side)
     view(cm.temp_int_array, 1:length_plus_1-1, FORWARD)
     # (label for label in cm.temp_int_array if label != 0)
@@ -420,7 +421,7 @@ end
 
 @enum ComingFromWhere COMING_FROM_BEHIND COMING_FROM_FRONT_STARTSIDE COMING_FROM_FRONT_OTHERSIDE
 
-function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, start_side::Int,
+function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Int, start_side::Side,
     temp_index::Int, coming_from::ComingFromWhere=COMING_FROM_BEHIND, branch_leading_here::Int=0, idx::Int=1)
     debug = false
     if debug
@@ -516,7 +517,7 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
     return idx
 end
 
-function forward_branches_and_cusps_from_click(cm::CarryingMap, click::Int, start_side::Int,
+function forward_branches_and_cusps_from_click(cm::CarryingMap, click::Int, start_side::Side,
         temp_index::Int)
     small_sw = click_to_small_switch(cm, click)
     length_plus_1 = save_forward_branches_and_cusps_from_click(cm, small_sw, start_side, temp_index)
@@ -525,7 +526,7 @@ function forward_branches_and_cusps_from_click(cm::CarryingMap, click::Int, star
     view(cm.temp_int_array, 1:length_plus_1-1, temp_index)
 end
 
-function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Int, idx::Int=1, prev_branch::Int=0,
+function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Int, start_side::Side, idx::Int=1, prev_branch::Int=0,
     stage::Int=0)
     # stage 0 is when the function is called the very first time (the switch is the vertex of the cone)
     # stage 1 is when the function is called with a switch on start_side
@@ -674,7 +675,7 @@ the side ``starting_side`` of position, again including the position as an inter
 
 """
 function position_in_large_switch_to_click_or_interval!(cm::CarryingMap, 
-    large_sw::Int, start_side::Int=LEFT)
+    large_sw::Int, start_side::Side=LEFT)
     # println(large_sw)
     arr = cm.temp_intersections
     interval = extremal_interval(cm, large_sw, start_side)
@@ -711,7 +712,7 @@ end
 
 
 function position_in_click_or_interval_to_large_switch!(cm::CarryingMap, 
-    click_or_interval::Int, label::Int, start_side::Int=LEFT)
+    click_or_interval::Int, label::Int, start_side::Side=LEFT)
 
     while true
         if click_or_interval == CLICK
@@ -733,9 +734,9 @@ end
 
 
 function position_in_click_to_branch_or_cusp(cm::CarryingMap, click::Int, 
-        start_side::Int=LEFT)
+        start_side::Side=LEFT)
     arr = cm.temp_intersections
-    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, Int(FORWARD))
     pos = temp_intersection_sum(cm)
     return (pos % 2 == 0 ? CUSP : BRANCH, forward_paths[pos])
 end
@@ -746,7 +747,7 @@ end
   ``start_side```, including the branch or cusp itself.
 """
 function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::Int,
-    label::Int, start_side::Int=LEFT)
+    label::Int, start_side::Side=LEFT)
 
     if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, BRANCH, label)
         error("A collapsed branch does not count as an outgoing path from a click.")
@@ -763,7 +764,7 @@ function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::I
     end
     click = small_switch_to_click(cm, sw)
 
-    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, FORWARD)
+    forward_paths = forward_branches_and_cusps_from_click(cm, click, start_side, Int(FORWARD))
     # println(forward_paths)
     for i in eachindex(forward_paths)
         current_br_or_cusp = i % 2 == 0 ? CUSP : BRANCH
@@ -777,7 +778,7 @@ end
 
 
 function position_in_large_switch_to_large_branch_or_cusp!(cm::CarryingMap, 
-        large_sw::Int, start_side::Int=LEFT)
+        large_sw::Int, start_side::Side=LEFT)
     debug = false
     br = extremal_branch(cm.large_tt, large_sw, start_side)
     if debug
@@ -831,7 +832,7 @@ end
 
 
 function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
-    branch_or_cusp::Int, label::Int, start_side::Int=LEFT)
+    branch_or_cusp::Int, label::Int, start_side::Side=LEFT)
 
     while true
         if branch_or_cusp == BRANCH
@@ -858,7 +859,7 @@ Compute the total paths in all outgoing large branches on the specified side of 
 The result is stored in a preallocated temporary array with specified index.
 """
 function large_cusp_to_position_in_large_switch!(cm::CarryingMap, large_cusp::Int, 
-        start_side::Int=LEFT)
+        start_side::Side=LEFT)
     cm.temp_intersections[TEMP_INDEX, :] .= 0
     small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
     if small_cusp != 0
@@ -877,7 +878,7 @@ if the cusp path corresponding to the large cusp is collapsed.
 
 """
 function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Int, 
-        start_side::Int=LEFT)
+        start_side::Side=LEFT)
     large_cusp_to_position_in_large_switch!(cm, large_cusp, start_side)
     large_sw = cusp_to_switch(cm.large_tt, cm.large_cusphandler, large_cusp)
     click_or_interval, label = position_in_large_switch_to_click_or_interval!(cm, large_sw, start_side)
@@ -1040,7 +1041,7 @@ end
 
 """Update the carrying map after peeling in the small train track
 """
-function peel_small!(cm::CarryingMap, switch::Int, side::Int, measure::Measure)
+function peel_small!(cm::CarryingMap, switch::Int, side::Side, measure::Measure)
     peel!(cm.small_tt, switch, side, measure)
 
     # Updating cusps
@@ -1085,7 +1086,7 @@ function peel_small!(cm::CarryingMap, switch::Int, side::Int, measure::Measure)
 end
 
 
-function fold_large!(cm::CarryingMap, fold_onto_br::Int, folded_br_side::Int)
+function fold_large!(cm::CarryingMap, fold_onto_br::Int, folded_br_side::Side)
     Donut.TrainTracks.Operations.fold!(cm.large_tt, fold_onto_br, folded_br_side)
 
     # Updating cusps
@@ -1517,7 +1518,7 @@ end
 """Perform a fold in the small train track if possible.
 """
 function fold_small!(cm::CarryingMap, folded_branch::Int, fold_onto_branch::Int,
-    folded_branch_side::Int)
+    folded_branch_side::Side)
 
     # Trying to isotope the endpoint of ``fold_onto_branch`` as close to
     # the start point as possible...

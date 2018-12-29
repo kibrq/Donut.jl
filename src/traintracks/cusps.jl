@@ -6,8 +6,8 @@ using Donut.TrainTracks: numbranches_if_made_trivalent
 export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
     update_cusps_fold!, cusp_to_switch, outgoing_cusps, update_cusps_pullout_branches!
 import Base.copy
-using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
-using Donut.Utils: otherside
+using Donut.Constants: FORWARD, BACKWARD
+using Donut.Constants
 
 struct CuspHandler
     cusp_to_branch::Array{Int, 2}
@@ -30,10 +30,10 @@ struct CuspHandler
                     if next_br == 0
                         break
                     end
-                    branch_to_cusp[RIGHT, sign(br) > 0 ? FORWARD : BACKWARD, abs(br)] = cusp
-                    branch_to_cusp[LEFT, sign(next_br) > 0 ? FORWARD : BACKWARD, abs(next_br)] = cusp
-                    cusp_to_branch[LEFT, cusp] = br
-                    cusp_to_branch[RIGHT, cusp] = next_br
+                    branch_to_cusp[Int(RIGHT), Int(sign(br) > 0 ? FORWARD : BACKWARD), abs(br)] = cusp
+                    branch_to_cusp[Int(LEFT), Int(sign(next_br) > 0 ? FORWARD : BACKWARD), abs(next_br)] = cusp
+                    cusp_to_branch[Int(LEFT), cusp] = br
+                    cusp_to_branch[Int(RIGHT), cusp] = next_br
                     cusp += 1
                     br = next_br
                 end
@@ -46,15 +46,15 @@ end
 copy(ch::CuspHandler) = CuspHandler(copy(ch.cusp_to_branch), copy(ch.branch_to_cusp))
 
 
-function cusp_to_branch(ch::CuspHandler, cusp::Int, side::Int)
-    ch.cusp_to_branch[side, cusp]
+function cusp_to_branch(ch::CuspHandler, cusp::Int, side::Side)
+    ch.cusp_to_branch[Int(side), cusp]
 end
 
-function branch_to_cusp(ch::CuspHandler, br::Int, side::Int)
-    ch.branch_to_cusp[side, br > 0 ? FORWARD : BACKWARD, abs(br)]
+function branch_to_cusp(ch::CuspHandler, br::Int, side::Side)
+    ch.branch_to_cusp[Int(side), Int(br > 0 ? FORWARD : BACKWARD), abs(br)]
 end
 
-function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Int, start_side::Int=LEFT)
+function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Int, start_side::Side=LEFT)
     (branch_to_cusp(ch, br, otherside(side)) for br in outgoing_branches(tt, br, side) 
     if branch_to_cusp(ch, br, otherside(side)) != 0)
 end
@@ -76,16 +76,16 @@ function cusps(ch::CuspHandler)
     (i for i in 1:size(ch.cusp_to_branch)[2] if cusp_to_branch(ch, i, LEFT) != 0)
 end
 
-function set_cusp_to_branch!(ch::CuspHandler, cusp::Int, side::Int, br::Int)
-    ch.cusp_to_branch[side, cusp] = br
+function set_cusp_to_branch!(ch::CuspHandler, cusp::Int, side::Side, br::Int)
+    ch.cusp_to_branch[Int(side), cusp] = br
 end
 
-function set_branch_to_cusp!(ch::CuspHandler, br::Int, side::Int, cusp::Int)
-    ch.branch_to_cusp[side, br > 0 ? FORWARD : BACKWARD, abs(br)] = cusp
+function set_branch_to_cusp!(ch::CuspHandler, br::Int, side::Side, cusp::Int)
+    ch.branch_to_cusp[Int(side), Int(br > 0 ? FORWARD : BACKWARD), abs(br)] = cusp
 end
 
 
-function update_cusps_peel!(tt_after_op::TrainTrack, ch::CuspHandler, switch::Int, side::Int)
+function update_cusps_peel!(tt_after_op::TrainTrack, ch::CuspHandler, switch::Int, side::Side)
     tt = tt_after_op
     peel_off_branch = -extremal_branch(tt, -switch, otherside(side))
     @assert !istwisted(tt, peel_off_branch)   # TODO: handle twisted branch
@@ -105,7 +105,7 @@ end
 
 
 function update_cusps_fold!(tt_after_op::TrainTrack, ch::CuspHandler, fold_onto_br::Int, 
-        folded_br_side::Int)
+        folded_br_side::Side)
     tt = tt_after_op
     @assert !istwisted(tt, fold_onto_br)   # TODO: handle twisted branch
 

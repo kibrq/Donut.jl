@@ -6,7 +6,7 @@ using Test
 using Donut.Laminations
 using Donut.Pants
 using Donut.Constants: LEFT, RIGHT
-using Donut.Utils: otherside
+
 
 
 @testset "Lamination from pantscurve" begin

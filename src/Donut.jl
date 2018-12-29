@@ -3,7 +3,7 @@ module Donut
 
 # Submodules
 include("constants.jl")
-include("utils.jl")
+# include("utils.jl")
 include("surface.jl")
 include("pants/all.jl")
 include("traintracks/all.jl")

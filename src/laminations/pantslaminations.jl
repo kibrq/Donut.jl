@@ -10,7 +10,7 @@ using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
 using Donut.PantsAndTrainTracks.PeelFold
 using Donut.Constants: LEFT
-using Donut.Utils: otherside
+
 import Base.==
 import Base.copy
 import Donut    

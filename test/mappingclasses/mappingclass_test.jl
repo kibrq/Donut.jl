@@ -4,7 +4,7 @@ using Test
 using Donut.Laminations
 using Donut.Pants
 using Donut.Constants: LEFT, RIGHT
-# using Donut.Utils: otherside
+# 
 using Donut.MappingClasses
 using Donut.MappingClasses.GeneratingSets
 

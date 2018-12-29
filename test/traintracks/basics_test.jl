@@ -2,7 +2,7 @@ module TrainTrainBasicsTest
 
 using Test
 using Donut.TrainTracks
-using Donut.Constants: LEFT, RIGHT
+using Donut.Constants
 
 
 @test_throws ErrorException TrainTrack([[1, 2], [-2], [-1]])

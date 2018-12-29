@@ -1,6 +1,6 @@
 module PathTightening
 
-using Donut.Constants: FORWARD, BACKWARD, LEFT, RIGHT
+using Donut.Constants
 using Donut.Pants
 using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.PantsAndTrainTracks.ArcsInPants: gatetoside, selfconn_direction
@@ -46,9 +46,9 @@ function isbridgeforward(pd::PantsDecomposition, bridge::ArcInPants)
     index2 = bdyindex_nextto_pantscurve(pd, endvertex(bridge), endside)
     @assert pant_nextto_pantscurve(pd, startvertex(bridge), startside) == pant_nextto_pantscurve(pd, endvertex(bridge), endside)
 
-    if index2 % 3 == (index1 + 1) % 3
+    if index2 == nextindex(index1)
         return true
-    elseif index1 % 3 == (index2 + 1) % 3
+    elseif index1 == nextindex(index2)
         return false
     else
         @assert false
@@ -58,8 +58,8 @@ end
 """
 Construct an arc along a pants curve.
 """
-function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Int, direction::Int)
-    sign1 = direction == LEFT ? 1 : -1
+function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Int, side::Side)
+    sign1 = side == LEFT ? 1 : -1
     # sign2 = ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT) ? 1 : -1
     construct_pantscurvearc(signed_vertex * sign1)
 end

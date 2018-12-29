@@ -6,9 +6,7 @@ export twist_branch!, renamebranch!, reversebranch!, reverseswitch!, renameswitc
 
 using Donut.TrainTracks
 using Donut.TrainTracks: _set_extremal_branch!, _set_next_branch!, _setendpoint!, twist_branch!, _find_new_branch_number!, _find_new_switch_number!, _set_twisted!, BranchIterator
-using Donut
-using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD, START, END
-using Donut.Utils: otherside
+using Donut.Constants
 using Donut.TrainTracks.ElementaryOps
 
 # ------------------------------------
@@ -50,7 +48,7 @@ end
 
 
 function _attach_branches_unsafe!(
-    iter::BranchIterator, target_br::Int, target_side::Int)
+    iter::BranchIterator, target_br::Int, target_side::Side)
     # we don't check if start_br can be obtained from end_br by going in start_side direction.
     tt = iter.tt
     start_br = iter.start_br
@@ -119,7 +117,7 @@ function renamebranch!(tt::TrainTrack, branch::Int, newlabel::Int)
         sgn = i == 1 ? 1 : -1
         new_br = sgn*newlabel
         for side in (LEFT, RIGHT)
-            next_br = next_branches[i][side]
+            next_br = next_branches[i][Int(side)]
             if next_br != 0
                 _set_next_branch!(tt, next_br, otherside(side), new_br)
             else
@@ -168,7 +166,7 @@ function renameswitch!(tt::TrainTrack, switch::Int, newlabel::Int)
     for direction in (FORWARD, BACKWARD)
         sgn = direction == FORWARD ? 1 : -1
         for side in (LEFT, RIGHT)
-            _set_extremal_branch!(tt, sgn*newlabel, side, extremal_branches[direction][side])
+            _set_extremal_branch!(tt, sgn*newlabel, side, extremal_branches[Int(direction)][Int(side)])
         end
     end
 end
@@ -188,7 +186,7 @@ It updates both the the outgoing branches of switches and endpoints of branches.
 function _reglue_outgoing_branches!(
     iter::BranchIterator,
     target_br::Int,
-    target_side::Int)
+    target_side::Side)
 
     sw = branch_endpoint(iter.tt, -target_br)
 
@@ -201,7 +199,7 @@ end
 # Peeling and folding
 # ------------------------------------
 
-function peel!(tt::TrainTrack, switch::Int, side::Int)
+function peel!(tt::TrainTrack, switch::Int, side::Side)
     if numoutgoing_branches(tt, switch) == 1
         error("Cannot peel at $(switch), because there is only one branch going forward.")
     end
@@ -217,7 +215,7 @@ function peel!(tt::TrainTrack, switch::Int, side::Int)
 end
 
 
-function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Int)
+function fold!(tt::TrainTrack, fold_onto_br::Int, folded_br_side::Side)
     folded_br = next_branch(tt, fold_onto_br, folded_br_side)
     if folded_br == 0
         error("There is no branch on the $(folded_br_side==LEFT ? "left" : "right") side of branch $(fold_onto_br).")
@@ -359,11 +357,11 @@ end
 function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
     last_sw, last_br = 0, 0
     if op.optype == PEEL
-        peel!(tt, op.label1, op.label2)
+        peel!(tt, op.label1, op.side)
     elseif op.optype == FOLD
-        fold!(tt, op.label1, op.label2)
+        fold!(tt, op.label1, op.side)
     elseif op.optype == PULLOUT_BRANCHES
-        last_sw, last_br = pullout_branches!(BranchIterator(tt, op.label1, op.label2, op.label3))
+        last_sw, last_br = pullout_branches!(BranchIterator(tt, op.label1, op.label2, op.side))
     elseif op.optype == COLLAPSE_BRANCH
         collapse_branch!(tt, op.label1)
     elseif op.optype == RENAME_BRANCH
@@ -386,7 +384,8 @@ function execute_elementaryops!(tt::TrainTrack, ops)
     added_sw, added_br
 end
 
-function split_trivalent!(tt::TrainTrack, branch::Int, left_right_or_central::Int)
+function split_trivalent!(tt::TrainTrack, branch::Int, 
+        left_right_or_central::TrivalentSplitType)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
     execute_elementaryops!(tt, ops)
     nothing

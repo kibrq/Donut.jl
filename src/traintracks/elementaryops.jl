@@ -2,43 +2,46 @@
 
 module ElementaryOps
 
-export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, add_switch_on_branch_to_elementaryops, peel_op, fold_op, split_trivalent_to_elementaryops, fold_trivalent_to_elementaryops, PEEL, FOLD, PULLOUT_BRANCHES, COLLAPSE_BRANCH, RENAME_BRANCH, RENAME_SWITCH
+export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, 
+    renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, 
+    add_switch_on_branch_to_elementaryops, peel_op, fold_op, split_trivalent_to_elementaryops, 
+    fold_trivalent_to_elementaryops, PEEL, FOLD, PULLOUT_BRANCHES, COLLAPSE_BRANCH, 
+    RENAME_BRANCH, RENAME_SWITCH, TTOperationType, TrivalentSplitType, LEFT_SPLIT, 
+    RIGHT_SPLIT, CENTRAL_SPLIT
 
 using Donut.TrainTracks
 using Donut.TrainTracks: BranchIterator
-using Donut.Utils: otherside
-using Donut.Constants: LEFT, RIGHT, CENTRAL
+using Donut.Constants: CENTRAL
+using Donut.Constants
 
-const PEEL = 0
-const FOLD = 1
-const PULLOUT_BRANCHES = 2
-const COLLAPSE_BRANCH = 3
-const RENAME_BRANCH = 4
-const RENAME_SWITCH = 5
+@enum TTOperationType PEEL FOLD PULLOUT_BRANCHES COLLAPSE_BRANCH RENAME_BRANCH RENAME_SWITCH
 
 struct ElementaryTTOperation
-    optype::Int
+    optype::TTOperationType
     label1::Int
     label2::Int
-    label3::Int
+    side::Side
 end
 
-ElementaryTTOperation(a, b) = ElementaryTTOperation(a, b, 0, 0)
-ElementaryTTOperation(a, b, c) = ElementaryTTOperation(a, b, c, 0)
+@enum TrivalentSplitType LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
+
+# ElementaryTTOperation(a, b) = ElementaryTTOperation(a, b, 0, 0)
+# ElementaryTTOperation(a, b, c) = ElementaryTTOperation(a, b, c, 0)
 
 
-peel_op(switch::Int, side::Int) = ElementaryTTOperation(PEEL, switch, side)
+peel_op(switch::Int, side::Side) = ElementaryTTOperation(PEEL, switch, 0, side)
 
-fold_op(fold_onto_br::Int, folded_br_side::Int) = ElementaryTTOperation(FOLD, fold_onto_br, folded_br_side)
+fold_op(fold_onto_br::Int, folded_br_side::Side) = ElementaryTTOperation(FOLD, fold_onto_br, 0, folded_br_side)
 
 # pull_switch_op(switch::Int) = ElementaryTTOperation(PULL_SWITCH, switch)
-pullout_branches_op(start_br::Int, end_br::Int, start_side::Int=LEFT) = ElementaryTTOperation(PULLOUT_BRANCHES, start_br, end_br, start_side)
+pullout_branches_op(start_br::Int, end_br::Int, start_side::Side=LEFT) = 
+    ElementaryTTOperation(PULLOUT_BRANCHES, start_br, end_br, start_side)
 
-collapse_branch_op(branch::Int) = ElementaryTTOperation(COLLAPSE_BRANCH, branch)
+collapse_branch_op(branch::Int) = ElementaryTTOperation(COLLAPSE_BRANCH, branch, 0, LEFT)
 
-renaming_branch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel)
+renaming_branch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel, LEFT)
 
-renaming_switch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel)
+renaming_switch_op(oldlabel::Int, newlabel::Int) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel, LEFT)
 
 
 
@@ -82,7 +85,8 @@ Left split: central branch is turning left after the splitting.
 
 TODO: we could write this in terms of two peels with safer code, but we would get more elementary operations that way.
 """
-function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int, left_right_or_central::Int)
+function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int, 
+    left_right_or_central::TrivalentSplitType)
     if !is_branch_large(tt, branch)
         error("The split branch should be a large branch.")
     end
@@ -92,8 +96,7 @@ function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Int, left_righ
         error("The endpoints of the split branch should be trivalent.")
     end
 
-    @assert left_right_or_central in (LEFT, RIGHT, CENTRAL)
-    side = left_right_or_central == CENTRAL ? LEFT : left_right_or_central
+    side = left_right_or_central == RIGHT_SPLIT ? RIGHT : LEFT
 
     return (
         peel_op(-start_sw, otherside(side)),

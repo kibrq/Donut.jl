@@ -2,14 +2,16 @@
 
 module ArcsInPants
 
-export ArcInPants, isbridge, ispantscurvearc, isselfconnarc, signed_startvertex, signed_endvertex, startvertex, endvertex, startgate, endgate, construct_bridge, construct_pantscurvearc, construct_selfconnarc, BRIDGE, PANTSCURVE, SELFCONN, reversed
+export ArcInPants, isbridge, ispantscurvearc, isselfconnarc, signed_startvertex, 
+    signed_endvertex, startvertex, endvertex, startgate, endgate, construct_bridge, 
+    construct_pantscurvearc, construct_selfconnarc, BRIDGE, PANTSCURVE, SELFCONN, 
+    reversed, PantsArcType
 
-using Donut.Utils: otherside
-using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
 
-const PANTSCURVE = 1
-const SELFCONN = 2
-const BRIDGE = 3
+using Donut.Constants
+
+@enum PantsArcType PANTSCURVE SELFCONN BRIDGE
+@enum PantsGate LEFTGATE = 1 RIGHTGATE = -1 FORWARDGATE = 2 BACKWARDGATE = -2
 
 
 """
@@ -18,7 +20,7 @@ const BRIDGE = 3
 
 
 struct ArcInPants
-    type::Int
+    type::PantsArcType
     gate::Int
     extrainfo::Int
 end
@@ -30,15 +32,16 @@ construct_pantscurvearc(curveindex::Int) = ArcInPants(PANTSCURVE, curveindex, 0)
 
 construct_bridge(startgate::Int, endgate::Int) = ArcInPants(BRIDGE, startgate, endgate)
 
-construct_selfconnarc(gate::Int, direction::Int) = ArcInPants(SELFCONN, gate, direction)
+construct_selfconnarc(gate::Int, direction::Side) = 
+    ArcInPants(SELFCONN, gate, Int(direction))
 
 function Base.show(io::IO, arc::ArcInPants)
     if arc.type == PANTSCURVE
         str = "Pantscurve($(arc.gate))"
     elseif arc.type == BRIDGE
         str = "Bridge($(arc.gate), $(arc.extrainfo))"
-    else        
-        str = "Selfconn($(arc.gate), $(arc.extrainfo == LEFT ? "LEFT" : "RIGHT"))" 
+    else            
+        str = "Selfconn($(arc.gate), $(Side(arc.extrainfo) == LEFT ? "LEFT" : "RIGHT"))" 
     end
     print(io, str)
 end
@@ -49,7 +52,7 @@ function reversed(arc::ArcInPants)
     elseif arc.type == BRIDGE
         return construct_bridge(arc.extrainfo, arc.gate)
     elseif arc.type == SELFCONN
-        return construct_selfconnarc(arc.gate, otherside(arc.extrainfo))
+        return construct_selfconnarc(arc.gate, otherside(selfconn_direction(arc)))
     else
         @assert false
     end
@@ -64,11 +67,11 @@ startvertex(arc::ArcInPants) = abs(arc.gate)
 endvertex(arc::ArcInPants) = isbridge(arc) ? abs(arc.extrainfo) : startvertex(arc)
 
 
-function signed_startvertex(arc::ArcInPants)
+function signed_startvertex(arc::ArcInPants)::Int
     arc.gate
 end
 
-function signed_endvertex(arc::ArcInPants)
+function signed_endvertex(arc::ArcInPants)::Int
     if isbridge(arc)
         arc.extrainfo
     elseif isselfconnarc(arc)
@@ -81,43 +84,38 @@ function signed_endvertex(arc::ArcInPants)
 end
     
 
-const LEFTGATE = 1
-const RIGHTGATE = -1
-const FORWARDGATE = 2
-const BACKWARDGATE = -2
-
 # Gates for Pantscurves are FORWARDGATE (2) or BACKWARDGATE (-2).
 # Gates for Bridges and Selfconns are LEFTGATE (1) or RIGHTGATE (-1)
-function startgate(arc::ArcInPants) 
+function startgate(arc::ArcInPants)::PantsGate
     if ispantscurvearc(arc) 
         return arc.gate > 0 ? FORWARDGATE : BACKWARDGATE
     else
-        return sign(arc.gate)
+        return arc.gate > 0 ? LEFTGATE : RIGHTGATE
     end
 end
 
-function endgate(arc::ArcInPants)
+function endgate(arc::ArcInPants)::PantsGate
     if ispantscurvearc(arc)
         return arc.gate > 0 ? BACKWARDGATE : FORWARDGATE
     elseif isbridge(arc)
-        return sign(arc.extrainfo)
+        return arc.extrainfo > 0 ? LEFTGATE : RIGHTGATE
     elseif isselfconnarc(arc)
-        return sign(arc.gate)
+        return arc.gate > 0 ? LEFTGATE : RIGHTGATE
     end
 end
 
 
-function selfconn_direction(arc::ArcInPants)
+function selfconn_direction(arc::ArcInPants)::Side
     @assert isselfconnarc(arc)
-    arc.extrainfo
+    Side(arc.extrainfo)
 end
 
-function pantscurvearc_direction(arc::ArcInPants)
+function pantscurvearc_direction(arc::ArcInPants)::ForwardOrBackward
     @assert ispantscurvearc(arc)
     return arc.gate > 0 ? FORWARD : BACKWARD
 end
 
-function gatetoside(gate::Int)
+function gatetoside(gate::PantsGate)::Side
     if gate == LEFTGATE
         return LEFT
     elseif gate == RIGHTGATE

@@ -10,8 +10,7 @@ using Donut.PantsAndTrainTracks.DehnThurstonTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: BranchData
 using Donut.PantsAndTrainTracks.ArcsInPants
 
-using Donut.Utils: nextindex, previndex
-using Donut.Constants: LEFT, RIGHT
+using Donut.Constants
 
 function divide_by_2(x::Integer)
     if x % 2 == 1
@@ -47,7 +46,8 @@ end
 
 
 
-function determine_measure(dttraintrack::TrainTrack, twisting_numbers, selfconn_and_bridge_measures, branchdata::Vector{BranchData})
+function determine_measure(dttraintrack::TrainTrack, twisting_numbers, 
+        selfconn_and_bridge_measures, branchdata::Vector{BranchData})
     T = typeof(twisting_numbers[1])
     measure = T[]
     for br in eachindex(twisting_numbers)
@@ -60,11 +60,11 @@ function determine_measure(dttraintrack::TrainTrack, twisting_numbers, selfconn_
         if data.branchtype == BRIDGE
             # println("Bridge")
 
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][2][data.bdyindex])
+            push!(measure, selfconn_and_bridge_measures[data.pantindex][2][Int(data.bdyindex)])
         elseif data.branchtype == SELFCONN
             # println("Selfconn")
 
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][1][data.bdyindex])
+            push!(measure, selfconn_and_bridge_measures[data.pantindex][1][Int(data.bdyindex)])
         else
             @assert false
         end
