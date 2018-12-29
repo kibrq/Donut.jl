@@ -14,7 +14,7 @@ using Donut.TrainTracks: BranchIterator
 using Donut.Constants: CENTRAL
 using Donut.Constants
 
-@enum TTOperationType PEEL FOLD PULLOUT_BRANCHES COLLAPSE_BRANCH RENAME_BRANCH RENAME_SWITCH
+@enum TTOperationType::Int8 PEEL FOLD PULLOUT_BRANCHES COLLAPSE_BRANCH RENAME_BRANCH RENAME_SWITCH
 
 struct ElementaryTTOperation
     optype::TTOperationType
@@ -23,7 +23,7 @@ struct ElementaryTTOperation
     side::Side
 end
 
-@enum TrivalentSplitType LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
+@enum TrivalentSplitType::Int8 LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
 
 # ElementaryTTOperation(a, b) = ElementaryTTOperation(a, b, 0, 0)
 # ElementaryTTOperation(a, b, c) = ElementaryTTOperation(a, b, c, 0)

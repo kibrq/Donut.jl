@@ -10,8 +10,8 @@ export ArcInPants, isbridge, ispantscurvearc, isselfconnarc, signed_startvertex,
 
 using Donut.Constants
 
-@enum PantsArcType PANTSCURVE SELFCONN BRIDGE
-@enum PantsGate LEFTGATE = 1 RIGHTGATE = -1 FORWARDGATE = 2 BACKWARDGATE = -2
+@enum PantsArcType::Int8 PANTSCURVE SELFCONN BRIDGE
+@enum PantsGate::Int8 LEFTGATE = 1 RIGHTGATE = -1 FORWARDGATE = 2 BACKWARDGATE = -2
 
 
 """

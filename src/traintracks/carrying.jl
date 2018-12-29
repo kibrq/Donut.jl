@@ -419,7 +419,7 @@ function forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Integer
     # (label for label in cm.temp_int_array if label != 0)
 end
 
-@enum ComingFromWhere COMING_FROM_BEHIND COMING_FROM_FRONT_STARTSIDE COMING_FROM_FRONT_OTHERSIDE
+@enum ComingFromWhere::Int8 COMING_FROM_BEHIND COMING_FROM_FRONT_STARTSIDE COMING_FROM_FRONT_OTHERSIDE
 
 function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::Integer, start_side::Side,
     temp_index::Integer, coming_from::ComingFromWhere=COMING_FROM_BEHIND, branch_leading_here::Integer=0, idx::Integer=1)
