@@ -2,6 +2,7 @@ module Algorithm
 
 using Donut.TrainTracks.Carrying
 using Donut.MappingClasses
+using Donut.TrainTracks.TrainTrackNets
 
 function invariant_tt(mc::MappingClass)
     # We pick a curve.
@@ -21,17 +22,15 @@ function invariant_tt(mc::MappingClass)
 
         # The lamination lam is represented as a measured Dehn-Thurston
         # train track. We create a CarryingMap from this.
-        tt = lam.tt
-        measure = lam.measure
 
-        ttwd = TrainTracksWithData()
-        small_tt_index = add_train_track!(ttwd, tt)
-        large_tt_index = add_carryingmap_as_small_tt!(ttwd, small_tt_index)
-        large_tt_index2 = add_carryingmap_as_small_tt!(ttwd, small_tt_index)
-
+        ttnet = TrainTrackNet()
+        small_dtt = DecoratedTrainTrack(lam.tt, measure=lam.measure)
+        small_tt_index = add_train_track!(ttnet, small_dtt)
+        large_tt_index1 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
+        large_tt_index2 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
 
         # Make the small train track trivalent.
-        make_small_tt_trivalent!(cm, measure)
+        make_tt_trivalent!(ttnet, small_tt_index)
     end
 end
 

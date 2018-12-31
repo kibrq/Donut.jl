@@ -1,6 +1,5 @@
 
 
-module ElementaryOps
 
 export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, 
     renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, 
@@ -9,9 +8,6 @@ export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op,
     RENAME_BRANCH, RENAME_SWITCH, TTOperationType, TrivalentSplitType, LEFT_SPLIT, 
     RIGHT_SPLIT, CENTRAL_SPLIT
 
-using Donut.TrainTracks
-using Donut.TrainTracks: BranchIterator
-using Donut.Constants: CENTRAL
 using Donut.Constants
 
 @enum TTOperationType::Int8 PEEL FOLD PULLOUT_BRANCHES COLLAPSE_BRANCH RENAME_BRANCH RENAME_SWITCH
@@ -147,7 +143,12 @@ function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer)
 end
 
     
+function reverseswitch_to_elementaryops(sw::Integer)
+    (renaming_switch_op(sw, -sw),)
+end
 
-
+function reversebranch_to_elementaryops(br::Integer)
+    (renaming_branch_op(br, -br),)
+end
 
 end

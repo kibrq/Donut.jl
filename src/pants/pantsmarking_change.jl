@@ -4,11 +4,11 @@ abstract type ChangeOfPantsMarking end
 
 struct FirstMove <: ChangeOfPantsMarking
     curveindex::Int
-    inverse::Bool
+    is_inverse::Bool
 end
 
 FirstMove(x) = FirstMove(x, false)
-inverse(move::FirstMove) = FirstMove(move.curveindex, !move.inverse)
+inverse(move::FirstMove) = FirstMove(move.curveindex, !move.is_inverse)
 
 struct SecondMove <: ChangeOfPantsMarking
     curveindex::Int

@@ -93,8 +93,14 @@ function ^(pmc::PantsMappingClass, exp::Int)
     end
 end
 
+function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
+        tt_index::Integer, pd::PantsDecomposition, move::FirstMove, 
+        encodings::Vector{ArcInPants})
+    peel_fold_firstmove!(ttnet, tt_index, pd, move.curveindex, encodings, move.is_inverse)
+end
+
 function apply_change_of_markings_to_lamination!(move::FirstMove, pl::PantsLamination)
-    peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.inverse)
+    peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.is_inverse)
 end
 
 function apply_change_of_markings_to_lamination!(move::SecondMove, pl::PantsLamination)

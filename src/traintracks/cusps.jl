@@ -144,4 +144,26 @@ function update_cusps_pullout_branches!(tt_after_op::TrainTrack, ch::CuspHandler
     set_branch_to_cusp!(ch, right_br, RIGHT, 0)
 end
 
+
+function updatecusphandler_after_ttop!(tt_afterop::TrainTrack, ch::CuspHandler, 
+    op::ElementaryTTOperation, last_added_br::Integer)
+    if op.optype == PEEL
+        update_cusps_peel!(tt_afterop, ch, op.label1, op.side)
+    elseif op.optype == FOLD
+        update_cusps_fold!(tt_afterop, ch, op.label1, op.side)
+    elseif op.optype == PULLOUT_BRANCHES
+        update_cusps_pullout_branches!(tt_afterop, ch, last_added_br)
+    elseif op.optype == COLLAPSE_BRANCH
+        error("Not yet implemented")
+    elseif op.optype == RENAME_BRANCH
+        error("Not yet implemented")
+    elseif op.optype == RENAME_SWITCH
+        error("Not yet implemented")
+    elseif op.optype == DELETE_BRANCH
+        error("Not yet implemented")
+    else
+        @assert false
+    end
+end
+
 end

@@ -1041,12 +1041,8 @@ end
 
 """Update the carrying map after peeling in the small train track
 """
-function peel_small!(cm::CarryingMap, switch::Integer, side::Side, measure::Measure)
-    peel!(cm.small_tt, switch, side, measure)
-
-    # Updating cusps
-    update_cusps_peel!(cm.small_tt, cm.small_cusphandler, switch, side)
-
+function update_carryingmap_peel_small!(cm::CarryingMap, switch::Integer, 
+        side::Side)
     # Updating intersections, clicks and intervals.
     thick_branch = -extremal_branch(cm.small_tt, -switch, otherside(side))
     peeled_branch = next_branch(cm.small_tt, thick_branch, side)
@@ -1086,12 +1082,8 @@ function peel_small!(cm::CarryingMap, switch::Integer, side::Side, measure::Meas
 end
 
 
-function fold_large!(cm::CarryingMap, fold_onto_br::Integer, folded_br_side::Side)
-    Donut.TrainTracks.Operations.fold!(cm.large_tt, fold_onto_br, folded_br_side)
-
-    # Updating cusps
-    update_cusps_fold!(cm.large_tt, cm.large_cusphandler, fold_onto_br, folded_br_side)
-
+function update_carryingmap_fold_large!(cm::CarryingMap, fold_onto_br::Integer, 
+        folded_br_side::Side)
     large_sw = -branch_endpoint(cm.large_tt, fold_onto_br)
     folded_br = extremal_branch(cm.large_tt, large_sw, folded_br_side) 
 
@@ -1114,34 +1106,23 @@ function fold_large!(cm::CarryingMap, fold_onto_br::Integer, folded_br_side::Sid
 end
 
 
-function pullout_branches_small!(cm::CarryingMap, iter::BranchIterator, small_measure::Measure)
-    new_sw, new_br = pullout_branches!(iter, small_measure)
-
+function update_carryingmap_pullout_branches_small!(cm::CarryingMap, 
+        iter::BranchIterator, new_sw::Integer, new_br::Integer)
     # Updating small switch to click
     old_sw = branch_endpoint(cm.small_tt, -new_br)
     click = small_switch_to_click(cm, old_sw)
     set_small_switch_to_click!(cm, new_sw, click)
-
-    # Updating cusphandler
-    update_cusps_pullout_branches!(cm.small_tt, cm.small_cusphandler, new_br)
-
-    new_sw, new_br
 end
 
 
-function pullout_branches_large!(cm::CarryingMap, iter::BranchIterator)
-    new_sw, new_br = pullout_branches!(iter)
-
+function update_carryingmap_pullout_branches_large!(cm::CarryingMap, 
+        iter::BranchIterator, new_sw::Integer, new_br::Integer)
     # Creating new interval at the new switch
     new_interval = _create_interval!(cm)
     set_interval_to_large_switch!(cm, new_interval, new_sw)
     set_extremal_interval!(cm, new_sw, LEFT, new_interval)
     set_extremal_interval!(cm, new_sw, RIGHT, new_interval)
 
-    # Updating cusphandler
-    update_cusps_pullout_branches!(cm.large_tt, cm.large_cusphandler, new_br)
-
-    
     # Updating intersections for new interval
     for large_br in outgoing_branches(cm.large_tt, new_sw)
         add_paths_large!(cm, INTERVAL, new_interval, BRANCH, large_br)
@@ -1158,8 +1139,6 @@ function pullout_branches_large!(cm::CarryingMap, iter::BranchIterator)
     # Updating intersections for new large branch
     # with the same intersections as the interval
     add_paths_large!(cm, BRANCH, new_br, INTERVAL, new_interval)
-
-    new_sw, new_br
 end
 
 
@@ -1201,7 +1180,46 @@ function make_small_tt_trivalent!(cm::CarryingMap, small_measure::Measure)
     end
 end
 
+function update_carryingmap_renamebranch_small!(cm::CarryingMap, 
+        oldlabel::Integer, newlabel::Integer)
+        error("Not yet implemented")
 
+end
+
+function update_carryingmap_renamebranch_large!(cm::CarryingMap, 
+    oldlabel::Integer, newlabel::Integer)
+    error("Not yet implemented")
+
+end
+
+function update_carryingmap_renameswitch_small!(cm::CarryingMap, 
+    oldlabel::Integer, newlabel::Integer)
+    click = small_switch_to_click(cm, oldlabel)
+    set_small_switch_to_click!(cm, oldlabel, 0)
+    set_small_switch_to_click!(cm, newlabel, click)
+    if click_to_small_switch!(cm, click) == oldlabel
+        set_click_to_small_switch!(cm, click, newlabel)
+    end
+end
+
+function update_carryingmap_renameswitch_large!(cm::CarryingMap, 
+        oldlabel::Integer, newlabel::Integer)
+    # WARNING: the intervals and clicks are assumed to be oriented in the same
+    # way as the containing large switch, but why?
+    # if the sign of the 
+    # switch changes, we need to change the signs of the clicks and
+    # intervals. But for now, we won't worry about the orientation.
+    left_interval = extremal_interval(cm, oldlabel, LEFT)
+    right_interval = extremal_interval(cm, oldlabel, RIGHT)
+    interval = left_interval
+    while interval != 0
+        set_interval_to_large_switch!(cm, interval, new_label)
+        interval = next_interval(cm, interval, RIGHT)
+    end
+    set_extremal_interval!(cm, newlabel, LEFT, left_interval)
+    set_extremal_interval!(cm, newlabel, RIGHT, right_interval)        
+end
+ 
 
 #---------------------------------------------------
 # Isotoping
@@ -1514,18 +1532,13 @@ function is_isotopy_stuck_at_cusp(cm::CarryingMap, sw::Integer)
 end
 
 
-
-"""Perform a fold in the small train track if possible.
-"""
-function fold_small!(cm::CarryingMap, folded_branch::Integer, fold_onto_branch::Integer,
-    folded_branch_side::Side)
-
+function isotope_small_tt_for_fold!(cm::CarryingMap, 
+        fold_onto_br::Integer, folded_br_side::Side)::Bool
     # Trying to isotope the endpoint of ``fold_onto_branch`` as close to
     # the start point as possible...
-    small_tt = self._small_tt
+    folded_br = next_branch(cm.small_tt, fold_onto_br, folded_br_side)
     end_sw = branch_endpoint(cm.small_tt, fold_onto_branch)
     is_isotopy_stuck = false
-    is_fold_possible = false
     while true
         is_isotopy_stuck = is_isotopy_stuck_at_cusp(cm, end_sw)
         if is_isotopy_stuck
@@ -1533,8 +1546,7 @@ function fold_small!(cm::CarryingMap, folded_branch::Integer, fold_onto_branch::
         end
         if is_branch_or_cusp_collapsed(cm, BRANCH, fold_onto_branch)
             # If the desired branch is collapsed, we can also stop.
-            is_fold_possible = true
-            break
+            return true
         end
         isotope_cone_as_far_as_possible!(cm, end_sw)
         # The process has to finish, because at every iteration there are more switches
@@ -1547,47 +1559,52 @@ function fold_small!(cm::CarryingMap, folded_branch::Integer, fold_onto_branch::
         # Whether this is actually comes up and causes a problem, I'm not sure.
     end
 
-    if !is_fold_possible
-        # fold_onto_branch is not collapsed
-        # ... and isotoping the endpoint of ``folded_branch`` as far as
-        # possible.
-        folded_end_sw = branch_endpoint(cm.small_tt, folded_branch)
+    # fold_onto_branch is not collapsed
+    # ... and isotoping the endpoint of ``folded_branch`` as far as
+    # possible.
+    folded_end_sw = branch_endpoint(cm.small_tt, folded_branch)
 
-
-        cusp = branch_to_cusp(cm.small_cusphandler, fold_onto_branch, folded_branch_side)
-        if !is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, CUSP, cusp)
-            # In order for the fold to be possible, after the isotopy,
-            # fold_onto_branch has to be shorter or equal than the cusp path
-            # between the folded and the fold_onto_branch.
+    cusp = branch_to_cusp(cm.small_cusphandler, fold_onto_branch, folded_br_side)
+    if !is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, CUSP, cusp)
+        # In order for the fold to be possible, after the isotopy,
+        # fold_onto_branch has to be shorter or equal than the cusp path
+        # between the folded and the fold_onto_branch.
+        # In this case, the fold is not possible.
+        return false
+    end
+    while true
+        # Also, the folded_branch has to be at least as long as the fold_onto_branch.
+        if is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
+            return true
+        end
+        if is_isotopy_stuck_at_cusp(cm, -folded_end_sw)
+            # Folded branch is still not long enough and no more isotopy is possible.
             # In this case, the fold is not possible.
             return false
         end
-        while true
-            # Also, the folded_branch has to be at least as long as the fold_onto_branch.
-            if is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
-                is_fold_possible = true
-                break
-            end
-            if is_isotopy_stuck_at_cusp(cm, -folded_end_sw)
-                # Folded branch is still not long enough and no more isotopy is possible.
-                # In this case, the fold is not possible.
-                break
-            end
-            isotope_cone_as_far_as_possible!(cm, -folded_end_sw)
-        end
+        isotope_cone_as_far_as_possible!(cm, -folded_end_sw)
     end
+end
 
-    if !is_fold_possible
-        error("The folded small train track is not carried on "*
-        "the large train track!")
-    end
 
+
+"""Perform a fold in the small train track if possible.
+
+WARNING: The small train track alread has to be correctly isotoped before calling 
+this function!
+"""
+function update_carryingmap_fold_small_after_isotopy!(cm::CarryingMap, fold_onto_branch::Integer,
+        folded_br_side::Side)
+    error("Not yet implemented")
+    large_sw = -branch_endpoint(cm.large_tt, fold_onto_br)
+    folded_br = extremal_branch(cm.large_tt, large_sw, folded_br_side) 
+    
     add_paths_small!(cm, BRANCH, folded_branch, BRANCH, fold_onto_branch, -1)
     add_paths_small!(cm, CUSP, cusp, BRANCH, fold_onto_branch, -1)
 
     if !is_branch_or_cusp_collapsed(cm, BRANCH, folded_branch)
         click = small_switch_to_click(cm, end_sw)
-        interval = click_to_interval(cm, click, folded_branch_side)
+        interval = click_to_interval(cm, click, folded_br_side)
         add_intersection!(cm, BRANCH, folded_branch, INTERVAL, interval, -1)
         if !is_branch_or_cusp_collapsed(cm, CUSP, cusp)
             add_intersection!(cm, CUSP, cusp, INTERVAL, interval, -1)
@@ -1621,13 +1638,17 @@ end
 
 
 
-function collapse_small!(cm::CarryingMap, small_br::Integer)
+function update_carryingmap_collapse_branch_small!(cm::CarryingMap, small_br::Integer,
+    new_sw, new_br)
 
+    error("Not yet implemented")
 
 end
 
 
-function collapse_large!(cm::CarryingMap, large_br::Integer)
+function update_carryingmap_collapse_branch_large!(cm::CarryingMap, large_br::Integer,
+    new_sw, new_br)
+    error("Not yet implemented")
 
 end
         

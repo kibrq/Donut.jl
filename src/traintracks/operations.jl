@@ -354,7 +354,7 @@ end
 # ----------------------------------------
 
 
-function execute_elementaryop!(tt::TrainTrack, op::ElementaryTTOperation)
+function apply_tt_operation!(tt::TrainTrack, op::ElementaryTTOperation)
     last_sw, last_br = 0, 0
     if op.optype == PEEL
         peel!(tt, op.label1, op.side)
@@ -376,10 +376,10 @@ end
 
 
 
-function execute_elementaryops!(tt::TrainTrack, ops)
+function apply_tt_operations!(tt::TrainTrack, ops)
     added_sw, added_br = 0, 0
     for op in ops
-        added_sw, added_br = execute_elementaryop!(tt, op)
+        added_sw, added_br = apply_tt_operation!(tt, op)
     end
     added_sw, added_br
 end
@@ -387,27 +387,58 @@ end
 function split_trivalent!(tt::TrainTrack, branch::Integer, 
         left_right_or_central::TrivalentSplitType)
     ops = split_trivalent_to_elementaryops(tt, branch, left_right_or_central)
-    execute_elementaryops!(tt, ops)
+    apply_tt_operations!(tt, ops)
     nothing
 end
 
 function fold_trivalent!(tt::TrainTrack, branch::Integer)
     ops = fold_trivalent_to_elementaryops(tt, branch)
-    execute_elementaryops!(tt, ops)
+    apply_tt_operations!(tt, ops)
     nothing
 end
 
 function add_switch_on_branch!(tt::TrainTrack, branch::Integer)
     ops = add_switch_on_branch_to_elementaryops(tt, branch)
     # println(ops)
-    added_sw, added_br = execute_elementaryops!(tt, ops)
+    added_sw, added_br = apply_tt_operations!(tt, ops)
     (added_sw, added_br)
 end
 
 function delete_two_valent_switch!(tt::TrainTrack, switch::Integer)
     ops = delete_two_valent_switch_to_elementaryops(tt, switch)
-    execute_elementaryops!(tt, ops)
+    apply_tt_operations!(tt, ops)
     nothing
+end
+
+
+
+function remains_recurrent_after_peel(tt::TrainTrack, switch::Integer, peelside::Side)
+    peeledbr = extremal_branch(tt, switch, peelside)
+    peeloffbr = extremal_branch(tt, -switch, otherside(peelside))
+    backsw = branch_endpoint(tt, peeloffbr)
+
+    switches_visited = [switch]
+    current_sw_idx = 1
+    while current_sw_idx <= length(switches_visited)
+        current_sw = switches_visited[current_sw_idx]
+        for br in outgoing_branches(tt, current_sw)
+            if current_sw == switch && br == peeledbr
+                # We consider the state of the train track after peeling, so we are not allowed to go from switch to peeledbr
+                continue
+            end
+            # After the peeling, the endpoint of -peeledbr changes to backsw
+            sw = br != -peeledbr ? -branch_endpoint(tt, br) : -backsw
+            if sw == backsw
+                # We get back to backsw, which means that we can travel through peeledoffbr to get back to switch. So there is a curve going through backsw and we are good.
+                return true
+            end
+            if !(sw in switches_visited)
+                push!(switches_visited, sw)
+            end
+        end
+        current_sw_idx += 1
+    end
+    return false
 end
 
 
