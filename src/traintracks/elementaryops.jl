@@ -1,43 +1,54 @@
 
 
 
-export ElementaryTTOperation, pulling_op, collapsing_op, renaming_branch_op, 
-    renaming_switch_op, delete_branch_op, delete_two_valent_switch_to_elementaryops, 
-    add_switch_on_branch_to_elementaryops, peel_op, fold_op, split_trivalent_to_elementaryops, 
-    fold_trivalent_to_elementaryops, PEEL, FOLD, PULLOUT_BRANCHES, COLLAPSE_BRANCH, 
-    RENAME_BRANCH, RENAME_SWITCH, TTOperationType, TrivalentSplitType, LEFT_SPLIT, 
-    RIGHT_SPLIT, CENTRAL_SPLIT
+export ElementaryTTOperation, TTOperation, Peel, Fold, PulloutBranches, 
+    CollapseBranch, RenameBranch, RenameSwitch, ReverseBranch, ReverseSwitch,
+    DeleteBranch, DeleteTwoValentSwitch, AddSwitchOnBranch,
+    SplitTrivalent, FoldTrivalent, TrivalentSplitType, LEFT_SPLIT, 
+    RIGHT_SPLIT, CENTRAL_SPLIT, convert_to_elementaryops
 
-using Donut.Constants
 
-@enum TTOperationType::Int8 PEEL FOLD PULLOUT_BRANCHES COLLAPSE_BRANCH RENAME_BRANCH RENAME_SWITCH
+abstract type TTOperation end
+abstract type ElementaryTTOperation <: TTOperation end
 
-struct ElementaryTTOperation
-    optype::TTOperationType
-    label1::Int16
-    label2::Int16
+struct Peel <: ElementaryTTOperation
+    sw::Int16
     side::Side
 end
 
-@enum TrivalentSplitType::Int8 LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
+struct Fold <: ElementaryTTOperation
+    fold_onto_br::Int16
+    folded_br_side::Side
+end
 
-# ElementaryTTOperation(a, b) = ElementaryTTOperation(a, b, 0, 0)
-# ElementaryTTOperation(a, b, c) = ElementaryTTOperation(a, b, c, 0)
+struct PulloutBranches <: ElementaryTTOperation
+    start_br::Int16
+    end_br::Int16
+    start_side::Side
+end
+
+PulloutBranches(a, b) = PulloutBranches(a, b, LEFT)
+
+struct CollapseBranch <: ElementaryTTOperation
+    br::Int16
+end
+
+struct RenameBranch <: ElementaryTTOperation
+    oldlabel::Int16
+    newlabel::Int16
+end
+
+struct RenameSwitch <: ElementaryTTOperation
+    oldlabel::Int16
+    newlabel::Int16
+end    
+
+struct DeleteBranch <: ElementaryTTOperation
+    br::Int16
+end
 
 
-peel_op(switch::Integer, side::Side) = ElementaryTTOperation(PEEL, switch, 0, side)
 
-fold_op(fold_onto_br::Integer, folded_br_side::Side) = ElementaryTTOperation(FOLD, fold_onto_br, 0, folded_br_side)
-
-# pull_switch_op(switch::Integer) = ElementaryTTOperation(PULL_SWITCH, switch)
-pullout_branches_op(start_br::Integer, end_br::Integer, start_side::Side=LEFT) = 
-    ElementaryTTOperation(PULLOUT_BRANCHES, start_br, end_br, start_side)
-
-collapse_branch_op(branch::Integer) = ElementaryTTOperation(COLLAPSE_BRANCH, branch, 0, LEFT)
-
-renaming_branch_op(oldlabel::Integer, newlabel::Integer) = ElementaryTTOperation(RENAME_BRANCH, oldlabel, newlabel, LEFT)
-
-renaming_switch_op(oldlabel::Integer, newlabel::Integer) = ElementaryTTOperation(RENAME_SWITCH, oldlabel, newlabel, LEFT)
 
 
 
@@ -46,7 +57,6 @@ renaming_switch_op(oldlabel::Integer, newlabel::Integer) = ElementaryTTOperation
 # Composite Operations
 # ------------------------------------
 
-
 """
 Delete a two-valent switch.
 
@@ -54,13 +64,15 @@ The branch behind the switch is collapsed.
 If the switch is not two-valent, an error is thrown.
 
 """
-function delete_two_valent_switch_to_elementaryops(tt::TrainTrack, switch::Integer)
-    @assert switchvalence(tt, switch) == 2
-    br_removed = extremal_branch(tt, -switch, LEFT)
-    # br_removed = outgoing_branch(tt, -switch, 1)
-    return (collapse_branch_op(-br_removed),)
+struct DeleteTwoValentSwitch <: TTOperation
+    sw::Int16
 end
 
+function convert_to_elementaryops(tt::TrainTrack, op::DeleteTwoValentSwitch)
+    @assert switchvalence(tt, op.sw) == 2
+    br_removed = extremal_branch(tt, -op.sw, LEFT)
+    return (CollapseBranch(-br_removed),)
+end
 
 
 """
@@ -68,40 +80,51 @@ Create a switch on a branch.
 
 The orientation of the new switch is the same as the orientation of the branch. The new branch is
 added before the switch. The new branch is always untwisted.
-
-RETURN: (new_switch, new_branch)
 """
-function add_switch_on_branch_to_elementaryops(tt::TrainTrack, branch::Integer)
-    return (pullout_branches_op(branch, branch),)
+struct AddSwitchOnBranch <: TTOperation
+    br::Int16
 end
+
+function convert_to_elementaryops(tt::TrainTrack, op::AddSwitchOnBranch)
+    return (PulloutBranches(op.br, op.br),)
+end
+
+
+@enum TrivalentSplitType::Int8 LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
 
 
 """
 Left split: central branch is turning left after the splitting.
-
-TODO: we could write this in terms of two peels with safer code, but we would get more elementary operations that way.
 """
-function split_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer, 
-    left_right_or_central::TrivalentSplitType)
-    if !is_branch_large(tt, branch)
+struct SplitTrivalent <: TTOperation
+    br::Int16
+    split_type::TrivalentSplitType
+end
+
+function convert_to_elementaryops(tt::TrainTrack, op::SplitTrivalent)
+    if !is_branch_large(tt, op.br)
         error("The split branch should be a large branch.")
     end
-    start_sw = branch_endpoint(tt, -branch)
-    end_sw = branch_endpoint(tt, branch)
+    start_sw = branch_endpoint(tt, -op.br)
+    end_sw = branch_endpoint(tt, op.br)
     if switchvalence(tt, start_sw) != 3 && switchvalence(tt, end_sw) != 3
         error("The endpoints of the split branch should be trivalent.")
     end
 
-    side = left_right_or_central == RIGHT_SPLIT ? RIGHT : LEFT
+    side = op.split_type == RIGHT_SPLIT ? RIGHT : LEFT
 
     return (
-        peel_op(-start_sw, otherside(side)),
-        peel_op(-end_sw, istwisted(tt, branch) ? side : otherside(side))
+        Peel(-start_sw, otherside(side)),
+        Peel(-end_sw, istwisted(tt, op.br) ? side : otherside(side))
     )
 end
 
 
-function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer)
+struct FoldTrivalent <: TTOperation
+    br::Int16
+end
+
+function convert_to_elementaryops(tt::TrainTrack, op::FoldTrivalent)
     # if !is_branch_small_foldable(tt, branch)
     #     error("Branch $(branch) is not small foldable.")
     # end
@@ -109,12 +132,12 @@ function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer)
     for side in (LEFT, RIGHT)
         is_side_good = true
         for sgn in (1, -1)
-            br1 = next_branch(tt, sgn*branch, side)
+            br1 = next_branch(tt, sgn*op.br, side)
             if br1 != 0
                 is_side_good = false
                 break
             end
-            br2 = next_branch(tt, branch, otherside(side))
+            br2 = next_branch(tt, op.br, otherside(side))
             if br2 == 0
                 is_side_good = false
                 break
@@ -133,22 +156,33 @@ function fold_trivalent_to_elementaryops(tt::TrainTrack, branch::Integer)
         end
     end
     if fold_side == -100
-        error("Branch $(branch) is not small foldable.")
+        error("Branch $(op.br) is not small foldable.")
     end
 
     return (
-        fold_op(branch, fold_side),
-        fold_op(-branch, fold_side)
+        Fold(op.br, fold_side),
+        Fold(-op.br, fold_side)
     )
 end
 
     
-function reverseswitch_to_elementaryops(sw::Integer)
-    (renaming_switch_op(sw, -sw),)
+struct ReverseSwitch <: TTOperation
+    sw::Int16
 end
 
-function reversebranch_to_elementaryops(br::Integer)
-    (renaming_branch_op(br, -br),)
+function convert_to_elementaryops(tt::TrainTrack, op::ReverseSwitch)
+    (RenameSwitch(op.sw, -op.sw),)
 end
 
+
+struct ReverseBranch <: TTOperation
+    br::Int16
 end
+
+function convert_to_elementaryops(tt::TrainTrack, op::ReverseBranch)
+    (RenameBranch(op.br, -op.br),)
+end
+
+
+
+

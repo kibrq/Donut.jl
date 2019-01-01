@@ -5,7 +5,6 @@ export measured_dehnthurstontrack, intersecting_measure, pantscurve_measure
 using Donut.Pants
 using Donut.Pants.DehnThurstonCoords
 using Donut.TrainTracks
-using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: BranchData
 using Donut.PantsAndTrainTracks.ArcsInPants
@@ -46,13 +45,13 @@ end
 
 
 
-function determine_measure(dttraintrack::TrainTrack, twisting_numbers, 
+function determine_measure(dttraintrack::DecoratedTrainTrack, twisting_numbers, 
         selfconn_and_bridge_measures, branchdata::Vector{BranchData})
     T = typeof(twisting_numbers[1])
-    measure = T[]
+    measure_vector = T[]
     for br in eachindex(twisting_numbers)
         # println("Pantscurve")
-        push!(measure, abs(twisting_numbers[br]))
+        push!(measure_vector, abs(twisting_numbers[br]))
         @assert branchdata[br].branchtype == PANTSCURVE
     end
     for br in length(twisting_numbers)+1:length(branchdata)
@@ -60,16 +59,16 @@ function determine_measure(dttraintrack::TrainTrack, twisting_numbers,
         if data.branchtype == BRIDGE
             # println("Bridge")
 
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][2][Int(data.bdyindex)])
+            push!(measure_vector, selfconn_and_bridge_measures[data.pantindex][2][Int(data.bdyindex)])
         elseif data.branchtype == SELFCONN
             # println("Selfconn")
 
-            push!(measure, selfconn_and_bridge_measures[data.pantindex][1][Int(data.bdyindex)])
+            push!(measure_vector, selfconn_and_bridge_measures[data.pantindex][1][Int(data.bdyindex)])
         else
             @assert false
         end
     end
-    Measure{T}(dttraintrack, measure)
+    measure_vector
 end
 
 
@@ -110,27 +109,28 @@ function measured_dehnthurstontrack(pd::PantsDecomposition, dtcoords_vec::Vector
 
     tt, encodings, branchdata = dehnthurstontrack(pd, pantstypes, turnings)
 
-    measure = determine_measure(tt, twisting_numbers, sb_measures, branchdata)
-
-    tt, measure, encodings
+    measure_vector = determine_measure(tt, twisting_numbers, sb_measures, branchdata)
+    add_measure!(tt, measure_vector)
+    tt, encodings
 end
 
 
-function intersecting_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
+function intersecting_measure(tt::DecoratedTrainTrack, 
+        branchencodings::Vector{ArcInPants}, sw::Int)
     x = 0
     for br in outgoing_branches(tt, sw)
         if !ispantscurvearc(branchencodings[abs(br)])
-            x += branchmeasure(measure, br)
+            x += branchmeasure(tt, br)
         end
     end
     x
 end
 
 
-function pantscurve_measure(tt::TrainTrack, measure::Measure, branchencodings::Vector{ArcInPants}, sw::Int)
+function pantscurve_measure(tt::DecoratedTrainTrack, branchencodings::Vector{ArcInPants}, sw::Int)
     for br in outgoing_branches(tt, sw)
         if ispantscurvearc(branchencodings[abs(br)])
-            return branchmeasure(measure, br)
+            return branchmeasure(tt, br)
         end
     end
 end

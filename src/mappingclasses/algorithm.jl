@@ -25,7 +25,7 @@ function invariant_tt(mc::MappingClass)
 
         ttnet = TrainTrackNet()
         small_dtt = DecoratedTrainTrack(lam.tt, measure=lam.measure)
-        small_tt_index = add_train_track!(ttnet, small_dtt)
+        small_tt_index = add_traintrack!(ttnet, small_dtt)
         large_tt_index1 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
         large_tt_index2 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
 

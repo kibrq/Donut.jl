@@ -1,7 +1,4 @@
-export TrainTrack, branch_endpoint, numoutgoing_branches, outgoing_branches, istwisted, 
-    switches, branches, switchvalence, istrivalent, is_branch_large, 
-    is_branch_small_foldable, tt_gluinglist, isswitch, isbranch, extremal_branch, 
-    next_branch, numcusps, numswitches, numbranches, BranchIterator
+
 
 using Donut.Constants
 import Base.copy

@@ -21,18 +21,18 @@ using Donut.Constants
 
 struct ArcInPants
     type::PantsArcType
-    gate::Int
-    extrainfo::Int
+    gate::Int16
+    extrainfo::Int16
 end
 # Pantscurve: 3 vs -3
 # Selfconn: 3, LEFT vs 3, RIGHT
 # Bridge: 4, -3
 
-construct_pantscurvearc(curveindex::Int) = ArcInPants(PANTSCURVE, curveindex, 0)
+construct_pantscurvearc(curveindex::Integer) = ArcInPants(PANTSCURVE, curveindex, 0)
 
-construct_bridge(startgate::Int, endgate::Int) = ArcInPants(BRIDGE, startgate, endgate)
+construct_bridge(startgate::Integer, endgate::Integer) = ArcInPants(BRIDGE, startgate, endgate)
 
-construct_selfconnarc(gate::Int, direction::Side) = 
+construct_selfconnarc(gate::Integer, direction::Side) = 
     ArcInPants(SELFCONN, gate, Int(direction))
 
 function Base.show(io::IO, arc::ArcInPants)
@@ -67,11 +67,11 @@ startvertex(arc::ArcInPants) = abs(arc.gate)
 endvertex(arc::ArcInPants) = isbridge(arc) ? abs(arc.extrainfo) : startvertex(arc)
 
 
-function signed_startvertex(arc::ArcInPants)::Int
+function signed_startvertex(arc::ArcInPants)::Int16
     arc.gate
 end
 
-function signed_endvertex(arc::ArcInPants)::Int
+function signed_endvertex(arc::ArcInPants)::Int16
     if isbridge(arc)
         arc.extrainfo
     elseif isselfconnarc(arc)

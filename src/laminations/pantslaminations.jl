@@ -4,7 +4,6 @@ export PantsLamination, lamination_from_pantscurve, lamination_from_transversal,
 
 using Donut.Pants
 using Donut.TrainTracks
-using Donut.TrainTracks.Measures
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
 using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
 using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
@@ -18,22 +17,22 @@ import Donut.TrainTracks.copy
 
 struct PantsLamination{T}
     pd::PantsDecomposition
-    tt::TrainTrack
-    measure::Measure{T}
+    tt::DecoratedTrainTrack
     encodings::Vector{ArcInPants}
 
-    function PantsLamination{T}(pd::PantsDecomposition, tt::TrainTrack, measure::Measure{T}, encodings::Vector{ArcInPants}) where {T}
-        new(pd, tt, measure, encodings)
+    function PantsLamination{T}(pd::PantsDecomposition, tt::DecoratedTrainTrack, 
+            encodings::Vector{ArcInPants}) where {T}
+        new(pd, tt, encodings)
     end
 
     function PantsLamination{T}(pd::PantsDecomposition, dtcoords::Vector{Tuple{T, T}}) where {T}
-        tt, measure, encodings = measured_dehnthurstontrack(pd, dtcoords)
-        new(pd, tt, measure, encodings)
+        tt, encodings = measured_dehnthurstontrack(pd, dtcoords)
+        new(pd, tt, encodings)
     end
 end
 
 function copy(pl::PantsLamination{T}) where {T}
-    PantsLamination{T}(copy(pl.pd), Donut.TrainTracks.copy(pl.tt), copy(pl.measure), copy(pl.encodings))
+    PantsLamination{T}(copy(pl.pd), Donut.TrainTracks.copy(pl.tt), copy(pl.encodings))
 end
 
 function Base.show(io::IO, pl::PantsLamination)
@@ -45,7 +44,7 @@ function Base.show(io::IO, pl::PantsLamination)
 end
 
 function coords_of_curve(pl::PantsLamination, curveindex::Int)
-    intersection_number = intersecting_measure(pl.tt, pl.measure, pl.encodings, pantscurve_toswitch(pl.pd, curveindex))
+    intersection_number = intersecting_measure(pl.tt, pl.encodings, pantscurve_toswitch(pl.pd, curveindex))
     twisting_num = twisting_number(pl, curveindex)
     if intersection_number == 0
         # By convention if the intersection number is zero, the twisting number is chosen to be positive.
@@ -104,5 +103,5 @@ end
 
 function twisting_number(pl::PantsLamination, curveindex::Int)
     sw = pantscurve_toswitch(pl.pd, curveindex)
-    (switch_turning(pl.tt, sw, pl.encodings) == LEFT ? -1 : 1) * pantscurve_measure(pl.tt, pl.measure, pl.encodings, sw)
+    (switch_turning(pl.tt, sw, pl.encodings) == LEFT ? -1 : 1) * pantscurve_measure(pl.tt, pl.encodings, sw)
 end

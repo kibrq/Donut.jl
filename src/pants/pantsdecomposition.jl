@@ -46,21 +46,21 @@ If a boundary curve number does not have a pair, it is becomes a boundary compon
 The pairs of pants are implicitly `marked` by a triangle whose vertices are in different boundary components. So `[1, 2, 3]` is a different marking of the same pair of pants as `[1, 3, 2]`. However, `[2, 3, 1]` is the same marking as `[1, 2, 3]`. The marking `[1, 2, 3]` means that as the triangle is traversed in the counterclockwise order, we see the curves 1, 2, 3 in order.
 """
 struct PantsDecomposition <: AbstractSurface
-    pantboundaries::Vector{Tuple{Int, Int, Int}}
-    pantscurve_to_pantindex::Array{Int, 2}
+    pantboundaries::Vector{Tuple{Int16, Int16, Int16}}
+    pantscurve_to_pantindex::Array{Int16, 2}
     pantscurve_to_bdyindex::Array{BdyIndex, 2}
-    numinnerpantscurves::Int
+    numinnerpantscurves::Int16
 
-    function PantsDecomposition(pantboundaries::Vector{Tuple{Int, Int, Int}},
-        pantscurve_to_pantindex::Array{Int, 2}, 
+    function PantsDecomposition(pantboundaries::Vector{Tuple{Int16, Int16, Int16}},
+        pantscurve_to_pantindex::Array{Int16, 2}, 
         pantscurve_to_bdyindex::Array{BdyIndex, 2},
-        numinnerpantscurves::Int)
+        numinnerpantscurves::Int16)
         new(pantboundaries, pantscurve_to_pantindex, pantscurve_to_bdyindex,
             numinnerpantscurves)
     end
 
     # gluinglist will not be copied, it is owned by the object
-    function PantsDecomposition(gluinglist::Vector{Tuple{Int, Int, Int}})
+    function PantsDecomposition(gluinglist::Vector{<:Tuple{Int, Int, Int}})
         curvenumbers = sort(map(abs,Iterators.flatten(gluinglist)))
         maxcurvenumber = curvenumbers[end]
         if Set(curvenumbers) != Set(1:maxcurvenumber)
@@ -108,7 +108,7 @@ copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.pantboundaries),
 
 gluinglist(pd::PantsDecomposition) = pd.pantboundaries
 
-function pantboundaries(pd::PantsDecomposition, pantindex::Int)
+function pantboundaries(pd::PantsDecomposition, pantindex::Integer)
     pd.pantboundaries[pantindex]
 end
 
@@ -119,8 +119,8 @@ eulerchar(pd::PantsDecomposition) = -1*numpants(pd)
 
 
 
-function _setpantscurveside(pd::PantsDecomposition, curveindex::Int,
-    side::Side, pantindex::Int, bdyindex::BdyIndex)
+function _setpantscurveside(pd::PantsDecomposition, curveindex::Integer,
+    side::Side, pantindex::Integer, bdyindex::BdyIndex)
     if curveindex < 0
         side = otherside(side)
     end
@@ -128,18 +128,18 @@ function _setpantscurveside(pd::PantsDecomposition, curveindex::Int,
     pd.pantscurve_to_bdyindex[Int(side), abs(curveindex)] = bdyindex
 end
 
-function _setboundarycurves(pd::PantsDecomposition, pantindex::Int, bdy1::Int, bdy2::Int, bdy3::Int)
+function _setboundarycurves(pd::PantsDecomposition, pantindex::Integer, bdy1::Integer, bdy2::Integer, bdy3::Integer)
     pd.pantboundaries[pantindex] = (bdy1, bdy2, bdy3)
 end
 
 
-pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Side=LEFT) = 
+pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Integer, side::Side=LEFT) = 
     pd.pantscurve_to_pantindex[Int(curveindex > 0 ? side : otherside(side)), abs(curveindex)]
 
-bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Int, side::Side=LEFT) = 
+bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Integer, side::Side=LEFT) = 
     pd.pantscurve_to_bdyindex[Int(curveindex > 0 ? side : otherside(side)), abs(curveindex)]
 
-pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Int, bdyindex::BdyIndex) = 
+pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Integer, bdyindex::BdyIndex) = 
     pantboundaries(pd, pantindex)[Int(bdyindex)]
 
 
@@ -148,7 +148,7 @@ const BDYCURVE = 1
 const TORUS_NBHOOD = 2
 const PUNCTURED_SPHERE_NBHOOD = 3
 
-function pantscurve_type(pd::PantsDecomposition, curveindex::Int)
+function pantscurve_type(pd::PantsDecomposition, curveindex::Integer)
     leftpant = pant_nextto_pantscurve(pd, curveindex, LEFT)
     rightpant = pant_nextto_pantscurve(pd, curveindex, RIGHT)
     if leftpant == 0 || rightpant == 0 
@@ -161,14 +161,14 @@ function pantscurve_type(pd::PantsDecomposition, curveindex::Int)
     end
 end
 
-isinner_pantscurve(pd::PantsDecomposition, curveindex::Int) = 
+isinner_pantscurve(pd::PantsDecomposition, curveindex::Integer) = 
     pantscurve_type(pd, curveindex) != BDYCURVE
-isboundary_pantscurve(pd::PantsDecomposition, curveindex::Int) = 
+isboundary_pantscurve(pd::PantsDecomposition, curveindex::Integer) = 
     pantscurve_type(pd, curveindex) == BDYCURVE
 
-isfirstmove_curve(pd::PantsDecomposition, curveindex::Int) = 
+isfirstmove_curve(pd::PantsDecomposition, curveindex::Integer) = 
     pantscurve_type(pd, curveindex) == TORUS_NBHOOD
-issecondmove_curve(pd::PantsDecomposition, curveindex::Int) = 
+issecondmove_curve(pd::PantsDecomposition, curveindex::Integer) = 
     pantscurve_type(pd, curveindex) == PUNCTURED_SPHERE_NBHOOD
 
 innercurveindices(pd::PantsDecomposition) = 1:pd.numinnerpantscurves
@@ -189,7 +189,7 @@ function Base.show(io::IO, pd::PantsDecomposition)
 end
 
 
-function pantsdecomposition_humphries(genus::Int)
+function pantsdecomposition_humphries(genus::Integer)
     a = [(1, 2, -1)]
     for i in 1:genus-2
         push!(a, (3*i+1, 3*i, 1-3*i))

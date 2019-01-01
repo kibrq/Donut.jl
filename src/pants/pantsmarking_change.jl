@@ -1,36 +1,39 @@
 
+export FirstMove, SecondMove, HalfTwist, Twist, ChangeOfPantsMarking
+
 
 abstract type ChangeOfPantsMarking end
 
 struct FirstMove <: ChangeOfPantsMarking
-    curveindex::Int
-    is_inverse::Bool
+    curveindex::Int16
+    isinverse::Bool
 end
 
 FirstMove(x) = FirstMove(x, false)
-inverse(move::FirstMove) = FirstMove(move.curveindex, !move.is_inverse)
+inverse(move::FirstMove) = FirstMove(move.curveindex, !move.isinverse)
 
 struct SecondMove <: ChangeOfPantsMarking
-    curveindex::Int
+    curveindex::Int16
 end
 
 inverse(move::SecondMove) = move
 
 struct HalfTwist <: ChangeOfPantsMarking
-    curveindex::Int
-    power::Int
+    curveindex::Int16
+    side::Side
+    direction::Side
 end
 
-HalfTwist(x) = HalfTwist(x, 1)
-inverse(move::HalfTwist) = HalfTwist(move.curveindex, -move.power)
+HalfTwist(x, y) = HalfTwist(x, y, RIGHT)
+inverse(move::HalfTwist) = HalfTwist(move.curveindex, otherside(move.direction))
 
 struct Twist <: ChangeOfPantsMarking
-    curveindex::Int
-    power::Int
+    curveindex::Int16
+    direction::Side
 end
 
-Twist(x) = Twist(x, 1)
-inverse(move::Twist) = Twist(move.curveindex, -move.power)
+Twist(x) = Twist(x, RIGHT)
+inverse(move::Twist) = Twist(move.curveindex, otherside(move.direction))
 
 
 struct PantsDecompositionAutomorphism <: ChangeOfPantsMarking

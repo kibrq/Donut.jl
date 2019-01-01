@@ -1,12 +1,7 @@
 
 
-module Measures
-
-export Measure, branchmeasure, zeromeasure, outgoingmeasure, copy, whichside_to_peel
-
-using Donut.Constants
-using Donut.TrainTracks
-using Donut.TrainTracks.ElementaryOps
+# export Measure, branchmeasure, zeromeasure, outgoingmeasure, copy, whichside_to_peel
+export Measure
 import Base.copy
 
 
@@ -89,68 +84,62 @@ function _allocatemore!(measure::Measure, newlength::Integer)
 end
 
 
-function updatemeasure_pullout_branches!(tt_afterop::TrainTrack,
-    measure::Measure, newbranch::Integer)
-    if newbranch > length(measure.values)
-        _allocatemore!(measure, newbranch)
+
+function updatemeasure_afterop!(tt_afterop::TrainTrack,
+    measure::Measure, op::PulloutBranches, new_sw::Integer)
+    new_br = new_branch_after_pullout(tt_afterop, new_sw)
+    if abs(new_br) > length(measure.values)
+        _allocatemore!(measure, abs(new_br))
     end
-    sw = branch_endpoint(tt_afterop, newbranch)
-    newvalue = outgoingmeasure(tt_afterop, measure, -sw)
-    _setmeasure!(measure, newbranch, newvalue)
+    newvalue = outgoingmeasure(tt_afterop, measure, new_sw)
+    # println("*****************************************************************************")
+    # println("br: ", new_br, "new value:", newvalue)
+    _setmeasure!(measure, new_br, newvalue)
 end
 
 
-function updatemeasure_collapse!(measure::Measure, collapsedbranch::Integer)
-    _setmeasure!(measure, collapsedbranch, 0)
+function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::CollapseBranch,
+        _::Integer)
+    _setmeasure!(measure, op.br, 0)
 end
 
-function updatemeasure_deletebranch!(measure::Measure, deletedbranch::Integer)
-    if branchmeasure(measure, deletedbranch) != 0
-        error("Cannot delete branch $(deletedbranch), because its measure is not zero.")
+function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::DeleteBranch,
+        _::Integer)
+    if branchmeasure(measure, op.br) != 0
+        error("Cannot delete branch $(op.br), because its measure is not zero.")
     end
 end
 
-function updatemeasure_renamebranch!(measure::Measure, oldlabel::Integer, newlabel::Integer)
-    value = branchmeasure(measure, oldlabel)
-    _setmeasure!(measure, oldlabel, 0)
-    _setmeasure!(measure, newlabel, value)
+function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::RenameBranch,
+        _::Integer)
+    value = branchmeasure(measure, op.oldlabel)
+    _setmeasure!(measure, op.oldlabel, 0)
+    _setmeasure!(measure, op.newlabel, value)
 end
 
-function updatemeasure_peel!(tt::TrainTrack, measure::Measure, switch::Integer, side::Side)
-    peel_off_branch = extremal_branch(tt, -switch, otherside(side))
-    peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? otherside(side) : side)
+function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Peel,
+        _::Integer)        
+    peel_off_branch = extremal_branch(tt, -op.sw, otherside(op.side))
+    peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? 
+        otherside(op.side) : op.side)
     newvalue = branchmeasure(measure, peel_off_branch) - branchmeasure(measure, peeled_branch)
     _setmeasure!(measure, peel_off_branch, newvalue)
 end
 
 
-function updatemeasure_fold!(tt::TrainTrack, measure::Measure, fold_onto_br::Integer, folded_br_side::Side)
-    sw = branch_endpoint(tt, fold_onto_br)
-    folded_br = extremal_branch(tt, -sw, istwisted(tt, fold_onto_br) ? otherside(folded_br_side) : folded_br_side)
-    newvalue = branchmeasure(measure, fold_onto_br) + branchmeasure(measure, folded_br)
-    _setmeasure!(measure, fold_onto_br, newvalue)
+function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Fold,
+        _::Integer)
+    sw = branch_endpoint(tt, op.fold_onto_br)
+    folded_br = extremal_branch(tt, -sw, istwisted(tt, op.fold_onto_br) ? 
+        otherside(op.folded_br_side) : op.folded_br_side)
+    newvalue = branchmeasure(measure, op.fold_onto_br) + branchmeasure(measure, folded_br)
+    _setmeasure!(measure, op.fold_onto_br, newvalue)
+end
+
+function updatemeasure_afterop!(_::TrainTrack, _::Measure, _::RenameSwitch, _::Integer)
 end
 
 
-function updatemeasure_after_ttop!(tt_afterop::TrainTrack, measure::Measure, 
-    op::ElementaryTTOperation, last_added_br::Integer)
-    if op.optype == PEEL
-        updatemeasure_peel!(tt_afterop, measure, op.label1, op.side)
-    elseif op.optype == FOLD
-        updatemeasure_fold!(tt_afterop, measure, op.label1, op.side)
-    elseif op.optype == PULLOUT_BRANCHES
-        updatemeasure_pullout_branches!(tt_afterop, measure, last_added_br)
-    elseif op.optype == COLLAPSE_BRANCH
-        updatemeasure_collapse!(measure, op.label1)
-    elseif op.optype == RENAME_BRANCH
-        updatemeasure_renamebranch!(measure, op.label1, op.label2)
-    elseif op.optype == RENAME_SWITCH
-    elseif op.optype == DELETE_BRANCH
-        updatemeasure_deletebranch!(measure, op.label1)
-    else
-        @assert false
-    end
-end
 
 
 """
@@ -177,8 +166,6 @@ function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Integer, si
     end
 
     @assert false
-
 end
 
 
-end # module

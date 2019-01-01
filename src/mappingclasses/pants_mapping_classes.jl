@@ -3,6 +3,7 @@
 
 export pantstwist, transversaltwist, PantsMappingClass
 
+using Donut.TrainTracks
 using Donut.Pants
 using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, pant_nextto_pantscurve, isequal_strong
 using Donut.Laminations: PantsLamination
@@ -11,9 +12,10 @@ import Donut.Pants.inverse
 import Donut
 import Donut.Pants.copy
 import Donut.Laminations.copy
-using Donut.Constants: LEFT, RIGHT
+using Donut.Constants
 using Donut.Laminations
 using Donut.PantsAndTrainTracks.PeelFold
+using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
 
 
 abstract type MappingClass end
@@ -31,16 +33,16 @@ function identity_mapping_class(pd::PantsDecomposition)
     PantsMappingClass(pd, ChangeOfPantsMarking[])
 end
 
-function pantstwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
-    PantsMappingClass(pd, [Twist(curveindex, -power)])
+function pantstwist(pd::PantsDecomposition, curveindex::Integer, direction::Side=RIGHT)
+    PantsMappingClass(pd, [Twist(curveindex, otherside(direction))])
 end
 
-function halftwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
+function halftwist(pd::PantsDecomposition, curveindex::Integer, direction::Side=RIGHT)
     # TODO: we should check that the curve is around two boundaries. Input the pd.
-    PantsMappingClass(pd, [HalfTwist(curveindex, -power)])
+    PantsMappingClass(pd, [HalfTwist(curveindex, otherside(direction))])
 end
 
-function transversaltwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
+function transversaltwist(pd::PantsDecomposition, curveindex::Integer, direction::Side=RIGHT)
     if isfirstmove_curve(pd, curveindex)
         move = FirstMove(curveindex)
     elseif issecondmove_curve(pd, curveindex)
@@ -48,7 +50,7 @@ function transversaltwist(pd::PantsDecomposition, curveindex::Int, power::Int=1)
     else
         error("Curve $(curveindex) is not a first or second move curve, so we cannot perform transversaltwist about it.")
     end
-    PantsMappingClass(pd, [move, Twist(curveindex, -power), inverse(move)])
+    PantsMappingClass(pd, [move, Twist(curveindex, otherside(direction)), inverse(move)])
 end
 
 function precompose!(pmc::PantsMappingClass, compose_by::PantsMappingClass)
@@ -79,7 +81,7 @@ function *(pmc1::PantsMappingClass, pmc2::PantsMappingClass)
     pmc
 end
 
-function ^(pmc::PantsMappingClass, exp::Int)
+function ^(pmc::PantsMappingClass, exp::Integer)
     if exp == 0
         return identity_mapping_class(pmc.pd)
     end
@@ -93,39 +95,37 @@ function ^(pmc::PantsMappingClass, exp::Int)
     end
 end
 
-function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
-        tt_index::Integer, pd::PantsDecomposition, move::FirstMove, 
-        encodings::Vector{ArcInPants})
-    peel_fold_firstmove!(ttnet, tt_index, pd, move.curveindex, encodings, move.is_inverse)
-end
 
-function apply_change_of_markings_to_lamination!(move::FirstMove, pl::PantsLamination)
-    peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.is_inverse)
-end
 
-function apply_change_of_markings_to_lamination!(move::SecondMove, pl::PantsLamination)
-    peel_fold_secondmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings)
-end
+# function apply_change_of_markings_to_lamination!(move::FirstMove, pl::PantsLamination)
+#     peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.is_inverse)
+# end
 
-function apply_change_of_markings_to_lamination!(move::HalfTwist, pl::PantsLamination)
-    for i in 1:abs(move.power)
-        peel_fold_halftwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
-    end
-end 
+# function apply_change_of_markings_to_lamination!(move::SecondMove, pl::PantsLamination)
+#     peel_fold_secondmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings)
+# end
 
-function apply_change_of_markings_to_lamination!(move::Twist, pl::PantsLamination)
-    for i in 1:abs(move.power)
-        peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
-    end
-end
+# function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
+#         tt_index::Integer, pd::PantsDecomposition, move::Union{HalfTwist, Twist}, 
+#         encodings::Vector{ArcInPants})
+#         peelfold_after_elementarymove!(ttnet, tt_index, pd, move, encodings)
+# end 
+
+# function apply_change_of_marking_to_tt!(move::Twist, pl::PantsLamination)
+#     for i in 1:abs(move.power)
+#         peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
+#     end
+# end
 
 function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLamination)
     # println(pmc.change_of_markings)
+    ttnet = TrainTrackNet()
+    tt_index = add_traintrack!(ttnet, pl.tt)
     for cm in reverse(pmc.change_of_markings)
         # println("----------------------------------------------------")
         # println(cm)
         # println("Lamination before move:", pl)
-        apply_change_of_markings_to_lamination!(cm, pl)
+        apply_change_of_marking_to_tt!(ttnet, tt_index, pl.pd, cm, pl.encodings)
         # println("Lamination after move:", pl)
         # println("----------------------------------------------------")
     end

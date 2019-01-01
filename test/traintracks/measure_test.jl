@@ -3,7 +3,7 @@ module MeasureTest
 
 using Test
 using Donut.TrainTracks
-using Donut.TrainTracks.Measures
+using Donut.TrainTracks: TrainTrack, zeromeasure
 import Donut
 
 
@@ -30,7 +30,7 @@ import Donut
 
     tt = TrainTrack([[1, 2], [-3], [3], [-1, -2]])
     measure = Measure{Int}(tt, [3, 5, 8])
-    Donut.TrainTracks.Measures._setmeasure!(measure, 3, 100)
+    Donut.TrainTracks._setmeasure!(measure, 3, 100)
     @test branchmeasure(measure, 3) == 100
 end
 

@@ -58,7 +58,7 @@ end
 """
 Construct an arc along a pants curve.
 """
-function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Int, side::Side)
+function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Integer, side::Side)
     sign1 = side == LEFT ? 1 : -1
     # sign2 = ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT) ? 1 : -1
     construct_pantscurvearc(signed_vertex * sign1)
@@ -111,7 +111,7 @@ function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPan
 end
 
 
-function directionof_pantscurvearc(pd::PantsDecomposition, pantscurvearc::ArcInPants, lookingfrom_signedvertex::Int)
+function directionof_pantscurvearc(pd::PantsDecomposition, pantscurvearc::ArcInPants, lookingfrom_signedvertex::Integer)
     for direction in (LEFT, RIGHT)
         arc = pantscurvearc_lookingfromgate(pd, lookingfrom_signedvertex, direction)
         if pantscurvearc == arc

@@ -1,27 +1,23 @@
 
 module PeelFold
 
-export peel_fold_dehntwist!, peel_fold_firstmove!, peel_fold_halftwist!, peel_fold_secondmove!
+export apply_change_of_marking_to_tt!
 
-using Donut.TrainTracks.MeasuresAndOperations
+
 using Donut.TrainTracks
-using Donut.TrainTracks.Measures
+using Donut.TrainTracks: whichside_to_peel
 using Donut.Pants
 using Donut.PantsAndTrainTracks.PathTightening
 using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.PantsAndTrainTracks.ArcsInPants: pantscurvearc_direction
 using Donut.PantsAndTrainTracks.IsotopyAfterElementaryMoves
 using Donut.Constants
-using Donut.TrainTrackNets
 
-
-import Donut
-import Donut.TrainTracks.Operations
 
 
 debug = false
 
-function is_switchside_legal(tt::TrainTrack, sw::Integer, side::Side, 
+function is_switchside_legal(tt::DecoratedTrainTrack, sw::Integer, side::Side, 
         encodings::Vector{ArcInPants}, encoding_changes::Vector{Tuple{Int16, Vector{ArcInPants}}})
     debug = false
     frontbr = extremal_branch(tt, sw, side)
@@ -146,10 +142,10 @@ function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
      
                     sidetopeel = whichside_to_peel(ttnet, tt_index, sw, side)
                     if sidetopeel == FORWARD
-                        peel!(ttnet, tt_index, sw, side)
+                        apply_tt_operation!(ttnet, tt_index, Peel(sw, side))
                     else
                         peeledbr, otherbr = otherbr, peeledbr
-                        peel!(ttnet, tt_index, -sw, otherside(side))
+                        apply_tt_operation!(ttnet, tt_index, Peel(-sw, otherside(side)))
                     end
                     if debug
                         println("Peeling $(peeledbr) off of $(otherbr)...")
@@ -291,7 +287,8 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
                             println("Folding $(signed_br) onto $(fold_onto_br)...")
                         end
                         endsw = branch_endpoint(tt, fold_onto_br)
-                        fold!(ttnet, tt_index, fold_onto_br, side)
+                        
+                        apply_tt_operation!(ttnet, tt_index, Fold(fold_onto_br, side))
                         subtract_path!(encodings, encoding_changes, signed_br, fold_onto_br)
                         if debug
                             println("TrainTrack gluing list: ", tt_gluinglist(tt))
@@ -321,12 +318,12 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
     # Fixing switch orientations.
     # println("Fixing orie  ntation of switches ", switches_toconsider, "...")
     for sw in switches_toconsider
-        fix_switch_orientation!(tt, sw, encodings)
+        fix_switch_orientation!(ttnet, tt_index, sw, encodings)
     end
 end
 
-function fix_switch_orientation!(ttnet::TrainTrackNet, tt_index::Integer, 
-        encodings::Vector{ArcInPants})
+function fix_switch_orientation!(ttnet::TrainTrackNet, tt_index::Integer,
+        sw::Integer, encodings::Vector{ArcInPants})
     # println(encodings)
     # println(outgoing_branches(tt, sw))
     # println(outgoing_branches(tt, -sw))
@@ -337,7 +334,7 @@ function fix_switch_orientation!(ttnet::TrainTrackNet, tt_index::Integer,
         arc = branch_to_arc(encodings, br)
         if ispantscurvearc(arc)
             if pantscurvearc_direction(arc) == BACKWARD
-                reverseswitch!(ttnet, tt_index, sw)
+                apply_tt_operation!(ttnet, tt_index, ReverseSwitch(sw))
             end
             return
         end
@@ -346,52 +343,64 @@ function fix_switch_orientation!(ttnet::TrainTrackNet, tt_index::Integer,
 end
 
 
-function peel_fold_elementarymove!(ttnet::TrainTrackNet, tt_index::Integer, 
-        pd::PantsDecomposition, 
-        update_encoding_fn::Function, encodings::Vector{ArcInPants})
-    encoding_changes = update_encoding_fn(get_tt(ttnet, tt_index), pd, encodings)
-    switches_toconsider = peel_to_remove_illegalturns!(ttnet, tt_index, pd, 
+function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
+        tt_index::Integer, pd::PantsDecomposition, move::ChangeOfPantsMarking, 
+        encodings::Vector{ArcInPants})
+    tt = get_tt(ttnet, tt_index)
+    encoding_changes = update_encodings_aftermove!(tt, pd, move, encodings)
+    switches_toconsider = peel_to_remove_illegalturns!(ttnet, tt_index, pd,
         encodings, encoding_changes)
     fold_peeledtt_back!(ttnet, tt_index, encodings, encoding_changes, switches_toconsider)
 end
 
-function peel_fold_secondmove!(ttnet::TrainTrackNet, tt_index::Integer, 
-        pd::PantsDecomposition, curveindex::Integer, encodings::Vector{ArcInPants})
-    peel_fold_elementarymove!(ttnet, tt_index, pd, 
-        (tt, pd, encodings)->update_encodings_after_secondmove!(tt, pd, curveindex, 
-        encodings), encodings)
-end
-
-function peel_fold_firstmove!(ttnet::TrainTrackNet, tt_index::Integer, 
-        pd::PantsDecomposition, curveindex::Integer, 
-        encodings::Vector{ArcInPants}, is_inverse=false)
-    peel_fold_elementarymove!(ttnet, tt_index, pd, 
-        (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, 
-        encodings, is_inverse), encodings)
-end
+# function peelfold_after_elementarymove!(ttnet::TrainTrackNet, tt_index::Integer, 
+#         pd::PantsDecomposition, move::ChangeOfPantsMarking, encodings::Vector{ArcInPants})
+#     tt = get_tt(ttnet, tt_index)
+#     encoding_changes = update_encodings_aftermove!(tt, pd, move.curveindex, encodings)
+#     switches_toconsider = peel_to_remove_illegalturns!(ttnet, tt_index, pd,
+#         encodings, encoding_changes)
+#     fold_peeledtt_back!(ttnet, tt_index, encodings, encoding_change, switches_toconsider)
+# end
 
 
+# function peel_fold_secondmove!(ttnet::TrainTrackNet, tt_index::Integer, 
+#         pd::PantsDecomposition, curveindex::Integer, encodings::Vector{ArcInPants})
+#     peel_fold_elementarymove!(ttnet, tt_index, pd, 
+#         (tt, pd, encodings)->update_encodings_after_secondmove!(tt, pd, curveindex, 
+#         encodings), encodings)
+# end
+
+# function peel_fold_firstmove!(ttnet::TrainTrackNet, tt_index::Integer, 
+#         pd::PantsDecomposition, curveindex::Integer, 
+#         encodings::Vector{ArcInPants}, is_inverse=false)
+#     peel_fold_elementarymove!(ttnet, tt_index, pd, 
+#         (tt, pd, encodings)->update_encodings_after_firstmove!(tt, pd, curveindex, 
+#         encodings, is_inverse), encodings)
+# end
 
 
-function peel_fold_dehntwist!(ttnet::TrainTrackNet, tt_index::Integer, 
-        pd::PantsDecomposition, curveindex::Integer, encodings::Vector{ArcInPants}, 
-        twistdirection::Side)
-    pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
-    bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
-    peel_fold_elementarymove!(ttnet, tt_index, pd, (
-        tt, pd, encodings)->update_encodings_after_dehntwist!(tt, pd, pantindex, 
-        bdyindex, twistdirection, encodings), encodings)
-end
 
 
-function peel_fold_halftwist!(ttnet::TrainTrackNet, tt_index::Integer, pd::PantsDecomposition, 
-        curveindex::Integer, encodings::Vector{ArcInPants}, twistdirection::Side)
-    pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
-    bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
-    peel_fold_elementarymove!(ttnet, tt_index, pd, 
-        (tt, pd, encodings)->update_encodings_after_halftwist!(tt, pd, pantindex, 
-        bdyindex, twistdirection, encodings), encodings)
-end
+# function peel_fold_aftermove!(ttnet::TrainTrackNet, tt_index::Integer, 
+#         pd::PantsDecomposition, move::Twist, encodings::Vector{ArcInPants})
+#     pantindex = pant_nextto_pantscurve(pd, move.curveindex, LEFT)
+#     bdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
+
+    
+#     peel_fold_elementarymove!(ttnet, tt_index, pd, (
+#         tt, pd, encodings)->update_encodings_after_dehntwist!(tt, pd, pantindex, 
+#         bdyindex, twistdirection, encodings), encodings)
+# end
+
+
+# function peel_fold_halftwist!(ttnet::TrainTrackNet, tt_index::Integer, pd::PantsDecomposition, 
+#         curveindex::Integer, encodings::Vector{ArcInPants}, twistdirection::Side)
+#     pantindex = pant_nextto_pantscurve(pd, curveindex, LEFT)
+#     bdyindex = bdyindex_nextto_pantscurve(pd, curveindex, LEFT)
+#     peel_fold_elementarymove!(ttnet, tt_index, pd, 
+#         (tt, pd, encodings)->update_encodings_after_halftwist!(tt, pd, pantindex, 
+#         bdyindex, twistdirection, encodings), encodings)
+# end
 
 
 

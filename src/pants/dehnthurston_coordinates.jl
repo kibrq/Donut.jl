@@ -36,11 +36,11 @@ struct DehnThurstonCoordinates{T}
 end
 
 
-function intersection_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Int) where {T}
+function intersection_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Integer) where {T}
     dtcoords.coords[abs(curveindex)][1]
 end
 
-function twisting_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Int) where {T}
+function twisting_number(dtcoords::DehnThurstonCoordinates{T}, curveindex::Integer) where {T}
     dtcoords.coords[abs(curveindex)][2]
 end
 

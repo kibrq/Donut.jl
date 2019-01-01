@@ -1,20 +1,8 @@
 
-module Carrying
-
 export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, 
     trajectory_of_small_branch_or_cusp, pullout_branches_small!,
     pullout_branches_large!, peel_small!, fold_large!
 
-using Donut.TrainTracks
-using Donut.TrainTracks.Measures
-import Donut
-import Donut.TrainTracks.Operations
-using Donut.TrainTracks.MeasuresAndOperations
-using Donut.TrainTracks: numswitches_if_made_trivalent, numbranches_if_made_trivalent, 
-    BranchIterator
-using Donut.TrainTracks.Cusps
-
-using Donut.Constants
 
 
 
@@ -28,10 +16,8 @@ of the path is the length of the cusp path is nonzero.
 
 """
 struct CarryingMap
-    large_tt::TrainTrack
-    small_tt::TrainTrack
-    large_cusphandler::CuspHandler
-    small_cusphandler::CuspHandler
+    large_tt::DecoratedTrainTrack
+    small_tt::DecoratedTrainTrack
     small_cusp_to_large_cusp::Vector{Int} # [small cusps] 
     large_cusp_to_small_cusp::Vector{Int} # [large cusps]
     extremal_intervals::Array{Int16, 2}  #  [LEFT,RIGHT] x [large switches]
@@ -59,14 +45,16 @@ struct CarryingMap
     The provided train track and cusphandler are used as the small train track
     without copying.
     """
-    function CarryingMap(tt::TrainTrack, ch::Union{CuspHandler, Nothing}=nothing)
-        if ch == nothing
-            ch = CuspHandler(tt)
+    function CarryingMap(dtt::DecoratedTrainTrack)
+        if !hascusphandler(dtt)
+            add_cusphandler!(dtt)
+            # error("The train tracks in carrying maps have to keep track of cusps.")
         end
-        numsw = numswitches_if_made_trivalent(tt)
-        numbr = numbranches_if_made_trivalent(tt)
+        numsw = numswitches_if_made_trivalent(dtt.tt)
+        numbr = numbranches_if_made_trivalent(dtt.tt)
         # ncusps = numcusps(tt)
 
+        ch = dtt.cusphandler
         ncusps = max_cusp_number(ch)
 
         small_cusp_to_large_cusp = zeros(Int16, ncusps)
@@ -86,7 +74,7 @@ struct CarryingMap
         click_to_small_switch = zeros(Int16, numsw)
 
         i = 1
-        for sw in switches(tt)
+        for sw in switches(dtt)
             @assert sw == i
             extremal_intervals[Int(LEFT), i] = 2*i-1
             extremal_intervals[Int(RIGHT), i] = 2*i
@@ -110,7 +98,7 @@ struct CarryingMap
         temp_intersections = zeros(BigInt, 1, numbr + ncusps)
         temp_paths = zeros(BigInt, numbr + 2*numsw, 1)
 
-        for br in branches(tt)
+        for br in branches(dtt)
             paths[br, br] = 1
         end
 
@@ -119,7 +107,7 @@ struct CarryingMap
 
         temp_int_array = zeros(Int16, 2*numbr, 2)
 
-        new(copy(tt), tt, copy(ch), ch,
+        new(copy(dtt), dtt,
         small_cusp_to_large_cusp, large_cusp_to_small_cusp, 
         extremal_intervals, interval_to_click, click_to_interval, 
         small_switch_to_click, interval_to_large_switch, click_to_small_switch, 
@@ -197,6 +185,11 @@ function get_intersections(cm::CarryingMap, branch_or_cusp::Integer, label1::Int
     idx1 = branch_or_cusp_to_index(cm, branch_or_cusp, label1)
     idx2 = branch_or_cusp_to_index(cm, branch_or_interval, label2)
     return cm.paths[idx2, idx1]
+end
+
+function get_intersections(cm::CarryingMap, branch_or_interval::Integer, label::Integer)
+    idx = branch_or_cusp_to_index(cm, branch_or_interval, label)
+    return cm.paths[idx, :]
 end
 
 function is_branch_or_cusp_collapsed(cm::CarryingMap, branch_or_cusp::Integer, label::Integer)
@@ -367,47 +360,25 @@ end
 #---------------------------------------------------
 
 
-struct BranchAndCuspIterator
-    tt::TrainTrack
-    ch::CuspHandler
-    sw::Int16
-end
-
-function Base.iterate(iter::BranchAndCuspIterator, state::Tuple{Int, Int}=(0,0))
-    br, branch_or_cusp = state
-    if br == 0
-        # initial state
-        br = extremal_interval(iter.tt, iter.sw, LEFT)
-        return ((BRANCH, br), (br, BRANCH))
-    else
-        if branch_or_cusp == BRANCH
-            cusp = branch_to_cusp(iter.ch, br, RIGHT)
-            if cusp != 0
-                return ((CUSP, cusp), (br, CUSP))
-            else
-                return nothing
-            end
-        else
-            br = next_branch(iter.tt, br, RIGHT)
-            return ((BRANCH, br), (br, BRANCH))
-        end
-    end
-end
-
-function outgoing_branches_and_cusps(tt::TrainTrack, ch::CuspHandler, sw::Integer)
-    BranchAndCuspIterator(tt, ch, sw)
-end
 
 function save_forward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::Integer, start_side::Side=LEFT, idx::Integer=1)
-    for (branch_or_cusp, label) in outgoing_branches_and_cusps(cm.small_tt, cm.small_cusphandler, small_sw, start_side)
-        if branch_or_cusp == BRANCH && is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
-            br = label
-            new_sw = -branch_endpoint(cm.small_tt, br)
-            idx = save_forward_branches_and_cusps_from_cone(cm, new_sw, start_side, idx)
+    branch_or_cusp = BRANCH
+    label = extremal_branch(cm.small_tt, small_sw, start_side)
+    while label != 0
+        if branch_or_cusp == BRANCH 
+            if is_branch_or_cusp_collapsed(cm, branch_or_cusp, label)
+                br = label
+                new_sw = -branch_endpoint(cm.small_tt, br)
+                idx = save_forward_branches_and_cusps_from_cone(cm, new_sw, start_side, idx)
+            end
+            branch_or_cusp = CUSP
+            label = branch_to_cusp(cm.small_tt, label, otherside(start_side))
         else
             cm.temp_int_array[idx, FORWARD] = label
             @assert (idx % 2 == 0) == (branch_or_cusp == CUSP)
             idx += 1
+            branch_or_cusp = BRANCH
+            label = cusp_to_branch(cm.small_tt, label, otherside(start_side))
         end
     end
     return idx
@@ -453,10 +424,10 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
         iter = outgoing_branches(cm.small_tt, small_sw, start_side)
     elseif coming_from == COMING_FROM_FRONT_STARTSIDE
         end_br = extremal_branch(cm.small_tt, small_sw, otherside(start_side))
-        iter = BranchIterator(cm.small_tt, -branch_leading_here, end_br, start_side)
+        iter = BranchIterator(cm.small_tt.tt, -branch_leading_here, end_br, start_side)
     elseif coming_from == COMING_FROM_FRONT_OTHERSIDE
         start_br = extremal_branch(cm.small_tt, small_sw, start_side)
-        iter = BranchIterator(cm.small_tt, start_br, -branch_leading_here, start_side)
+        iter = BranchIterator(cm.small_tt.tt, start_br, -branch_leading_here, start_side)
     else
         @assert false
     end
@@ -484,7 +455,7 @@ function save_forward_branches_and_cusps_from_click(cm::CarryingMap, small_sw::I
                 break
             end
         end
-        cusp = branch_to_cusp(cm.small_cusphandler, br, otherside(start_side))
+        cusp = branch_to_cusp(cm.small_tt, br, otherside(start_side))
         if debug
             println("Considering cusp $(cusp)...")
         end
@@ -557,7 +528,7 @@ function save_backward_branches_and_cusps_from_cone(cm::CarryingMap, small_sw::I
             @assert idx % 2 == 1
             idx += 1
         end
-        cusp = branch_to_cusp(cm.small_cusphandler, br, start_side)
+        cusp = branch_to_cusp(cm.small_tt, br, start_side)
         if cusp != 0
             cm.temp_int_array[idx+1, BACKWARD] = cusp
             @assert idx % 2 == 0
@@ -758,7 +729,7 @@ function branch_or_cusp_to_position_in_click!(cm::CarryingMap, branch_or_cusp::I
     if branch_or_cusp == BRANCH
         sw = branch_endpoint(cm.small_tt, -label)
     elseif branch_or_cusp == CUSP
-        sw = cusp_to_switch(cm.small_tt, cm.small_cusphandler, label)
+        sw = cusp_to_switch(cm.small_tt, label)
     else
         @assert false
     end
@@ -800,7 +771,7 @@ function position_in_large_switch_to_large_branch_or_cusp!(cm::CarryingMap,
             @assert are_temp_intersections_nonnegative(cm)
             return (BRANCH, br)
         end
-        large_cusp = branch_to_cusp(cm.large_cusphandler, br, otherside(start_side))
+        large_cusp = branch_to_cusp(cm.large_tt, br, otherside(start_side))
         if debug
             println("Large cusp: ", large_cusp)
         end
@@ -837,7 +808,7 @@ function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
     while true
         if branch_or_cusp == BRANCH
             branch_or_cusp = CUSP
-            label = branch_to_cusp(cm.large_cusphandler, label, start_side)
+            label = branch_to_cusp(cm.large_tt, label, start_side)
             if label == 0
                 return
             end
@@ -847,7 +818,7 @@ function position_in_large_branch_or_cusp_to_large_switch!(cm::CarryingMap,
             end
         else
             branch_or_cusp = BRANCH
-            label = cusp_to_branch(cm.large_cusphandler, label, start_side)
+            label = cusp_to_branch(cm.large_tt, label, start_side)
             add_paths_large!(cm, TEMP, TEMP_INDEX, BRANCH, label)
         end
     end
@@ -880,7 +851,7 @@ if the cusp path corresponding to the large cusp is collapsed.
 function large_cusp_to_position_in_click_or_interval(cm::CarryingMap, large_cusp::Integer, 
         start_side::Side=LEFT)
     large_cusp_to_position_in_large_switch!(cm, large_cusp, start_side)
-    large_sw = cusp_to_switch(cm.large_tt, cm.large_cusphandler, large_cusp)
+    large_sw = cusp_to_switch(cm.large_tt, large_cusp)
     click_or_interval, label = position_in_large_switch_to_click_or_interval!(cm, large_sw, start_side)
     return click_or_interval, label
 end
@@ -889,12 +860,13 @@ end
 function position_in_reversed_branch_or_interval!(cm::CarryingMap, branch_or_interval::Integer, 
         label1::Integer, small_br_or_cusp::Integer, label2::Integer)
     add_paths_large!(cm, TEMP, TEMP_INDEX, branch_or_interval, label1, -1)
-    # println("Subtracting large branch $(large_br): ", cm.temp_intersections)
+    # println("Large branch $(label1): ", get_intersections(cm, BRANCH, label1))
+    # println("Subtracting large branch $(label1): ", cm.temp_intersections)
 
     negate_temp_intersections!(cm)
     # println("Multiplying by -1: ", cm.temp_intersections)
     add_intersection!(cm, small_br_or_cusp, label2, TEMP, TEMP_INDEX)
-    # println("Adding back $(small_br_or_cusp == BRANCH ? "branch" : "cusp") $(label): ", cm.temp_intersections)
+    # println("Adding back $(small_br_or_cusp == BRANCH ? "branch" : "cusp") $(label2): ", cm.temp_intersections)
 end
 
 
@@ -1008,7 +980,7 @@ function are_trajectories_consistent(cm::CarryingMap, printout=false)
         println()
         println("CUSPS:")
     end
-    for cusp in cusps(cm.small_cusphandler)
+    for cusp in cusps(cm.small_tt)
         traj = trajectory_of_small_branch_or_cusp(cm, CUSP, cusp)
         if printout
             println(cusp, ": ", traj)
@@ -1041,11 +1013,10 @@ end
 
 """Update the carrying map after peeling in the small train track
 """
-function update_carryingmap_peel_small!(cm::CarryingMap, switch::Integer, 
-        side::Side)
+function update_carryingmap_afterop_small!(cm::CarryingMap, op::Peel, _::Integer)
     # Updating intersections, clicks and intervals.
-    thick_branch = -extremal_branch(cm.small_tt, -switch, otherside(side))
-    peeled_branch = next_branch(cm.small_tt, thick_branch, side)
+    thick_branch = -extremal_branch(cm.small_tt, -op.sw, otherside(op.side))
+    peeled_branch = next_branch(cm.small_tt, thick_branch, op.side)
     # println("Thick branch: ", thick_branch)
     # println("Peeled branch: ", peeled_branch)
 
@@ -1058,11 +1029,11 @@ function update_carryingmap_peel_small!(cm::CarryingMap, switch::Integer,
         # but they would not do anything.
         add_paths_small!(cm, BRANCH, peeled_branch, BRANCH, thick_branch)
     
-        cusp_to_append_to = branch_to_cusp(cm.small_cusphandler, peeled_branch, otherside(side))
+        cusp_to_append_to = branch_to_cusp(cm.small_tt, peeled_branch, otherside(op.side))
         add_paths_small!(cm, CUSP, cusp_to_append_to, BRANCH, thick_branch)
     
-        click = small_switch_to_click(cm, switch)
-        interval = click_to_interval(cm, click, side)
+        click = small_switch_to_click(cm, op.sw)
+        interval = click_to_interval(cm, click, op.side)
         if !is_peeled_collapsed
             # New intersections with an interval next to the switch are
             # only created when none of the two branches are collapsed.
@@ -1071,7 +1042,7 @@ function update_carryingmap_peel_small!(cm::CarryingMap, switch::Integer,
         else
             # If the peel_off_of branch is not collapsed, but the peeled branch
             # is, then our click breaks apart after the peeling.
-            new_click, new_interval = insert_click!(cm, interval, otherside(side))
+            new_click, new_interval = insert_click!(cm, interval, otherside(op.side))
             end_sw = branch_endpoint(cm.small_tt, peeled_branch)
             set_click_to_small_switch(cm, new_click, -end_sw)
             apply_to_switches_in_click_after_branch!(cm, peeled_branch, sw -> set_small_switch_to_click!(cm, sw, new_click))
@@ -1082,42 +1053,55 @@ function update_carryingmap_peel_small!(cm::CarryingMap, switch::Integer,
 end
 
 
-function update_carryingmap_fold_large!(cm::CarryingMap, fold_onto_br::Integer, 
-        folded_br_side::Side)
-    large_sw = -branch_endpoint(cm.large_tt, fold_onto_br)
-    folded_br = extremal_branch(cm.large_tt, large_sw, folded_br_side) 
+function update_carryingmap_afterop_large!(cm::CarryingMap, op::Fold, _::Integer)
+    large_sw = -branch_endpoint(cm.large_tt, op.fold_onto_br)
+    folded_br = extremal_branch(cm.large_tt, large_sw, op.folded_br_side) 
 
-    # Adding the intersections with the folded branch to fold_onto_br ...
-    add_paths_large!(cm, BRANCH, fold_onto_br, BRANCH, folded_br)
+    # println(get_intersections(cm, BRANCH, op.fold_onto_br))
+    # Adding the intersections with the folded branch to op.fold_onto_br ...
+    add_paths_large!(cm, BRANCH, op.fold_onto_br, BRANCH, folded_br)
+    # println(get_intersections(cm, BRANCH, op.fold_onto_br))
 
     # ... and also the left- or rightmost interval at the merged switch
     # TODO: twisted branch
-    interval = extremal_interval(cm, large_sw, folded_br_side)
+    interval = extremal_interval(cm, large_sw, op.folded_br_side)
     add_paths_large!(cm, INTERVAL, interval, BRANCH, folded_br)
+    # println(get_intersections(cm, BRANCH, op.fold_onto_br))
 
     # Also add branch and interval intersection with a cusp path, since the
     # cusp path at between the folded branches become longer.
-    large_cusp = branch_to_cusp(cm.large_cusphandler, folded_br, otherside(folded_br_side))
+    large_cusp = branch_to_cusp(cm.large_tt, folded_br, otherside(op.folded_br_side))
     small_cusp = large_cusp_to_small_cusp(cm, large_cusp)
     if small_cusp != 0 
-        add_intersection!(cm, CUSP, small_cusp, BRANCH, fold_onto_br)
+        add_intersection!(cm, CUSP, small_cusp, BRANCH, op.fold_onto_br)
+        # println(get_intersections(cm, BRANCH, op.fold_onto_br))
         add_intersection!(cm, CUSP, small_cusp, INTERVAL, interval)
+        # println(get_intersections(cm, BRANCH, op.fold_onto_br))
     end
+    # println("Large branch $(op.fold_onto_br): ", get_intersections(cm, BRANCH, op.fold_onto_br))
 end
 
 
-function update_carryingmap_pullout_branches_small!(cm::CarryingMap, 
-        iter::BranchIterator, new_sw::Integer, new_br::Integer)
+function update_carryingmap_afterop_small!(cm::CarryingMap, 
+        _::PulloutBranches, new_sw::Integer)
     # Updating small switch to click
+
+    new_br = new_branch_after_pullout(cm.small_tt.tt, new_sw)
     old_sw = branch_endpoint(cm.small_tt, -new_br)
     click = small_switch_to_click(cm, old_sw)
+    # println("Updating small ssw")
+    # println(old_sw)
+    # println(new_sw)
+    # println(new_br)
+    # println(click)
     set_small_switch_to_click!(cm, new_sw, click)
 end
 
 
-function update_carryingmap_pullout_branches_large!(cm::CarryingMap, 
-        iter::BranchIterator, new_sw::Integer, new_br::Integer)
+function update_carryingmap_afterop_large!(cm::CarryingMap, 
+        _::PulloutBranches, new_sw::Integer)
     # Creating new interval at the new switch
+    new_br = new_branch_after_pullout(cm.large_tt.tt, new_sw)
     new_interval = _create_interval!(cm)
     set_interval_to_large_switch!(cm, new_interval, new_sw)
     set_extremal_interval!(cm, new_sw, LEFT, new_interval)
@@ -1126,7 +1110,7 @@ function update_carryingmap_pullout_branches_large!(cm::CarryingMap,
     # Updating intersections for new interval
     for large_br in outgoing_branches(cm.large_tt, new_sw)
         add_paths_large!(cm, INTERVAL, new_interval, BRANCH, large_br)
-        large_cusp = branch_to_cusp(cm.large_cusphandler, large_br, RIGHT)
+        large_cusp = branch_to_cusp(cm.large_tt, large_br, RIGHT)
         if large_cusp == 0
             break
         end
@@ -1142,82 +1126,46 @@ function update_carryingmap_pullout_branches_large!(cm::CarryingMap,
 end
 
 
-function make_small_tt_trivalent!(cm::CarryingMap, small_measure::Measure)
-    tt = cm.small_tt
-    small_switches = collect(switches(tt))
-    # we collect, because iterating on the iterator is dangerous, since
-    # the internals of the train track change during the iteration.
 
-    for sw in small_switches
-        valence = switchvalence(tt, sw)
-        num_pulls = valence - 3
-        @assert num_pulls >= 0
-        if num_pulls == 0
-            return
-        end
-        for sgn in (1, -1)
-            br = extremal_branch(tt, sgn*sw, LEFT)
-            while true
-                prev_br = br
-                br = next_branch(tt, br, RIGHT)
-                if br != 0
-                    iter = BranchIterator(tt, prev_br, br, LEFT)
-                    _, new_br = pullout_branches_small!(cm, iter, small_measure)
-                    num_pulls -= 1
-                    if num_pulls == 0
-                        return
-                    end
-                    br = new_br
-                else
-                    # No more branches
-                    break
-                end
-            end
-        end
-        # When should get here, since there should be enough branches to 
-        # pull out to reduce the valence to 3.
-        @assert false
-    end
-end
 
-function update_carryingmap_renamebranch_small!(cm::CarryingMap, 
-        oldlabel::Integer, newlabel::Integer)
+function update_carryingmap_afterop_small!(cm::CarryingMap, 
+        op::RenameBranch, new_sw::Integer)
         error("Not yet implemented")
 
 end
 
-function update_carryingmap_renamebranch_large!(cm::CarryingMap, 
-    oldlabel::Integer, newlabel::Integer)
+function update_carryingmap_afterop_large!(cm::CarryingMap, 
+        op::RenameBranch, new_sw::Integer)
     error("Not yet implemented")
 
 end
 
-function update_carryingmap_renameswitch_small!(cm::CarryingMap, 
-    oldlabel::Integer, newlabel::Integer)
-    click = small_switch_to_click(cm, oldlabel)
-    set_small_switch_to_click!(cm, oldlabel, 0)
-    set_small_switch_to_click!(cm, newlabel, click)
-    if click_to_small_switch!(cm, click) == oldlabel
-        set_click_to_small_switch!(cm, click, newlabel)
+function update_carryingmap_afterop_small!(cm::CarryingMap, 
+        op::RenameSwitch, _::Integer)
+    click = small_switch_to_click(cm, op.oldlabel)
+    set_small_switch_to_click!(cm, op.oldlabel, 0)
+    set_small_switch_to_click!(cm, op.newlabel, click)
+    if click_to_small_switch!(cm, click) == op.oldlabel
+        set_click_to_small_switch!(cm, click, op.newlabel)
     end
 end
 
-function update_carryingmap_renameswitch_large!(cm::CarryingMap, 
-        oldlabel::Integer, newlabel::Integer)
+function update_carryingmap_afterop_large!(cm::CarryingMap, 
+    op::RenameSwitch, _::Integer)
     # WARNING: the intervals and clicks are assumed to be oriented in the same
     # way as the containing large switch, but why?
     # if the sign of the 
     # switch changes, we need to change the signs of the clicks and
     # intervals. But for now, we won't worry about the orientation.
-    left_interval = extremal_interval(cm, oldlabel, LEFT)
-    right_interval = extremal_interval(cm, oldlabel, RIGHT)
+    left_interval = extremal_interval(cm, op.oldlabel, LEFT)
+    right_interval = extremal_interval(cm, op.oldlabel, RIGHT)
     interval = left_interval
     while interval != 0
         set_interval_to_large_switch!(cm, interval, new_label)
         interval = next_interval(cm, interval, RIGHT)
     end
-    set_extremal_interval!(cm, newlabel, LEFT, left_interval)
-    set_extremal_interval!(cm, newlabel, RIGHT, right_interval)        
+    set_extremal_interval!(cm, op.newlabel, LEFT, left_interval)
+    set_extremal_interval!(cm, op.newlabel, RIGHT, right_interval)        
 end
  
 
@@ -1434,7 +1382,7 @@ function end_switch_isotopy!(cm::CarryingMap, small_sw::Integer, forward_paths::
             cusp = forward_paths[cusp_idx]
             if is_branch_or_cusp_collapsed(cm, CUSP, cusp)
                 large_cusp = small_cusp_to_large_cusp(cm, cusp)
-                large_sw = cusp_to_switch(cm.large_tt, cm.large_cusphandler, large_cusp)
+                large_sw = cusp_to_switch(cm.large_tt, large_cusp)
                 click_or_interval, label, temp_storage_index =
                     large_cusp_to_position_in_click_or_interval(cm, large_cusp, LEFT)
                 # The large cusp could only be contained in a click if the small cusp
@@ -1534,17 +1482,17 @@ end
 
 function isotope_small_tt_for_fold!(cm::CarryingMap, 
         fold_onto_br::Integer, folded_br_side::Side)::Bool
-    # Trying to isotope the endpoint of ``fold_onto_branch`` as close to
+    # Trying to isotope the endpoint of ``fold_onto_br`` as close to
     # the start point as possible...
     folded_br = next_branch(cm.small_tt, fold_onto_br, folded_br_side)
-    end_sw = branch_endpoint(cm.small_tt, fold_onto_branch)
+    end_sw = branch_endpoint(cm.small_tt, fold_onto_br)
     is_isotopy_stuck = false
     while true
         is_isotopy_stuck = is_isotopy_stuck_at_cusp(cm, end_sw)
         if is_isotopy_stuck
             break
         end
-        if is_branch_or_cusp_collapsed(cm, BRANCH, fold_onto_branch)
+        if is_branch_or_cusp_collapsed(cm, BRANCH, fold_onto_br)
             # If the desired branch is collapsed, we can also stop.
             return true
         end
@@ -1559,22 +1507,22 @@ function isotope_small_tt_for_fold!(cm::CarryingMap,
         # Whether this is actually comes up and causes a problem, I'm not sure.
     end
 
-    # fold_onto_branch is not collapsed
+    # fold_onto_br is not collapsed
     # ... and isotoping the endpoint of ``folded_branch`` as far as
     # possible.
     folded_end_sw = branch_endpoint(cm.small_tt, folded_branch)
 
-    cusp = branch_to_cusp(cm.small_cusphandler, fold_onto_branch, folded_br_side)
-    if !is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, CUSP, cusp)
+    cusp = branch_to_cusp(cm.small_tt, fold_onto_br, folded_br_side)
+    if !is_path_shorter_or_equal(cm, BRANCH, fold_onto_br, CUSP, cusp)
         # In order for the fold to be possible, after the isotopy,
-        # fold_onto_branch has to be shorter or equal than the cusp path
-        # between the folded and the fold_onto_branch.
+        # fold_onto_br has to be shorter or equal than the cusp path
+        # between the folded and the fold_onto_br.
         # In this case, the fold is not possible.
         return false
     end
     while true
-        # Also, the folded_branch has to be at least as long as the fold_onto_branch.
-        if is_path_shorter_or_equal(cm, BRANCH, fold_onto_branch, BRANCH, folded_branch)
+        # Also, the folded_branch has to be at least as long as the fold_onto_br.
+        if is_path_shorter_or_equal(cm, BRANCH, fold_onto_br, BRANCH, folded_branch)
             return true
         end
         if is_isotopy_stuck_at_cusp(cm, -folded_end_sw)
@@ -1593,14 +1541,14 @@ end
 WARNING: The small train track alread has to be correctly isotoped before calling 
 this function!
 """
-function update_carryingmap_fold_small_after_isotopy!(cm::CarryingMap, fold_onto_branch::Integer,
+function update_carryingmap_fold_small_after_isotopy!(cm::CarryingMap, fold_onto_br::Integer,
         folded_br_side::Side)
     error("Not yet implemented")
     large_sw = -branch_endpoint(cm.large_tt, fold_onto_br)
     folded_br = extremal_branch(cm.large_tt, large_sw, folded_br_side) 
     
-    add_paths_small!(cm, BRANCH, folded_branch, BRANCH, fold_onto_branch, -1)
-    add_paths_small!(cm, CUSP, cusp, BRANCH, fold_onto_branch, -1)
+    add_paths_small!(cm, BRANCH, folded_branch, BRANCH, fold_onto_br, -1)
+    add_paths_small!(cm, CUSP, cusp, BRANCH, fold_onto_br, -1)
 
     if !is_branch_or_cusp_collapsed(cm, BRANCH, folded_branch)
         click = small_switch_to_click(cm, end_sw)
@@ -1610,7 +1558,7 @@ function update_carryingmap_fold_small_after_isotopy!(cm::CarryingMap, fold_onto
             add_intersection!(cm, CUSP, cusp, INTERVAL, interval, -1)
         end
 
-    elseif !is_branch_or_cusp_collapsed(cm, BRANCH, fold_onto_branch)
+    elseif !is_branch_or_cusp_collapsed(cm, BRANCH, fold_onto_br)
         # Clicks get merged. This happens when the folded and fold_onto
         # branches where not collapsed but they had the same length.
 
@@ -1626,11 +1574,11 @@ end
         #     self.add_intersection_with_interval(
         #         CUSP, cusp, interval, -1
         #     )
-        # elif not self.is_branch_collapsed(fold_onto_branch):
+        # elif not self.is_branch_collapsed(fold_onto_br):
         #     # Just like in the case of peeling there is a scenario when
         #     # clicks get merged. This happens when the folded and fold_onto
         #     # branches where not collapsed but they had the same length.
-        #     fold_onto_click = self.small_switch_to_click(fold_onto_branch)
+        #     fold_onto_click = self.small_switch_to_click(fold_onto_br)
         #     folded_click = self.small_switch_to_click(folded_branch)
         #     for sw in self.get_connected_switches(folded_branch):
         #         self.set_small_switch_to_click(sw, fold_onto_click)
@@ -1638,19 +1586,18 @@ end
 
 
 
-function update_carryingmap_collapse_branch_small!(cm::CarryingMap, small_br::Integer,
-    new_sw, new_br)
+function update_carryingmap_afterop_small!(cm::CarryingMap, op::CollapseBranch,
+    deleted_sw::Integer)
 
     error("Not yet implemented")
 
 end
 
 
-function update_carryingmap_collapse_branch_large!(cm::CarryingMap, large_br::Integer,
-    new_sw, new_br)
+function update_carryingmap_afterop_large!(cm::CarryingMap, op::CollapseBranch,
+    deleted_sw::Integer)
     error("Not yet implemented")
 
 end
         
 
-end

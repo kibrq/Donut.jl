@@ -5,16 +5,16 @@ export dehnthurstontrack, switch_turning, pantscurve_toswitch, pantscurve_to_bra
 
 using Donut.Pants
 using Donut.TrainTracks
-using Donut.TrainTracks: BranchIterator
 using Donut.Constants
 using Donut.PantsAndTrainTracks.ArcsInPants
+using Donut.TrainTracks: BranchIterator
 
 doubledindex(x) = x > 0 ? 2*x-1 : -2*x
 
 
 struct BranchData
     branchtype::PantsArcType
-    pantindex::Int
+    pantindex::Int16
     bdyindex::BdyIndex
 end
 
@@ -141,7 +141,7 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
         push!(branchencodings, construct_selfconnarc(curve, LEFT))
         push!(branchdata, BranchData(SELFCONN, pant, bdyindex))
     end
-    tt = TrainTrack(gluinglist)
+    tt = DecoratedTrainTrack(gluinglist)
     # println(gluinglist)
     # @assert length(branches(tt)) == numbranches
     tt, branchencodings, branchdata
@@ -156,14 +156,14 @@ The direction of the switch is assumed to be same as the direction of the pants 
 
 # TODO: This method is now linear in the nunber of inner pants curves. It could be constant with more bookkeeping.
 """
-function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Int)
+function pantscurve_toswitch(pd::PantsDecomposition, pantscurveindex::Integer)
     # println(pd)
     # println(pantscurveindex)
     return pantscurveindex
 end
 
 
-function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vector{ArcInPants})
+function switch_turning(dttraintrack::DecoratedTrainTrack, sw::Integer, branchencodings::Vector{ArcInPants})
     for side in (LEFT, RIGHT)
         br = extremal_branch(dttraintrack, sw, side)
         if ispantscurvearc(branchencodings[abs(br)])
@@ -176,7 +176,7 @@ function switch_turning(dttraintrack::TrainTrack, sw::Int, branchencodings::Vect
     @assert false
 end
 
-function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Int, dttraintrack::TrainTrack, branchencodings::Vector{ArcInPants})
+function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Integer, dttraintrack::DecoratedTrainTrack, branchencodings::Vector{ArcInPants})
     sw = pantscurve_toswitch(pd, pantscurveindex)
     for side in (LEFT, RIGHT)
         br = extremal_branch(dttraintrack, sw, side)
@@ -190,8 +190,8 @@ end
 """
 The branches are always returned left to right. So for a self-connecting branch the beginning of the branch would come before the end of the branch.
 """
-function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, 
-        pantindex::Int, bdyindex::BdyIndex, branchencodings::Vector{ArcInPants})
+function branches_at_pantend(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
+        pantindex::Integer, bdyindex::BdyIndex, branchencodings::Vector{ArcInPants})
     pantscurveindex = pantscurve_nextto_pant(pd, pantindex, bdyindex)
     # println("Pantscurve: ", pantscurveindex)
     sw = pantscurve_toswitch(pd, pantscurveindex)
@@ -205,16 +205,16 @@ function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition,
     next_br = next_branch(dttraintrack, br1, otherside(turning))
     br2 = extremal_branch(dttraintrack, sw, otherside(turning))
     if turning == LEFT
-        return BranchIterator(dttraintrack, next_br, br2, turning)
+        return BranchIterator(dttraintrack.tt, next_br, br2, turning)
     else
-        return BranchIterator(dttraintrack, br2, next_br, otherside(turning))
+        return BranchIterator(dttraintrack.tt, br2, next_br, otherside(turning))
     end
 end
 
 
 
-function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, 
-    pantindex::Int, bdyindex::BdyIndex, branchtype::PantsArcType, 
+function findbranch(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
+    pantindex::Integer, bdyindex::BdyIndex, branchtype::PantsArcType, 
     branchencodings::Vector{ArcInPants})
     # println("++++++++++++++++++++++++++++")
     # println(dttraintrack)
@@ -256,7 +256,7 @@ end
 
 """
 """
-function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Int, 
+function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Integer, 
     bdyindex::BdyIndex, is_reversed::Bool, branchtype::PantsArcType)
     # println("arc_in_pantsdecomposition", pantindex, ", ", bdyindex, ", ", branchtype)
     if branchtype == PANTSCURVE

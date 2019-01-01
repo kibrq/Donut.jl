@@ -1,13 +1,8 @@
-module Cusps
 
-using Donut.TrainTracks
-using Donut.TrainTracks: numbranches_if_made_trivalent
-
-export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
-    update_cusps_fold!, cusp_to_switch, outgoing_cusps, update_cusps_pullout_branches!
+# export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
+    # update_cusps_fold!, cusp_to_switch, outgoing_cusps, update_cusps_pullout_branches!
 import Base.copy
-using Donut.Constants: FORWARD, BACKWARD
-using Donut.Constants
+
 
 struct CuspHandler
     cusp_to_branch::Array{Int16, 2}
@@ -54,10 +49,10 @@ function branch_to_cusp(ch::CuspHandler, br::Integer, side::Side)
     ch.branch_to_cusp[Int(side), Int(br > 0 ? FORWARD : BACKWARD), abs(br)]
 end
 
-function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Integer, start_side::Side=LEFT)
-    (branch_to_cusp(ch, br, otherside(side)) for br in outgoing_branches(tt, br, side) 
-    if branch_to_cusp(ch, br, otherside(side)) != 0)
-end
+# function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Integer, start_side::Side=LEFT)
+#     (branch_to_cusp(ch, br, otherside(side)) for br in outgoing_branches(tt, br, side) 
+#     if branch_to_cusp(ch, br, otherside(side)) != 0)
+# end
 
 function cusp_to_switch(tt::TrainTrack, ch::CuspHandler, cusp::Integer)
     br = cusp_to_branch(ch, cusp, LEFT)
@@ -85,51 +80,54 @@ function set_branch_to_cusp!(ch::CuspHandler, br::Integer, side::Side, cusp::Int
 end
 
 
-function update_cusps_peel!(tt_after_op::TrainTrack, ch::CuspHandler, switch::Integer, side::Side)
+function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Peel,
+        _::Integer)
     tt = tt_after_op
-    peel_off_branch = -extremal_branch(tt, -switch, otherside(side))
+    peel_off_branch = -extremal_branch(tt, -op.sw, otherside(op.side))
     @assert !istwisted(tt, peel_off_branch)   # TODO: handle twisted branch
-    peeled_branch = next_branch(tt, peel_off_branch, side)
-    forward_branch = extremal_branch(tt, switch, side)
-    cusp = branch_to_cusp(ch, peeled_branch, otherside(side))
-    next_cusp = branch_to_cusp(ch, peel_off_branch, side)
+    peeled_branch = next_branch(tt, peel_off_branch, op.side)
+    forward_branch = extremal_branch(tt, op.sw, op.side)
+    cusp = branch_to_cusp(ch, peeled_branch, otherside(op.side))
+    next_cusp = branch_to_cusp(ch, peel_off_branch, op.side)
 
-    set_branch_to_cusp!(ch, peel_off_branch, side, cusp)
-    set_cusp_to_branch!(ch, cusp, otherside(side), peel_off_branch)
-    set_branch_to_cusp!(ch, forward_branch, side, 0)
+    set_branch_to_cusp!(ch, peel_off_branch, op.side, cusp)
+    set_cusp_to_branch!(ch, cusp, otherside(op.side), peel_off_branch)
+    set_branch_to_cusp!(ch, forward_branch, op.side, 0)
     if next_cusp != 0
-        set_branch_to_cusp!(ch, peeled_branch, side, next_cusp)
-        set_cusp_to_branch!(ch, next_cusp, otherside(side), peeled_branch)
+        set_branch_to_cusp!(ch, peeled_branch, op.side, next_cusp)
+        set_cusp_to_branch!(ch, next_cusp, otherside(op.side), peeled_branch)
     end
 end
 
 
-function update_cusps_fold!(tt_after_op::TrainTrack, ch::CuspHandler, fold_onto_br::Integer, 
-        folded_br_side::Side)
+function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Fold,
+        _::Integer)
     tt = tt_after_op
-    @assert !istwisted(tt, fold_onto_br)   # TODO: handle twisted branch
+    @assert !istwisted(tt, op.fold_onto_br)   # TODO: handle twisted branch
 
-    cusp = branch_to_cusp(ch, fold_onto_br, folded_br_side)
-    end_sw = -branch_endpoint(tt, fold_onto_br)
-    folded_br = extremal_branch(tt, end_sw, folded_br_side)
-    other_cusp = branch_to_cusp(ch, folded_br, folded_br_side)
-    other_br = next_branch(tt, folded_br, otherside(folded_br_side))
+    cusp = branch_to_cusp(ch, op.fold_onto_br, op.folded_br_side)
+    end_sw = -branch_endpoint(tt, op.fold_onto_br)
+    folded_br = extremal_branch(tt, end_sw, op.folded_br_side)
+    other_cusp = branch_to_cusp(ch, folded_br, op.folded_br_side)
+    other_br = next_branch(tt, folded_br, otherside(op.folded_br_side))
 
-    set_cusp_to_branch!(ch, cusp, otherside(folded_br_side), other_br)
-    set_branch_to_cusp!(ch, other_br, folded_br_side, cusp)
-    set_branch_to_cusp!(ch, folded_br, folded_br_side, 0)
-    set_branch_to_cusp!(ch, fold_onto_br, folded_br_side, other_cusp)
+    set_cusp_to_branch!(ch, cusp, otherside(op.folded_br_side), other_br)
+    set_branch_to_cusp!(ch, other_br, op.folded_br_side, cusp)
+    set_branch_to_cusp!(ch, folded_br, op.folded_br_side, 0)
+    set_branch_to_cusp!(ch, op.fold_onto_br, op.folded_br_side, other_cusp)
     if other_cusp != 0
-        set_cusp_to_branch!(ch, other_cusp, otherside(folded_br_side), fold_onto_br)
+        set_cusp_to_branch!(ch, other_cusp, otherside(op.folded_br_side), op.fold_onto_br)
     end
 end
 
 
-function update_cusps_pullout_branches!(tt_after_op::TrainTrack, ch::CuspHandler, new_br::Integer)
+function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, 
+        _::PulloutBranches, new_sw::Integer)
     tt = tt_after_op
-    front_sw = -branch_endpoint(tt, new_br)
-    left_br = extremal_branch(tt, front_sw, LEFT)
-    right_br = extremal_branch(tt, front_sw, RIGHT)
+    new_br = new_branch_after_pullout(tt_after_op, new_sw)
+    new_sw = -branch_endpoint(tt, new_br)
+    left_br = extremal_branch(tt, new_sw, LEFT)
+    right_br = extremal_branch(tt, new_sw, RIGHT)
     left_cusp = branch_to_cusp(ch, left_br, LEFT)
     right_cusp = branch_to_cusp(ch, right_br, RIGHT)
     set_branch_to_cusp!(ch, new_br, LEFT, left_cusp)
@@ -145,25 +143,5 @@ function update_cusps_pullout_branches!(tt_after_op::TrainTrack, ch::CuspHandler
 end
 
 
-function updatecusphandler_after_ttop!(tt_afterop::TrainTrack, ch::CuspHandler, 
-    op::ElementaryTTOperation, last_added_br::Integer)
-    if op.optype == PEEL
-        update_cusps_peel!(tt_afterop, ch, op.label1, op.side)
-    elseif op.optype == FOLD
-        update_cusps_fold!(tt_afterop, ch, op.label1, op.side)
-    elseif op.optype == PULLOUT_BRANCHES
-        update_cusps_pullout_branches!(tt_afterop, ch, last_added_br)
-    elseif op.optype == COLLAPSE_BRANCH
-        error("Not yet implemented")
-    elseif op.optype == RENAME_BRANCH
-        error("Not yet implemented")
-    elseif op.optype == RENAME_SWITCH
-        error("Not yet implemented")
-    elseif op.optype == DELETE_BRANCH
-        error("Not yet implemented")
-    else
-        @assert false
-    end
-end
 
-end
+
