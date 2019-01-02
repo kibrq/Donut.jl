@@ -57,18 +57,34 @@ function printencoding(encodings)
     end
 end
 
+function delete!(branches_to_consider::Vector{Int16}, br::Integer)
+    for i in 1:length(branches_to_consider)
+        if abs(branches_to_consider[i]) == abs(br)
+            deleteat!(branches_to_consider, i)
+            return
+        end
+    end
+end
+
+function add!(branches_to_consider::Vector{Int16}, br::Integer)
+    for i in 1:length(branches_to_consider)
+        if abs(branches_to_consider[i]) == abs(br)
+            return
+        end
+    end
+    push!(branches_to_consider, br)
+end
 
 function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
         pd::PantsDecomposition, encodings::Vector{Path{ArcInPants}}, 
-        branches_to_change::Vector{Int16})
+        branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
 
     # We are allocating memory here. If this becomes a bottleneck, we can
     # make use it more efficient.
     switches_toconsider = Set(abs(branch_endpoint(tt, sg*br)) 
-        for br in branches_to_change for sg in (1, -1))
-    longer_than1_branches = Set(abs(br) for br in branches_to_change if 
-        length(encodings[abs(br)]) > 1)
+        for br in branches_to_consider for sg in (1, -1))
+
 
     if debug
         println("***************** START PEELING! **************")
@@ -82,26 +98,26 @@ function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
         # println("TrainTrack: ", tt)
         println("Encodings: ")
         printencoding(encodings)
-        println("Branches longer than 1: ", longer_than1_branches)
+        println("Branches to consider: ", branches_to_consider)
         println()
     end
     illegalturn_found = true
     while illegalturn_found
         illegalturn_found = find_illegal_turn_and_peel!(ttnet, tt_index,
-        pd, encodings, switches_toconsider, longer_than1_branches)
+        pd, encodings, switches_toconsider, branches_to_consider)
     end
     if debug
         println("***************** END PEELING! **************")
         println()
         println()
     end
-    return switches_toconsider, longer_than1_branches
+    return switches_toconsider
 end
 
 
 function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
     pd::PantsDecomposition, encodings::Vector{Path{ArcInPants}}, 
-    switches_toconsider::Set{Int16}, longer_than1_branches::Set{Int16})
+    switches_toconsider::Set{Int16}, branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     for sw in switches_toconsider
         for side in (LEFT, RIGHT)
@@ -145,13 +161,13 @@ function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
                 path = branch_to_path(encodings, peeledbr)
                 simplifypath!(pd, path)
 
-                if length(path) == 1
+                # if length(path) == 1
                     # if a path became length 1, we don't keep track anymore
-                    delete!(longer_than1_branches, abs(peeledbr))
-                else
+                    # delete!(branches_to_consider, abs(peeledbr))
+                # else
                     # if longer than 1, we keep track
-                    push!(longer_than1_branches, abs(peeledbr))
-                end
+                    add!(branches_to_consider, abs(peeledbr))
+                # end
 
 
                 # printencoding_changes(encoding_changes)
@@ -159,7 +175,7 @@ function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
                 if debug
                     println("Encoding of peeled branch ($(peeledbr)) after simpifying:", 
                         branch_to_path(encodings, peeledbr))
-                    println("Branches longer than 1: ", longer_than1_branches)
+                    println("Branches to consider: ", branches_to_consider)
                     println("------------------ END: peel_loop")
                 end
                 # printencoding_changes(encoding_changes)
@@ -179,16 +195,13 @@ function issubpath(encodings::Vector{Path{ArcInPants}},
     if length(path1) > length(path2)
         return false
     end
-    # println(path1)
-    # println(path2)
-    # println(    all(path1[i] == path2[i] for i in 1:length(path1))      )
     all(path1[i] == path2[i] for i in 1:length(path1))
 end
 
 
 function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer, 
         encodings::Vector{Path{ArcInPants}}, 
-        switches_toconsider::Set{Int16}, longer_than1_branches::Set{Int16})
+        branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     # switches to consider for fixing the switch orientations.
     if debug
@@ -196,9 +209,17 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
     end
     # switches_to_fix = Set(abs(branch_endpoint(tt, sg*br)) for (br, _) in encoding_changes for sg in (-1,1))
 
+    for i in length(branches_to_consider):-1:1
+        br = branches_to_consider[i]
+        path = encodings[abs(br)]
+        if length(path) == 1
+            deleteat!(branches_to_consider, i)
+        end
+    end
+
     count = 0
     # println(longer_than1_branches)
-    while length(longer_than1_branches) > 0 && count < 10
+    while length(branches_to_consider) > 0 && count < 10
         count += 1
         if debug
             println(tt)
@@ -208,7 +229,7 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
             # printencoding_changes(encoding_changes)
             println()
         end
-        for br in longer_than1_branches
+        for br in branches_to_consider
             foldfound = false
             for sg in (-1, 1)
                 signed_br = sg*br
@@ -236,7 +257,7 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
                         # if a path became length 1, we don't keep track anymore
                         path = branch_to_path(encodings, signed_br)
                         if length(path) == 1
-                            delete!(longer_than1_branches, br)
+                            delete!(branches_to_consider, br)
                         end
                         # println(longer_than1_branches)
                         if debug
@@ -263,37 +284,12 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
         println()
     end
     # println(longer_than1_branches)
-    @assert length(longer_than1_branches) == 0
+    @assert length(branches_to_consider) == 0
 
-    # Fixing switch orientations.
-    # println("Fixing orie  ntation of switches ", switches_toconsider, "...")
-    # for sw in switches_toconsider
-    #     fix_switch_orientation!(ttnet, tt_index, sw, encodings)
-    # end
 end
 
 
 
-
-# function fix_switch_orientation!(ttnet::TrainTrackNet, tt_index::Integer,
-#         sw::Integer, encodings::Vector{Path{ArcInPants}})
-#     # println(encodings)
-#     # println(outgoing_branches(tt, sw))
-#     # println(outgoing_branches(tt, -sw))
-#     tt = get_tt(ttnet, tt_index)
-#     @assert sw > 0
-#     for side in (LEFT, RIGHT)
-#         br = extremal_branch(tt, sw, side)
-#         arc = encoding_of_length1_branch(encodings, br)
-#         if arc isa PantsCurveArc
-#             if direction_of_pantscurvearc(arc) == BACKWARD
-#                 apply_tt_operation!(ttnet, tt_index, ReverseSwitch(sw))
-#             end
-#             return
-#         end
-#     end
-#     @assert false
-# end
 
 
 function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
@@ -301,10 +297,9 @@ function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet,
         encodings::Vector{Path{ArcInPants}}, branches_to_change::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     update_encodings_aftermove!(tt, pd, move, encodings, branches_to_change)
-    switches_toconsider, longer_than1_branches = 
-        peel_to_remove_illegalturns!(ttnet, tt_index, pd, encodings, branches_to_change)
-    fold_peeledtt_back!(ttnet, tt_index, encodings, switches_toconsider,
-        longer_than1_branches)
+    switches_toconsider = peel_to_remove_illegalturns!(ttnet, tt_index, pd, encodings,
+        branches_to_change)
+    fold_peeledtt_back!(ttnet, tt_index, encodings, branches_to_change)
 end
 
 
