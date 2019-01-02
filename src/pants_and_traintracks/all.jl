@@ -1,6 +1,7 @@
 module PantsAndTrainTracks
 
 include("arcsinpants.jl")
+include("paths.jl")
 include("path_tightening.jl")
 include("dehnthurstontracks.jl")
 include("measured_dehnthurstontracks.jl")

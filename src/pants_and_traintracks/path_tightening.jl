@@ -3,14 +3,12 @@ module PathTightening
 using Donut.Constants
 using Donut.Pants
 using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.PantsAndTrainTracks.ArcsInPants: gatetoside, selfconn_direction
+using Donut.PantsAndTrainTracks.ArcsInPants: gatetoside
+using Donut.PantsAndTrainTracks.Paths
 
-
-export ispathtight, simplifypath!, reversedpath
+export ispathtight, simplifypath!
 
 function ispathtight(arc1::ArcInPants, arc2::ArcInPants)
-    # println(arc1)
-    # println(arc2)
     @assert endvertex(arc1) == startvertex(arc2)
     endgate(arc1) != startgate(arc2)
 end
@@ -20,13 +18,10 @@ end
 Does not check subpaths of length 2.
 """
 function ispathtight(arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
-    # println(arc1)
-    # println(arc2)
-    # println(arc3)
     @assert endvertex(arc1) == startvertex(arc2)
     @assert endvertex(arc2) == startvertex(arc3)
 
-    if !ispantscurvearc(arc2) || ispantscurvearc(arc1) || ispantscurvearc(arc3)
+    if !(arc2 isa PantsCurveArc) || arc1 isa PantsCurveArc || arc3 isa PantsCurveArc
         return true
     end
     endgate(arc1) != startgate(arc3)
@@ -38,8 +33,7 @@ end
 Decide if a bridge goes from boundary i to i+1 (forward) or i+1 to i
 (backward).
 """
-function isbridgeforward(pd::PantsDecomposition, bridge::ArcInPants)
-    @assert isbridge(bridge)
+function isbridgeforward(pd::PantsDecomposition, bridge::BridgeArc)
     startside = gatetoside(startgate(bridge))
     endside = gatetoside(endgate(bridge))
     index1 = bdyindex_nextto_pantscurve(pd, startvertex(bridge), startside)
@@ -61,12 +55,16 @@ Construct an arc along a pants curve.
 function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::Integer, side::Side)
     sign1 = side == LEFT ? 1 : -1
     # sign2 = ispantscurveside_orientationpreserving(pd, signed_vertex, LEFT) ? 1 : -1
-    construct_pantscurvearc(signed_vertex * sign1)
+    PantsCurveArc(signed_vertex * sign1)
 end
 
-# this could return an iterator for better speed
-reversedpath(path::Vector{ArcInPants}) = [reversed(arc) for arc in reverse(path)]
+# # this could return an iterator for better speed
+# reversedpath(path::Vector{ArcInPants}) = ArcInPants[reversed(arc) for arc in reverse(path)]
 
+reverse_shortpath() = ()
+reverse_shortpath(a) = (reverse(a),)
+reverse_shortpath(a, b) = (reverse(b), reverse(a))
+reverse_shortpath(a, b, c) = (reverse(c), reverse(b), reverse(a))
 
 function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants)
     @assert !ispathtight(arc1, arc2)
@@ -77,41 +75,42 @@ function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPan
     # println(arc2)
 
     # Backtracking
-    if arc1 == reversed(arc2)
-        return ArcInPants[]
+    if arc1 == reverse(arc2)
+        return ()
     end
 
-    if isbridge(arc1) && isbridge(arc2)
-        return [construct_bridge(v0, v1)]
+    if arc1 isa BridgeArc && arc2 isa BridgeArc
+        return (BridgeArc(v0, v1),)
     end
 
-    if isselfconnarc(arc1) && isbridge(arc2)
+    if arc1 isa SelfConnArc && arc2 isa BridgeArc
         # deciding if inward on outward
         if isbridgeforward(pd, arc2)
             # inward: FIGURE 2, 4
-            return [construct_bridge(v0, v1),
-                    pantscurvearc_lookingfromgate(pd, v1, selfconn_direction(arc1))]
+            return (BridgeArc(v0, v1),
+                    pantscurvearc_lookingfromgate(pd, v1, arc1.direction))
         else
             # outward
-            if selfconn_direction(arc1) == LEFT
+            if arc1.direction == LEFT
                 # FIGURE 4.5
                 error("Simplification should first be somewhere else")
             else
                 # FIGURE 3
-                return [pantscurvearc_lookingfromgate(pd, v0, LEFT),
-                        construct_bridge(v0, v1),
-                        pantscurvearc_lookingfromgate(pd, v1, LEFT)]
+                return (pantscurvearc_lookingfromgate(pd, v0, LEFT),
+                        BridgeArc(v0, v1),
+                        pantscurvearc_lookingfromgate(pd, v1, LEFT))
             end
         end
-    elseif isselfconnarc(arc2) && isbridge(arc1)
-        return reversedpath(simplifiedpath(pd, reversed(arc2), reversed(arc1)))
+    elseif arc2 isa SelfConnArc && arc1 isa BridgeArc
+        return reverse_shortpath(simplifiedpath(pd, reverse(arc2), reverse(arc1))...)
     else
         @assert false
     end
 end
 
 
-function directionof_pantscurvearc(pd::PantsDecomposition, pantscurvearc::ArcInPants, lookingfrom_signedvertex::Integer)
+function directionof_pantscurvearc(pd::PantsDecomposition, pantscurvearc::PantsCurveArc, 
+        lookingfrom_signedvertex::Integer)
     for direction in (LEFT, RIGHT)
         arc = pantscurvearc_lookingfromgate(pd, lookingfrom_signedvertex, direction)
         if pantscurvearc == arc
@@ -130,11 +129,12 @@ function simplifiedpath(pd::PantsDecomposition,
     v1 = signed_endvertex(arc1)
     v2 = signed_endvertex(arc3)
 
-    if !isbridge(arc1)
-        return reversedpath(simplifiedpath(pd, reversed(arc3), reversed(arc2), reversed(arc1)))
+    if !(arc1 isa BridgeArc)
+        return reverse_shortpath(
+            simplifiedpath(pd, reverse(arc3), reverse(arc2), reverse(arc1))...)
     end
 
-    if isbridge(arc3)
+    if arc3 isa BridgeArc
         if v0 != v2
             # Figure 5: V-shape (same result as for Figure 3)
             # println([pantscurvearc_lookingfromgate(pd, v0, g0, LEFT),
@@ -144,42 +144,42 @@ function simplifiedpath(pd::PantsDecomposition,
             # println(v0, g0)
             # println(arc1, arc2, arc3)
             if isbridgeforward(pd, arc1)
-                return [pantscurvearc_lookingfromgate(pd, v0, LEFT),
-                        construct_bridge(v0, v2),
-                        pantscurvearc_lookingfromgate(pd, v2, LEFT)]
+                return (pantscurvearc_lookingfromgate(pd, v0, LEFT),
+                        BridgeArc(v0, v2),
+                        pantscurvearc_lookingfromgate(pd, v2, LEFT))
             else
-                return [pantscurvearc_lookingfromgate(pd, v0, RIGHT),
-                        construct_bridge(v0, v2),
-                        pantscurvearc_lookingfromgate(pd, v2, RIGHT)]
+                return (pantscurvearc_lookingfromgate(pd, v0, RIGHT),
+                        BridgeArc(v0, v2),
+                        pantscurvearc_lookingfromgate(pd, v2, RIGHT))
             end
         else
             direction = directionof_pantscurvearc(pd, arc2, v1)
             if isbridgeforward(pd, arc1)
                 # FIGURE 6
-                return [construct_selfconnarc(v0, direction)]
+                return (SelfConnArc(v0, direction),)
             else
                 # FIGURE 7
                 if direction == RIGHT
-                    return [construct_selfconnarc(v0, LEFT),
-                            pantscurvearc_lookingfromgate(pd, v0, LEFT)]
+                    return (SelfConnArc(v0, LEFT),
+                            pantscurvearc_lookingfromgate(pd, v0, LEFT))
                 else
-                    return [pantscurvearc_lookingfromgate(pd, v0, RIGHT),
-                            construct_selfconnarc(v0, RIGHT)]
+                    return (pantscurvearc_lookingfromgate(pd, v0, RIGHT),
+                            SelfConnArc(v0, RIGHT))
                 end
             end
         end
-    elseif isselfconnarc(arc3)
+    elseif arc3 isa SelfConnArc
         if !isbridgeforward(pd, arc1)
             # FIGURE 8.1, 8.2
             error("Simplification should first be somewhere else")
         end
-        if selfconn_direction(arc3) == LEFT
+        if arc3.direction == LEFT
             # FIGURE 8.3
             error("Simplification should first be somewhere else")
         end
 
         # FIGURE 8
-        return [pantscurvearc_lookingfromgate(pd, v0, LEFT), arc1]
+        return (pantscurvearc_lookingfromgate(pd, v0, LEFT), arc1,)
     else
         @assert false
     end
@@ -187,7 +187,7 @@ function simplifiedpath(pd::PantsDecomposition,
 end
 
 
-function simplifypath!(pd::PantsDecomposition, path::Vector{ArcInPants})
+function simplifypath!(pd::PantsDecomposition, path::Path{ArcInPants})
     count = 0
     while count < 1000
         count += 1

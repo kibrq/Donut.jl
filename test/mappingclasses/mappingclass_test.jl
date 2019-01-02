@@ -20,17 +20,17 @@ using Donut.MappingClasses.GeneratingSets
 
 
 
-    lam = lamination_from_pantscurve(pd, 1, Int(0))
-    @test transversaltwist(pd, 1)*lam == PantsLamination{Int}(pd, [(1, -1), (0, 0), (0, 0)])
-    @test transversaltwist(pd, 1, LEFT)*lam == PantsLamination{Int}(pd, [(1, 1), (0, 0), (0, 0)])
-    @test transversaltwist(pd, 2)*lam == lam
-    @test transversaltwist(pd, 3)*lam == lam 
+    # lam = lamination_from_pantscurve(pd, 1, Int(0))
+    # @test transversaltwist(pd, 1)*lam == PantsLamination{Int}(pd, [(1, -1), (0, 0), (0, 0)])
+    # @test transversaltwist(pd, 1, LEFT)*lam == PantsLamination{Int}(pd, [(1, 1), (0, 0), (0, 0)])
+    # @test transversaltwist(pd, 2)*lam == lam
+    # @test transversaltwist(pd, 3)*lam == lam 
 
-    lam = lamination_from_transversal(pd, 1, Int(0))
-    @test pantstwist(pd, 1)*lam == PantsLamination{Int}(pd, [(1, 1), (0, 0), (0, 0)])
-    @test pantstwist(pd, 1)^5*lam == PantsLamination{Int}(pd, [(1, 5), (0, 0), (0, 0)])
-    @test pantstwist(pd, 1, LEFT)*lam == PantsLamination{Int}(pd, [(1, -1), (0, 0), (0, 0)])
-    @test pantstwist(pd, 1, LEFT)^5*lam == PantsLamination{Int}(pd, [(1, -5), (0, 0), (0, 0)])
+    # lam = lamination_from_transversal(pd, 1, Int(0))
+    # @test pantstwist(pd, 1)*lam == PantsLamination{Int}(pd, [(1, 1), (0, 0), (0, 0)])
+    # @test pantstwist(pd, 1)^5*lam == PantsLamination{Int}(pd, [(1, 5), (0, 0), (0, 0)])
+    # @test pantstwist(pd, 1, LEFT)*lam == PantsLamination{Int}(pd, [(1, -1), (0, 0), (0, 0)])
+    # @test pantstwist(pd, 1, LEFT)^5*lam == PantsLamination{Int}(pd, [(1, -5), (0, 0), (0, 0)])
 
 
 end

@@ -6,7 +6,7 @@ using Donut.Constants
 using Donut.TrainTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: dehnthurstontrack, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, arc_in_pantsdecomposition 
 
-using Donut.PantsAndTrainTracks.ArcsInPants: SELFCONN, BRIDGE, PANTSCURVE, construct_pantscurvearc, construct_selfconnarc, construct_bridge
+using Donut.PantsAndTrainTracks.ArcsInPants
 
 
 pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
@@ -22,12 +22,12 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [1, 0], turnings)
 @test numoutgoing_branches(tt, 2) == 2
 @test numoutgoing_branches(tt, 3) == 3
 
-@test pantscurve_toswitch(pd, 1) == 1
-@test pantscurve_toswitch(pd, -1) == -1
-@test pantscurve_toswitch(pd, 2) == 2
-@test pantscurve_toswitch(pd, -2) == -2
-@test pantscurve_toswitch(pd, 3) == 3
-@test pantscurve_toswitch(pd, -3) == -3
+@test pantscurve_toswitch(pd, tt, encodings, 1) == 1
+@test pantscurve_toswitch(pd, tt, encodings,-1) == -1
+@test pantscurve_toswitch(pd, tt, encodings,2) == 2
+@test pantscurve_toswitch(pd, tt, encodings,-2) == -2
+@test pantscurve_toswitch(pd, tt, encodings,3) == 3
+@test pantscurve_toswitch(pd, tt, encodings,-3) == -3
 
 @test switch_turning(tt, 1, encodings) == LEFT
 @test switch_turning(tt, 2, encodings) == RIGHT
@@ -79,12 +79,12 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 @test numoutgoing_branches(tt, 2) == 3
 @test numoutgoing_branches(tt, 3) == 3
 
-@test pantscurve_toswitch(pd, 1) == 1
-@test pantscurve_toswitch(pd, -1) == -1
-@test pantscurve_toswitch(pd, 2) == 2
-@test pantscurve_toswitch(pd, -2) == -2
-@test pantscurve_toswitch(pd, 3) == 3
-@test pantscurve_toswitch(pd, -3) == -3
+@test pantscurve_toswitch(pd, tt, encodings,1) == 1
+@test pantscurve_toswitch(pd, tt, encodings,-1) == -1
+@test pantscurve_toswitch(pd, tt, encodings,2) == 2
+@test pantscurve_toswitch(pd, tt, encodings,-2) == -2
+@test pantscurve_toswitch(pd, tt, encodings,3) == 3
+@test pantscurve_toswitch(pd, tt, encodings,-3) == -3
 
 
 @test switch_turning(tt, 1, encodings) == RIGHT
@@ -105,16 +105,16 @@ tt, encodings, branchdata = dehnthurstontrack(pd, [3, 1, 0], turnings)
 
 @testset "Constructing arcs in pants decompositions" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(2), false, BRIDGE) == construct_bridge(3, 1)
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(2), true, BRIDGE) == construct_bridge(1, 3)
-    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(3), false, BRIDGE) == construct_bridge(-3, -2)
-    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(3), true, BRIDGE) == construct_bridge(-2, -3)
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(3), false, SELFCONN) == construct_selfconnarc(3, LEFT)
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(3), true, SELFCONN) == construct_selfconnarc(3, RIGHT)
-    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(1), false, SELFCONN) == construct_selfconnarc(-3, LEFT)
-    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(1), true, SELFCONN) == construct_selfconnarc(-3, RIGHT)
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(1), false, PANTSCURVE) == construct_pantscurvearc(1)
-    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(1), true, PANTSCURVE) == construct_pantscurvearc(-1)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(2), false, BRIDGE) == BridgeArc(3, 1)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(2), true, BRIDGE) == BridgeArc(1, 3)
+    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(3), false, BRIDGE) == BridgeArc(-3, -2)
+    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(3), true, BRIDGE) == BridgeArc(-2, -3)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(3), false, SELFCONN) == SelfConnArc(3, LEFT)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(3), true, SELFCONN) == SelfConnArc(3, RIGHT)
+    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(1), false, SELFCONN) == SelfConnArc(-3, LEFT)
+    @test arc_in_pantsdecomposition(pd, 2, BdyIndex(1), true, SELFCONN) == SelfConnArc(-3, RIGHT)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(1), false, PANTSCURVE) == PantsCurveArc(1)
+    @test arc_in_pantsdecomposition(pd, 1, BdyIndex(1), true, PANTSCURVE) == PantsCurveArc(-1)
 
 end
 

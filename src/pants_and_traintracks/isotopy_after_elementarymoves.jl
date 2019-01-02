@@ -9,11 +9,13 @@ using Donut.Pants
 using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.Pants.ElementaryMoves
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: findbranch, arc_in_pantsdecomposition
-using Donut.PantsAndTrainTracks.PathTightening: reversedpath
+using Donut.PantsAndTrainTracks.PathTightening
+using Donut.PantsAndTrainTracks.Paths
 
-function replacement_rules_twist(twistdirection::Side=RIGHT)
+
+function replacement_rules(move::Twist)
     # idx1, idx2, idx3 = bdyindex, nextindex(bdyindex, 3), previndex(bdyindex, 3)
-    sg = twistdirection == RIGHT ? 1 : -1
+    sg = move.direction == RIGHT ? 1 : -1
     return [
         ((BRIDGE, 3), [(PANTSCURVE, -sg), (BRIDGE, 3)]),
         ((BRIDGE, 2), [(BRIDGE, 2), (PANTSCURVE, sg)]),
@@ -57,39 +59,30 @@ const REPLACEMENT_RULES_SECONDMOVE_UPPER = [
 ]
 
 const REPLACEMENT_RULES_SECONDMOVE_LOWER = [(a, [(triple[1], triple[2], otherside(triple[3])) for triple in b]) for (a, b) in REPLACEMENT_RULES_SECONDMOVE_UPPER]
+const REPLACEMENT_RULES_SECONDMOVE = [REPLACEMENT_RULES_SECONDMOVE_UPPER; REPLACEMENT_RULES_SECONDMOVE_LOWER]
 
+function replacement_rules(move::FirstMove)
+    !move.isinverse ? REPLACEMENT_RULES_FIRSTMOVE : REPLACEMENT_RULES_FIRSTMOVE_INVERSE
+end
+
+
+replacement_rules(move::HalfTwist) = REPLACEMENT_RULES_HALFTWIST
+
+@enum UpperOrLower UPPER LOWER
+
+function replacement_rules(move::SecondMove)
+    REPLACEMENT_RULES_SECONDMOVE
+end
 
 function compile_oldbranch(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-    branchencodings::Vector{ArcInPants}, branchtype::PantsArcType, bdyindex::BdyIndex, 
+    branchencodings::Vector{Path{ArcInPants}}, branchtype::PantsArcType, bdyindex::BdyIndex, 
     pantindex::Integer, marking_bdyindex::BdyIndex)
     indices = marking_bdyindex, nextindex(marking_bdyindex), previndex(marking_bdyindex)
     findbranch(dttraintrack, pd, pantindex, indices[Int(bdyindex)], branchtype, branchencodings)
-    # if x!= nothing && abs(x) == 9
-    #     println("------")
-    #     println(pantindex)
-    #     println(bdyindex)
-    #     println(indices[bdyindex])
-    #     println(branchtype)
-    # end
-    # x
 end
 
-"""
-Compile the raw replacement rules so that the first part of each rule is replaced by the label of the branch. If that branch does not exist in the train track, the rule is ignored.
-"""
-function compile_oldbranches(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-    branchencodings::Vector{ArcInPants}, replacement_rules, pantindex::Integer, 
-    marking_bdyindex::BdyIndex)
-    ret = []
-    for rule in replacement_rules
-        br = compile_oldbranch(dttraintrack, pd, branchencodings, rule[1][1], 
-            BdyIndex(rule[1][2]), pantindex, marking_bdyindex)
-        if br != nothing
-            push!(ret, (br, rule[2]))
-        end
-    end
-    ret
-end
+
+
 
 function compile_newbranch(pd_aftermove::PantsDecomposition, branchtype::PantsArcType, 
     signed_bdyindex::Integer, pantindex::Integer, marking_bdyindex::BdyIndex)
@@ -98,112 +91,165 @@ function compile_newbranch(pd_aftermove::PantsDecomposition, branchtype::PantsAr
         signed_bdyindex < 0, branchtype)
 end
 
-function compile_newbranch_twopants(pd_aftermove::PantsDecomposition, branchtype::PantsArcType, 
-    signed_bdyindex::Integer, side::Side, leftpantindex::Integer, rightpantindex::Integer)
-    # println(pd_aftermove)
-    arc_in_pantsdecomposition(pd_aftermove, side == LEFT ? leftpantindex : rightpantindex, 
-        BdyIndex(abs(signed_bdyindex)), signed_bdyindex < 0, branchtype)
-end
 
-function compile_newbranches(replacement_rules, compile_fn::Function)
-    [(br, [compile_fn(item) for item in newdata]) for (br, newdata) in replacement_rules]
-end
 
-function update_branchencodings!(branchencodings::Vector{ArcInPants}, 
-        compiledrules::Vector{Tuple{Int16, Vector{ArcInPants}}})
-    encoding_changes = Tuple{Int16, Vector{ArcInPants}}[]
-    for (br, newencoding) in compiledrules
-        if br > 0
-            push!(encoding_changes, (br, newencoding))
-        else
-            push!(encoding_changes, (-br, reversedpath(newencoding)))
+function update_branchencodings!(branchencodings::Vector{Path{ArcInPants}},
+        pd::PantsDecomposition,
+        rules, old_branches::AbstractArray{Int16}, 
+        pantindex::Integer, marking_bdyindex::BdyIndex)
+    # println(pd)
+    # println("Pant index: ", pantindex)
+    # println("Marking bdyindex: ", marking_bdyindex)
+    # println(branchencodings)
+    for (i, br) in enumerate(old_branches)
+        if br != 0
+            newbranch_rules = rules[i][2]
+            path = branchencodings[abs(br)]
+            empty!(path)
+            # println("Br: ", br)
+            for rule in newbranch_rules
+                newencoding = compile_newbranch(pd, rule[1], rule[2], pantindex, marking_bdyindex)
+                # println(path)
+                # println(rule)
+                # println(newencoding)
+                if br > 0
+                    push!(path, newencoding)
+                else
+                    push!(reverse(path), newencoding)
+                    # splice!(branchencodings[abs(br)], 1:0, reverse(newencoding))
+                end
+                # println(path)
+            end
         end
     end
-    encoding_changes
+end
+
+get_pantindex(pd::PantsDecomposition, move::HalfTwist) = 
+    pant_nextto_pantscurve(pd, move.curveindex, move.side)
+get_pantindex(pd::PantsDecomposition, move::Twist) = 
+    pant_nextto_pantscurve(pd, move.curveindex, LEFT)
+get_pantindex(pd::PantsDecomposition, move::FirstMove) = 
+    pant_nextto_pantscurve(pd, move.curveindex, LEFT)
+get_bdyindex(pd::PantsDecomposition, move::HalfTwist) = 
+    bdyindex_nextto_pantscurve(pd, move.curveindex, move.side)
+get_bdyindex(pd::PantsDecomposition, move::Twist) = 
+    bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
+get_bdyindex(pd::PantsDecomposition, move::FirstMove) = 
+    BdyIndex(findfirst(i->abs(pantscurve_nextto_pant(pd, get_pantindex(pd, move), BdyIndex(i))) !=
+    abs(move.curveindex), 1:3))
+
+
+function compile_oldbranches(dttraintrack::DecoratedTrainTrack, 
+    pd::PantsDecomposition, branchencodings::Vector{Path{ArcInPants}}, 
+    rules, pantindex::Integer, marking_bdyindex::BdyIndex, 
+    branches_to_change::Vector{Int16})
+    for i in 1:length(rules)
+        # println("Rule: ", rules[i])
+        # println("Pantindex: ", pantindex)
+        # println("Marking bdyindex: ", marking_bdyindex)
+        branch = compile_oldbranch(dttraintrack, pd, branchencodings, 
+            rules[i][1][1], BdyIndex(rules[i][1][2]), pantindex, marking_bdyindex)
+        # println("Found branch: ", branch == nothing ? 0 : branch)
+        # println()
+        push!(branches_to_change, branch == nothing ? 0 : branch)
+    end
 end
 
 # TODO: implement an inverse half twist. For now a half-twist plus and inverse Dehn twist does the job.
 function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-    move::HalfTwist, branchencodings::Vector{ArcInPants})
-    pantindex = pant_nextto_pantscurve(pd, move.curveindex, move.side)
-    bdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, move.side)
-    compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, REPLACEMENT_RULES_HALFTWIST, pantindex, bdyindex)
+        move::Union{HalfTwist, Twist, FirstMove}, branchencodings::Vector{Path{ArcInPants}},
+        branches_to_change::Vector{Int16}=Int16[])
+    pantindex = get_pantindex(pd, move)
+    marking_bdyindex = get_bdyindex(pd, move)
+    rules = replacement_rules(move)
+
+    empty!(branches_to_change)
+    compile_oldbranches(dttraintrack, pd, branchencodings, rules,
+        pantindex, marking_bdyindex, branches_to_change)
 
     apply_move!(pd, move)
 
-    compiledrules2 = compile_newbranches(compiledrules1, newdata->compile_newbranch(pd, newdata..., pantindex, bdyindex))
-
-    update_branchencodings!(branchencodings, compiledrules2)
+    update_branchencodings!(branchencodings, pd, rules, branches_to_change, 
+        pantindex, marking_bdyindex)
+    deletezeros!(branches_to_change)
 end
 
-function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-    move::Twist, branchencodings::Vector{ArcInPants})
-    pantindex = pant_nextto_pantscurve(pd, move.curveindex, LEFT)
-    bdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
-    compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, 
-        replacement_rules_twist(move.direction), pantindex, bdyindex)
-
-    apply_move!(pd, move)
-
-    compiledrules2 = compile_newbranches(compiledrules1, 
-        newdata->compile_newbranch(pd, newdata..., pantindex, bdyindex))
-
-    # println(compiledrules2)
-    update_branchencodings!(branchencodings, compiledrules2)
-end
-
-function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-        move::FirstMove, branchencodings::Vector{ArcInPants})
-
-    pantindex = pant_nextto_pantscurve(pd, move.curveindex, LEFT)
-    idx = findfirst(i->abs(pantscurve_nextto_pant(pd, pantindex, BdyIndex(i))) !=
-        abs(move.curveindex), 1:3)
-    bdyindex = BdyIndex(idx)
-
-    compiledrules1 = compile_oldbranches(dttraintrack, pd, branchencodings, 
-        move.isinverse ? REPLACEMENT_RULES_FIRSTMOVE_INVERSE : REPLACEMENT_RULES_FIRSTMOVE, 
-        pantindex, bdyindex)
-
-    apply_move!(pd, move)
-
-    compiledrules2 = compile_newbranches(compiledrules1, 
-        newdata->compile_newbranch(pd, newdata..., pantindex, bdyindex))
-
-    update_branchencodings!(branchencodings, compiledrules2)
-end
 
 function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, 
-    pd::PantsDecomposition, move::SecondMove, branchencodings::Vector{ArcInPants})
+        pd::PantsDecomposition, move::SecondMove, branchencodings::Vector{Path{ArcInPants}},
+        branches_to_change::Vector{Int16}=Int16[])
     upperpantindex = pant_nextto_pantscurve(pd, move.curveindex, LEFT)
     upperbdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
     lowerpantindex = pant_nextto_pantscurve(pd, move.curveindex, RIGHT)
     lowerbdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, RIGHT)
     
+    empty!(branches_to_change)
     # println(upperpantindex)
     # println(upperbdyindex)
     # println(lowerpantindex)
     # println(lowerbdyindex)
     # lowerrules = REPLACEMENT_RULES_SECONDMOVE
     # swapping lefts to rights
+    # upperrules = replacement_rules(move, UPPER)
+    # lowerrules = replacement_rules(move, LOWER)
+    rules = replacement_rules(move)
 
-    compiledrules1 = [
-        compile_oldbranches(dttraintrack, pd, branchencodings, 
-            REPLACEMENT_RULES_SECONDMOVE_UPPER, upperpantindex, upperbdyindex); 
-        compile_oldbranches(dttraintrack, pd, branchencodings, 
-            REPLACEMENT_RULES_SECONDMOVE_LOWER[1:length(REPLACEMENT_RULES_SECONDMOVE_LOWER)-1], 
-            lowerpantindex, lowerbdyindex)
-    ]
+    # println("Branches to change: ", branches_to_change)
+    compile_oldbranches(dttraintrack, pd, branchencodings, view(rules, 1:7),
+        upperpantindex, upperbdyindex, branches_to_change)
+    # println("Branches to change: ", branches_to_change)
+    compile_oldbranches(dttraintrack, pd, branchencodings, view(rules, 8:13),
+        lowerpantindex, lowerbdyindex, branches_to_change)
+    # println("Branches to change: ", branches_to_change)
 
     apply_move!(pd, move)
     
-    # println("CP1: ", compiledrules1)
-    compiledrules2 = compile_newbranches(compiledrules1, 
-        newdata->compile_newbranch_twopants(pd, newdata..., upperpantindex, lowerpantindex))
-    # println("CP2: ", compiledrules2)
-
-    update_branchencodings!(branchencodings, compiledrules2)
+    update_branchencodings_twopants!(branchencodings, pd, rules, 
+        branches_to_change, upperpantindex, lowerpantindex)
+    # update_branchencodings_twopants!(branchencodings, pd, lowerrules, 
+        # view(branches_to_change, 8:13), upperpantindex, lowerpantindex)
+    deletezeros!(branches_to_change)
 end
 
+function update_branchencodings_twopants!(branchencodings::Vector{Path{ArcInPants}},
+    pd::PantsDecomposition,
+    rules, old_branches::AbstractArray{Int16}, 
+    leftpantindex::Integer, rightpantindex::Integer)
+    for (i, br) in enumerate(old_branches)
+        if br != 0
+            newbranch_rules = rules[i][2]
+            path = branchencodings[abs(br)]
+            empty!(path)
+            # println("BR: ", br)
+            for rule in newbranch_rules
+                newencoding = compile_newbranch(pd, rule[1], rule[2],   
+                    rule[3] == LEFT ? leftpantindex : rightpantindex, BdyIndex(1))
+                # println(rule)
+                # println(newencoding)
+                if br > 0
+                    push!(path, newencoding)
+                else
+                    push!(reverse(path), newencoding)
+                end
+            end
+        end
+    end
+end
 
+# function compile_newbranch_twopants(pd_aftermove::PantsDecomposition, branchtype::PantsArcType, 
+#     signed_bdyindex::Integer, side::Side, leftpantindex::Integer, rightpantindex::Integer)
+#     # println(pd_aftermove)
+#     arc_in_pantsdecomposition(pd_aftermove, side == LEFT ? leftpantindex : rightpantindex, 
+#         BdyIndex(abs(signed_bdyindex)), signed_bdyindex < 0, branchtype)
+# end
+
+
+function deletezeros!(v::Vector{Int16})
+    for i in length(v):-1:1
+        if v[i] == 0
+            deleteat!(v, i)
+        end
+    end
+end
 
 end

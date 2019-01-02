@@ -121,12 +121,21 @@ function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLami
     # println(pmc.change_of_markings)
     ttnet = TrainTrackNet()
     tt_index = add_traintrack!(ttnet, pl.tt)
+
+    # println()
+    # Preallocated array
+    branches_to_change = Int16[]
     for cm in reverse(pmc.change_of_markings)
         # println("----------------------------------------------------")
         # println(cm)
         # println("Lamination before move:", pl)
-        apply_change_of_marking_to_tt!(ttnet, tt_index, pl.pd, cm, pl.encodings)
+        # println("Lamination tt: ", pl.tt)
+        # println("Lamination encoding: ", pl.encodings)
+        apply_change_of_marking_to_tt!(ttnet, tt_index, pl.pd, cm, pl.encodings, 
+            branches_to_change)
         # println("Lamination after move:", pl)
+        # println("Lamination tt: ", pl.tt)
+        # println("Lamination encoding: ", pl.encodings)
         # println("----------------------------------------------------")
     end
 end
