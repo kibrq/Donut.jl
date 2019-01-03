@@ -3,14 +3,13 @@ module IsotopyAfterElementaryMoves
 
 export update_encodings_aftermove!
 
-using Donut.Constants
-using Donut.TrainTracks
-using Donut.Pants
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.Pants.ElementaryMoves
-using Donut.PantsAndTrainTracks.DehnThurstonTracks: findbranch, arc_in_pantsdecomposition
-using Donut.PantsAndTrainTracks.PathTightening
-using Donut.PantsAndTrainTracks.Paths
+using ...Constants
+using ...TrainTracks
+using ...Pants
+using ..ArcsInPants
+using ..DehnThurstonTracks: findbranch, arc_in_pantsdecomposition
+using ..PathTightening
+using ..Paths
 
 
 

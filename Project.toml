@@ -1,0 +1,6 @@
+authors = ["Balazs Strenner <strennerb@gmail.com>"]
+name = "Donut"
+uuid = "ad7d349e-0f99-11e9-153b-7179ab3e7a2a"
+version = "0.1.0"
+
+[deps]

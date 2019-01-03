@@ -1,6 +1,6 @@
 
 
-using Donut.Constants
+using ..Constants
 
 mutable struct TrainTrack
     branch_endpoints::Array{Int16, 2}

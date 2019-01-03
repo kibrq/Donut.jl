@@ -3,7 +3,6 @@ module ElementaryMovesTest
 using Test
 using Donut.Pants
 using Donut.Pants: gluinglist
-using Donut.Pants.ElementaryMoves
 using Donut.Constants: LEFT, RIGHT
 
 @testset "Move 2" begin

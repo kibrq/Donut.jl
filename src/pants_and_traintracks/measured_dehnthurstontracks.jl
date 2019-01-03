@@ -10,7 +10,6 @@ using Donut.PantsAndTrainTracks.DehnThurstonTracks: encoding_of_length1_branch
 using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.PantsAndTrainTracks.Paths
 
-
 using Donut.Constants
 
 function divide_by_2(x::Integer)

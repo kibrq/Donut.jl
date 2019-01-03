@@ -1,7 +1,6 @@
 
 export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, 
-    trajectory_of_small_branch_or_cusp, pullout_branches_small!,
-    pullout_branches_large!, peel_small!, fold_large!
+    trajectory_of_small_branch_or_cusp
 
 
 

@@ -7,7 +7,7 @@ export PantsDecomposition, regions, numregions, numpunctures, numboundarycurves,
 
 
 using Donut: AbstractSurface
-using Donut.Constants
+using ..Constants
 
 
 abstract type MarkedSurface <: AbstractSurface end
