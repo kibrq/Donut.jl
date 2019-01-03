@@ -3,7 +3,6 @@ module MeasuredDehnThurstonTracks
 export measured_dehnthurstontrack, intersecting_measure, pantscurve_measure
 
 using Donut.Pants
-using Donut.Pants.DehnThurstonCoords
 using Donut.TrainTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks: encoding_of_length1_branch

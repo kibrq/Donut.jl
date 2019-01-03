@@ -2,6 +2,6 @@ module Pants
 
 include("markedsurfaces.jl")
 include("changeofmarkings.jl")
-include("dehnthurston_coordinates.jl")
+include("lamination_coordinates.jl")
 
 end
