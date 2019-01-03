@@ -82,13 +82,13 @@ function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
 
     # We are allocating memory here. If this becomes a bottleneck, we can
     # make use it more efficient.
-    switches_toconsider = Set(abs(branch_endpoint(tt, sg*br)) 
-        for br in branches_to_consider for sg in (1, -1))
+    # switches_toconsider = Set(abs(branch_endpoint(tt, sg*br)) 
+        # for br in branches_to_consider for sg in (1, -1))
 
 
     if debug
         println("***************** START PEELING! **************")
-        println("Switches to consider: ", switches_toconsider)
+        # println("Switches to consider: ", switches_toconsider)
         # println("Encodings:")
         # printencoding(encodings)
     end
@@ -104,82 +104,89 @@ function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
     illegalturn_found = true
     while illegalturn_found
         illegalturn_found = find_illegal_turn_and_peel!(ttnet, tt_index,
-        pd, encodings, switches_toconsider, branches_to_consider)
+        pd, encodings, branches_to_consider)
     end
     if debug
         println("***************** END PEELING! **************")
         println()
         println()
     end
-    return switches_toconsider
+    # return switches_toconsider
 end
 
 
 function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
     pd::PantsDecomposition, encodings::Vector{Path{ArcInPants}}, 
-    switches_toconsider::Set{Int16}, branches_to_consider::Vector{Int16})
+    branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
-    for sw in switches_toconsider
-        for side in (LEFT, RIGHT)
-            if debug
-                println(is_switchside_legal(tt, sw, side, encodings))
-            end
-            if !is_switchside_legal(tt, sw, side, encodings)
-                if debug
-                    println("------------------ BEGIN: peel_loop")
-                end
 
-                peeledbr = extremal_branch(tt, sw, side)
-                otherbr = extremal_branch(tt, -sw, otherside(side))
- 
-                sidetopeel = whichside_to_peel(ttnet, tt_index, sw, side)
-                if sidetopeel == FORWARD
-                    apply_tt_operation!(ttnet, tt_index, Peel(sw, side))
-                else
-                    peeledbr, otherbr = otherbr, peeledbr
-                    apply_tt_operation!(ttnet, tt_index, Peel(-sw, otherside(side)))
-                end
+    for br in branches_to_consider
+        for sgn in (1, -1)
+            sw = branch_endpoint(tt, -sgn*br)
+            for side in (LEFT, RIGHT)
                 if debug
-                    println("Peeling $(peeledbr) off of $(otherbr)...")
-                    println("TrainTrack: ", tt)
-                    # println("Switch:", sw)
-                    # println("Side:", side)
-                    
-                    println("Encoding before peeling:")
-                    printencoding(encodings)
+                    println(is_switchside_legal(tt, sw, side, encodings))
+                end
+                if next_branch(tt, sgn*br, side) != 0
+                    continue
+                end
+                if !is_switchside_legal(tt, sw, side, encodings)
+                    if debug
+                        println("------------------ BEGIN: peel_loop")
+                    end
+
+                    peeledbr = extremal_branch(tt, sw, side)
+                    otherbr = extremal_branch(tt, -sw, otherside(side))
+    
+                    sidetopeel = whichside_to_peel(ttnet, tt_index, sw, side)
+                    if sidetopeel == FORWARD
+                        apply_tt_operation!(ttnet, tt_index, Peel(sw, side))
+                    else
+                        peeledbr, otherbr = otherbr, peeledbr
+                        apply_tt_operation!(ttnet, tt_index, Peel(-sw, otherside(side)))
+                    end
+                    if debug
+                        println("Peeling $(peeledbr) off of $(otherbr)...")
+                        println("TrainTrack: ", tt)
+                        # println("Switch:", sw)
+                        # println("Side:", side)
+                        
+                        println("Encoding before peeling:")
+                        printencoding(encodings)
+                        # printencoding_changes(encoding_changes)
+                    end
+
+                    append!(branch_to_path(encodings, -peeledbr), 
+                        branch_to_path(encodings, otherbr))
+
+                    if debug
+                        println("Encoding of peeled branch ($(peeledbr)) after peeling:", 
+                            branch_to_path(encodings, peeledbr))
+                    end
                     # printencoding_changes(encoding_changes)
-                end
+                    path = branch_to_path(encodings, peeledbr)
+                    simplifypath!(pd, path)
 
-                append!(branch_to_path(encodings, -peeledbr), 
-                    branch_to_path(encodings, otherbr))
-
-                if debug
-                    println("Encoding of peeled branch ($(peeledbr)) after peeling:", 
-                        branch_to_path(encodings, peeledbr))
-                end
-                # printencoding_changes(encoding_changes)
-                path = branch_to_path(encodings, peeledbr)
-                simplifypath!(pd, path)
-
-                # if length(path) == 1
-                    # if a path became length 1, we don't keep track anymore
-                    # delete!(branches_to_consider, abs(peeledbr))
-                # else
-                    # if longer than 1, we keep track
+                    # if length(path) == 1
+                        # if a path became length 1, we don't keep track anymore
+                        # delete!(branches_to_consider, abs(peeledbr))
+                    # else
+                        # if longer than 1, we keep track
                     add!(branches_to_consider, abs(peeledbr))
-                # end
+                    # end
 
 
-                # printencoding_changes(encoding_changes)
+                    # printencoding_changes(encoding_changes)
 
-                if debug
-                    println("Encoding of peeled branch ($(peeledbr)) after simpifying:", 
-                        branch_to_path(encodings, peeledbr))
-                    println("Branches to consider: ", branches_to_consider)
-                    println("------------------ END: peel_loop")
+                    if debug
+                        println("Encoding of peeled branch ($(peeledbr)) after simpifying:", 
+                            branch_to_path(encodings, peeledbr))
+                        println("Branches to consider: ", branches_to_consider)
+                        println("------------------ END: peel_loop")
+                    end
+                    # printencoding_changes(encoding_changes)
+                    return true
                 end
-                # printencoding_changes(encoding_changes)
-                return true
             end
         end
     end
@@ -297,7 +304,7 @@ function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet,
         encodings::Vector{Path{ArcInPants}}, branches_to_change::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     update_encodings_aftermove!(tt, pd, move, encodings, branches_to_change)
-    switches_toconsider = peel_to_remove_illegalturns!(ttnet, tt_index, pd, encodings,
+    peel_to_remove_illegalturns!(ttnet, tt_index, pd, encodings,
         branches_to_change)
     fold_peeledtt_back!(ttnet, tt_index, encodings, branches_to_change)
 end

@@ -340,6 +340,7 @@ function new_branch_after_pullout(tt_afterop::TrainTrack, new_sw::Integer)
 end
 
 function remains_recurrent_after_peel(tt::TrainTrack, switch::Integer, peelside::Side)
+    # TODO: We allocate memory here.
     peeledbr = extremal_branch(tt, switch, peelside)
     peeloffbr = extremal_branch(tt, -switch, otherside(peelside))
     backsw = branch_endpoint(tt, peeloffbr)

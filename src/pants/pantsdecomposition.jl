@@ -35,6 +35,64 @@ function previndex(bdyindex::BdyIndex)
 end
 
 
+
+function check_gluinglist(gluinglist::Vector{<:Tuple{Int, Int, Int}})
+    abslabels = sort(map(abs,Iterators.flatten(gluinglist)))
+    maxlabel = abslabels[end]
+    if Set(abslabels) != Set(1:maxlabel)
+        error("The labels should be consecutive from 1 to N.")
+    end
+    i = 1
+    while i < length(abslabels) && abslabels[i] == abslabels[i+1]
+        i += 2
+    end
+    numpaired_labels = div(i, 2)
+    if length(abslabels) - maxlabel != numpaired_labels
+        error("The paired labels should be from 1 to K and the unpaired labels from K+1 to N.")
+    end
+    if length(Set(Iterators.flatten(gluinglist))) != length(Iterators.flatten(gluinglist))
+        error("Every label should appear in the gluing list at most once.")
+    end
+    return maxlabel, numpaired_labels
+end
+
+
+function init_bdy_arrays!(maxlabel::Integer, gluinglist::Vector{<:Tuple{Int, Int, Int}})
+    bdy_to_region = zeros(Int16, 2, maxlabel)
+    bdy_to_bdyindex = fill(BdyIndex(1), 2, maxlabel)
+
+    for region in eachindex(gluinglist)
+        boundaries = gluinglist[region]
+        for bdyindex in 1:3
+            bdy = boundaries[bdyindex]
+            absbdy = abs(bdy)
+            side = bdy > 0 ? LEFT : RIGHT
+            bdy_to_region[Int(side), absbdy] = region
+            bdy_to_bdyindex[Int(side), absbdy] = BdyIndex(bdyindex)
+        end
+    end    
+
+    return bdy_to_region, bdy_to_bdyindex
+end
+
+
+
+struct Triangulation
+    triangle_to_edge::Vector{Tuple{Int16, Int16, Int16}}
+    edge_to_triangle::Array{Int16, 2}
+    edge_to_bdyindex::Array{BdyIndex, 2}
+
+    function Triangulation(gluinglist::Vector{<:Tuple{Int, Int, Int}})
+        maxedgenumber, numpaired_labels = check_gluinglist(gluinglist)
+        if numpaired_labels != maxedgenumber
+            error("The negative of every label should also appear in the gluing list.")
+        end
+
+        edge_to_triangle, edge_to_bdyindex = init_bdy_arrays!(maxedgenumber, gluinglist)
+        new(gluinglist, edge_to_triangle, edge_to_bdyindex)
+    end
+end
+
 """A pants decomposition of a surface.
 
 It is specified by a gluing list, a list of lists. The list at position i correspond to the i'th pair of pants. Each list contains 3 nonzero integers that encode the three boundary curves. A boundary curve with a positive/negative number is oriented in such a way that the pair of pants is on the left/right of it. (Left and right is defined based on the orientation of the pair of pants.)
@@ -61,37 +119,10 @@ struct PantsDecomposition <: AbstractSurface
 
     # gluinglist will not be copied, it is owned by the object
     function PantsDecomposition(gluinglist::Vector{<:Tuple{Int, Int, Int}})
-        curvenumbers = sort(map(abs,Iterators.flatten(gluinglist)))
-        maxcurvenumber = curvenumbers[end]
-        if Set(curvenumbers) != Set(1:maxcurvenumber)
-            error("The pants curves should be numbered from 1 to N where N is the number of pants curves.")
-        end
-        i = 1
-        while i < length(curvenumbers) && curvenumbers[i] == curvenumbers[i+1]
-            i += 2
-        end
-        numinnerpantscurves = div(i, 2)
-        if length(curvenumbers) - maxcurvenumber != numinnerpantscurves
-            error("The inner pants curves should be numbered from 1 to K and the boundary pants curves from K+1 to N.")
-        end
-        if length(Set(Iterators.flatten(gluinglist))) != length(Iterators.flatten(gluinglist))
-            error("Every number should appear in the gluing list at most once.")
-        end
+        maxcurvenumber, numinnerpantscurves = check_gluinglist(gluinglist)
 
-        pantscurve_to_pantindex = zeros(Int, 2, maxcurvenumber)
-        pantscurve_to_bdyindex = fill(BdyIndex(1), 2, maxcurvenumber)
-
-        for pantindex in eachindex(gluinglist)
-            boundaries = gluinglist[pantindex]
-            for bdyindex in 1:3
-                bdycurve = boundaries[bdyindex]
-                abscurve = abs(bdycurve)
-                side = bdycurve > 0 ? LEFT : RIGHT
-                pantscurve_to_pantindex[Int(side), abscurve] = pantindex
-                pantscurve_to_bdyindex[Int(side), abscurve] = BdyIndex(bdyindex)
-            end
-        end
-
+        pantscurve_to_pantindex, pantscurve_to_bdyindex = 
+            init_bdy_arrays!(maxcurvenumber, gluinglist)
         new(gluinglist, pantscurve_to_pantindex, pantscurve_to_bdyindex, numinnerpantscurves)
     end
 end

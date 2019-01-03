@@ -13,15 +13,19 @@ using Donut.PantsAndTrainTracks.PathTightening
 using Donut.PantsAndTrainTracks.Paths
 
 
-function replacement_rules(move::Twist)
+
+function generate_replacement_rules(twist_direction::Side)
     # idx1, idx2, idx3 = bdyindex, nextindex(bdyindex, 3), previndex(bdyindex, 3)
-    sg = move.direction == RIGHT ? 1 : -1
+    sg = twist_direction == RIGHT ? 1 : -1
     return [
         ((BRIDGE, 3), [(PANTSCURVE, -sg), (BRIDGE, 3)]),
         ((BRIDGE, 2), [(BRIDGE, 2), (PANTSCURVE, sg)]),
         ((SELFCONN, 1), [(PANTSCURVE, -sg), (SELFCONN, 1), (PANTSCURVE, sg)])
     ]
 end
+
+const REPLACEMENT_RULES_TWIST_RIGHT = generate_replacement_rules(RIGHT)
+const REPLACEMENT_RULES_TWIST_LEFT = generate_replacement_rules(LEFT)
 
 const REPLACEMENT_RULES_HALFTWIST = [
     ((SELFCONN, 1), [(PANTSCURVE, -1), (SELFCONN, -1)]),
@@ -67,6 +71,8 @@ end
 
 
 replacement_rules(move::HalfTwist) = REPLACEMENT_RULES_HALFTWIST
+replacement_rules(move::Twist) = move.direction == RIGHT ? REPLACEMENT_RULES_TWIST_RIGHT :
+    REPLACEMENT_RULES_TWIST_LEFT
 
 @enum UpperOrLower UPPER LOWER
 
