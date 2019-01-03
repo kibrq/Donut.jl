@@ -6,7 +6,7 @@ using Donut.Pants
 using Donut.Pants.DehnThurstonCoords
 using Donut.TrainTracks
 using Donut.PantsAndTrainTracks.DehnThurstonTracks
-using Donut.PantsAndTrainTracks.DehnThurstonTracks: BranchData, encoding_of_length1_branch
+using Donut.PantsAndTrainTracks.DehnThurstonTracks: encoding_of_length1_branch
 using Donut.PantsAndTrainTracks.ArcsInPants
 using Donut.PantsAndTrainTracks.Paths
 
@@ -47,30 +47,46 @@ end
 
 
 
-function determine_measure(dttraintrack::DecoratedTrainTrack, twisting_numbers, 
-        selfconn_and_bridge_measures, branchdata::Vector{BranchData})
+function determine_measure(dttraintrack::DecoratedTrainTrack, 
+        pd::PantsDecomposition, twisting_numbers, 
+        selfconn_and_bridge_measures, branchencodings::Vector{Path{ArcInPants}})
     T = typeof(twisting_numbers[1])
     measure_vector = T[]
     for br in eachindex(twisting_numbers)
         # println("Pantscurve")
         push!(measure_vector, abs(twisting_numbers[br]))
-        @assert branchdata[br].branchtype == PANTSCURVE
+        @assert encoding_of_length1_branch(branchencodings, br) isa PantsCurveArc
     end
-    for br in length(twisting_numbers)+1:length(branchdata)
-        data = branchdata[br]
-        if data.branchtype == BRIDGE
-            # println("Bridge")
-
-            push!(measure_vector, selfconn_and_bridge_measures[data.pantindex][2][Int(data.bdyindex)])
-        elseif data.branchtype == SELFCONN
-            # println("Selfconn")
-
-            push!(measure_vector, selfconn_and_bridge_measures[data.pantindex][1][Int(data.bdyindex)])
+    for br in length(twisting_numbers)+1:length(branchencodings)
+        arc = encoding_of_length1_branch(branchencodings, br)
+        separator = signed_endvertex(arc)
+        region = separator_to_region(pd, separator, LEFT)
+        if arc isa BridgeArc
+            bdyindex = bdyindex_of_bridge(pd, arc)
+            push!(measure_vector, selfconn_and_bridge_measures[region][2][Int(bdyindex)])
+        elseif arc isa SelfConnArc
+            bdyindex = separator_to_bdyindex(pd, separator, LEFT)
+            push!(measure_vector, selfconn_and_bridge_measures[region][1][Int(bdyindex)])
         else
             @assert false
         end
     end
     measure_vector
+end
+
+function bdyindex_of_bridge(pd::PantsDecomposition, arc::BridgeArc)
+    sep1 = signed_endvertex(arc)
+    sep2 = signed_startvertex(arc)
+    bdyindex1 = separator_to_bdyindex(pd, sep1, LEFT)
+    bdyindex2 = separator_to_bdyindex(pd, sep2, LEFT)
+    x = (Int(bdyindex1) + Int(bdyindex2)) % 3
+    if x == 0
+        return BdyIndex(3)
+    elseif x == 1
+        return BdyIndex(2)
+    else
+        return BdyIndex(1)
+    end
 end
 
 
@@ -88,7 +104,7 @@ function determine_panttype(pd::PantsDecomposition, bdycurves, selfconn, bridges
     for i in 1:3
         curve = bdycurves[i]
         # making sure the opposite pair has zero measure
-        if bridges[i] == 0 && isinner_pantscurve(pd, curve) && pant_nextto_pantscurve(pd, curve, LEFT) != pant_nextto_pantscurve(pd, curve, RIGHT) 
+        if bridges[i] == 0 && isinner_pantscurve(pd, curve) && separator_to_region(pd, curve, LEFT) != separator_to_region(pd, curve, RIGHT) 
             # if the type is first move, then the self-connecting
             # branch would make the train track not recurrent
             return i
@@ -103,16 +119,16 @@ function measured_dehnthurstontrack(pd::PantsDecomposition,
         dtcoords_vec::Vector{Tuple{T, T}}) where {T}
     dtcoords = DehnThurstonCoordinates{T}(pd, dtcoords_vec)
  
-    sb_measures = Tuple(selfconn_and_bridge_measures(Tuple(intersection_number(dtcoords, c) for c in pantboundaries(pd, pant))) for pant in pants(pd))
+    sb_measures = Tuple(selfconn_and_bridge_measures(Tuple(intersection_number(dtcoords, c) for c in region_to_separators(pd, pant))) for pant in regions(pd))
     
-    pantstypes = Tuple(determine_panttype(pd, pantboundaries(pd, pant), sb_measures[pant]...) for pant in pants(pd))
+    pantstypes = Tuple(determine_panttype(pd, region_to_separators(pd, pant), sb_measures[pant]...) for pant in regions(pd))
 
-    twisting_numbers = Tuple(twisting_number(dtcoords, c) for c in innercurveindices(pd))
+    twisting_numbers = Tuple(twisting_number(dtcoords, c) for c in innercurves(pd))
     turnings = Tuple(twist < 0 ? LEFT : RIGHT for twist in twisting_numbers)
 
-    tt, encodings, branchdata = dehnthurstontrack(pd, pantstypes, turnings)
+    tt, encodings = dehnthurstontrack(pd, pantstypes, turnings)
 
-    measure_vector = determine_measure(tt, twisting_numbers, sb_measures, branchdata)
+    measure_vector = determine_measure(tt, pd, twisting_numbers, sb_measures, encodings)
     add_measure!(tt, measure_vector)
     tt, encodings
 end

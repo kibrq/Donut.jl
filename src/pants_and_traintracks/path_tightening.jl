@@ -36,9 +36,9 @@ Decide if a bridge goes from boundary i to i+1 (forward) or i+1 to i
 function isbridgeforward(pd::PantsDecomposition, bridge::BridgeArc)
     startside = gatetoside(startgate(bridge))
     endside = gatetoside(endgate(bridge))
-    index1 = bdyindex_nextto_pantscurve(pd, startvertex(bridge), startside)
-    index2 = bdyindex_nextto_pantscurve(pd, endvertex(bridge), endside)
-    @assert pant_nextto_pantscurve(pd, startvertex(bridge), startside) == pant_nextto_pantscurve(pd, endvertex(bridge), endside)
+    index1 = separator_to_bdyindex(pd, startvertex(bridge), startside)
+    index2 = separator_to_bdyindex(pd, endvertex(bridge), endside)
+    @assert separator_to_region(pd, startvertex(bridge), startside) == separator_to_region(pd, endvertex(bridge), endside)
 
     if index2 == nextindex(index1)
         return true

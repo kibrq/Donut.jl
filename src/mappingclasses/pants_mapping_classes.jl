@@ -5,7 +5,7 @@ export pantstwist, transversaltwist, PantsMappingClass
 
 using Donut.TrainTracks
 using Donut.Pants
-using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, pant_nextto_pantscurve, isequal_strong
+using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, separator_to_region, isequal_strong
 using Donut.Laminations: PantsLamination
 import Base.*, Base.==, Base.^
 import Donut.Pants.inverse
@@ -151,7 +151,7 @@ end
 function isidentity_upto_homology(pmc::PantsMappingClass)
     pd = pmc.pd
     # println(pmc)
-    for curveindex in innercurveindices(pd)
+    for curveindex in innercurves(pd)
         lam = lamination_from_pantscurve(pd, curveindex, BigInt(0))
         # println("Applying mapping class to pantscurve $(curveindex)")
         # println("Original curve: ", lam)

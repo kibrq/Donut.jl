@@ -1,8 +1,8 @@
 
-export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eulerchar, 
-    boundarycurveindices, innercurveindices, curveindices,isboundary_pantscurve, 
-    isinner_pantscurve, pant_nextto_pantscurve, bdyindex_nextto_pantscurve, 
-    pantscurve_nextto_pant, pantboundaries, gluinglist, isfirstmove_curve, 
+export PantsDecomposition, regions, numregions, numpunctures, numboundarycurves, eulerchar, 
+    boundarycurves, innercurves, separators,isboundary_pantscurve, 
+    isinner_pantscurve, separator_to_region, separator_to_bdyindex, 
+    region_to_separator, region_to_separators, gluinglist, isfirstmove_curve, 
     issecondmove_curve, nextindex, previndex, BdyIndex
 
 
@@ -10,6 +10,7 @@ using Donut: AbstractSurface
 using Donut.Constants
 
 
+abstract type MarkedSurface <: AbstractSurface end
 
 @enum BdyIndex::Int8 BDY1=1 BDY2=2 BDY3=3
 
@@ -56,9 +57,9 @@ function check_gluinglist(gluinglist::Vector{<:Tuple{Int, Int, Int}})
 end
 
 
-function init_bdy_arrays!(maxlabel::Integer, gluinglist::Vector{<:Tuple{Int, Int, Int}})
-    bdy_to_region = zeros(Int16, 2, maxlabel)
-    bdy_to_bdyindex = fill(BdyIndex(1), 2, maxlabel)
+function init_separator_arrays!(maxlabel::Integer, gluinglist::Vector{<:Tuple{Int, Int, Int}})
+    separator_to_region = zeros(Int16, 2, maxlabel)
+    separator_to_bdyindex = fill(BdyIndex(1), 2, maxlabel)
 
     for region in eachindex(gluinglist)
         boundaries = gluinglist[region]
@@ -66,20 +67,20 @@ function init_bdy_arrays!(maxlabel::Integer, gluinglist::Vector{<:Tuple{Int, Int
             bdy = boundaries[bdyindex]
             absbdy = abs(bdy)
             side = bdy > 0 ? LEFT : RIGHT
-            bdy_to_region[Int(side), absbdy] = region
-            bdy_to_bdyindex[Int(side), absbdy] = BdyIndex(bdyindex)
+            separator_to_region[Int(side), absbdy] = region
+            separator_to_bdyindex[Int(side), absbdy] = BdyIndex(bdyindex)
         end
     end    
 
-    return bdy_to_region, bdy_to_bdyindex
+    return separator_to_region, separator_to_bdyindex
 end
 
 
 
-struct Triangulation
-    triangle_to_edge::Vector{Tuple{Int16, Int16, Int16}}
-    edge_to_triangle::Array{Int16, 2}
-    edge_to_bdyindex::Array{BdyIndex, 2}
+struct Triangulation <: MarkedSurface
+    region_to_separators::Vector{Tuple{Int16, Int16, Int16}}
+    separator_to_region::Array{Int16, 2}
+    separator_to_bdyindex::Array{BdyIndex, 2}
 
     function Triangulation(gluinglist::Vector{<:Tuple{Int, Int, Int}})
         maxedgenumber, numpaired_labels = check_gluinglist(gluinglist)
@@ -87,10 +88,15 @@ struct Triangulation
             error("The negative of every label should also appear in the gluing list.")
         end
 
-        edge_to_triangle, edge_to_bdyindex = init_bdy_arrays!(maxedgenumber, gluinglist)
-        new(gluinglist, edge_to_triangle, edge_to_bdyindex)
+        separator_to_region, separator_to_bdyindex = init_separator_arrays!(maxedgenumber, gluinglist)
+        new(gluinglist, separator_to_region, separator_to_bdyindex)
     end
 end
+
+Base.copy(t::Triangulation) = Triangulation(copy(t.region_to_separators), 
+    copy(t.separator_to_region), copy(t.separator_to_bdyindex))
+
+
 
 """A pants decomposition of a surface.
 
@@ -102,17 +108,17 @@ If a boundary curve number does not have a pair, it is becomes a boundary compon
 
 The pairs of pants are implicitly `marked` by a triangle whose vertices are in different boundary components. So `[1, 2, 3]` is a different marking of the same pair of pants as `[1, 3, 2]`. However, `[2, 3, 1]` is the same marking as `[1, 2, 3]`. The marking `[1, 2, 3]` means that as the triangle is traversed in the counterclockwise order, we see the curves 1, 2, 3 in order.
 """
-struct PantsDecomposition <: AbstractSurface
-    pantboundaries::Vector{Tuple{Int16, Int16, Int16}}
-    pantscurve_to_pantindex::Array{Int16, 2}
-    pantscurve_to_bdyindex::Array{BdyIndex, 2}
+struct PantsDecomposition <: MarkedSurface
+    region_to_separators::Vector{Tuple{Int16, Int16, Int16}}
+    separator_to_region::Array{Int16, 2}
+    separator_to_bdyindex::Array{BdyIndex, 2}
     numinnerpantscurves::Int16
 
-    function PantsDecomposition(pantboundaries::Vector{Tuple{Int16, Int16, Int16}},
-        pantscurve_to_pantindex::Array{Int16, 2}, 
-        pantscurve_to_bdyindex::Array{BdyIndex, 2},
+    function PantsDecomposition(region_to_separators::Vector{Tuple{Int16, Int16, Int16}},
+        separator_to_region::Array{Int16, 2}, 
+        separator_to_bdyindex::Array{BdyIndex, 2},
         numinnerpantscurves::Int16)
-        new(pantboundaries, pantscurve_to_pantindex, pantscurve_to_bdyindex,
+        new(region_to_separators, separator_to_region, separator_to_bdyindex,
             numinnerpantscurves)
     end
 
@@ -120,58 +126,59 @@ struct PantsDecomposition <: AbstractSurface
     function PantsDecomposition(gluinglist::Vector{<:Tuple{Int, Int, Int}})
         maxcurvenumber, numinnerpantscurves = check_gluinglist(gluinglist)
 
-        pantscurve_to_pantindex, pantscurve_to_bdyindex = 
-            init_bdy_arrays!(maxcurvenumber, gluinglist)
-        new(gluinglist, pantscurve_to_pantindex, pantscurve_to_bdyindex, numinnerpantscurves)
+        separator_to_region, separator_to_bdyindex = 
+            init_separator_arrays!(maxcurvenumber, gluinglist)
+        new(gluinglist, separator_to_region, separator_to_bdyindex, numinnerpantscurves)
     end
 end
+
+TriMarking = Union{Triangulation, PantsDecomposition}
+
 
 function isequal_strong(pd1::PantsDecomposition, pd2::PantsDecomposition)
-    pd1.pantboundaries == pd2.pantboundaries && 
-        pd1.pantscurve_to_pantindex == pd2.pantscurve_to_pantindex &&
-        pd1.pantscurve_to_bdyindex == pd2.pantscurve_to_bdyindex
+    pd1.region_to_separators == pd2.region_to_separators && 
+        pd1.separator_to_region == pd2.separator_to_region &&
+        pd1.separator_to_bdyindex == pd2.separator_to_bdyindex
 end
 
 
-Base.copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.pantboundaries), 
-    copy(pd.pantscurve_to_pantindex), copy(pd.pantscurve_to_bdyindex), pd.numinnerpantscurves)
+Base.copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.region_to_separators), 
+    copy(pd.separator_to_region), copy(pd.separator_to_bdyindex), pd.numinnerpantscurves)
 
-gluinglist(pd::PantsDecomposition) = pd.pantboundaries
+gluinglist(m::TriMarking) = m.region_to_separators
+region_to_separators(m::TriMarking, region::Integer) = m.region_to_separators[region]
 
-function pantboundaries(pd::PantsDecomposition, pantindex::Integer)
-    pd.pantboundaries[pantindex]
-end
+separators(m::TriMarking) = 1:numseparators(m)
+regions(m::TriMarking) = 1:length(m.region_to_separators)
+numregions(m::TriMarking) = length(m.region_to_separators)
+numseparators(m::TriMarking) = size(m.separator_to_region)[2]
 
-curveindices(pd::PantsDecomposition) = 1:size(pd.pantscurve_to_pantindex)[2]
-pants(pd::PantsDecomposition) = 1:length(pd.pantboundaries)
-numpants(pd::PantsDecomposition) = length(pd.pantboundaries)
-eulerchar(pd::PantsDecomposition) = -1*numpants(pd)
-
+eulerchar(pd::PantsDecomposition) = -1*numregions(pd)
+eulerchar(t::Triangulation) = numregions(t) - numseparators(t)
 
 
-function _setpantscurveside(pd::PantsDecomposition, curveindex::Integer,
-    side::Side, pantindex::Integer, bdyindex::BdyIndex)
-    if curveindex < 0
+
+function _setseparatorside!(m::TriMarking, separator::Integer,
+    side::Side, region::Integer, bdyindex::BdyIndex)
+    if separator < 0
         side = otherside(side)
     end
-    pd.pantscurve_to_pantindex[Int(side), abs(curveindex)] = pantindex
-    pd.pantscurve_to_bdyindex[Int(side), abs(curveindex)] = bdyindex
+    m.separator_to_region[Int(side), abs(separator)] = region
+    m.separator_to_bdyindex[Int(side), abs(separator)] = bdyindex
 end
 
-function _setboundarycurves(pd::PantsDecomposition, pantindex::Integer, bdy1::Integer, bdy2::Integer, bdy3::Integer)
-    pd.pantboundaries[pantindex] = (bdy1, bdy2, bdy3)
+function _set_regionboundaries!(m::TriMarking, region::Integer, bdy1::Integer, bdy2::Integer, bdy3::Integer)
+    m.region_to_separators[region] = (bdy1, bdy2, bdy3)
 end
 
+separator_to_region(m::TriMarking, separator::Integer, side::Side=LEFT) = 
+    m.separator_to_region[Int(separator > 0 ? side : otherside(side)), abs(separator)]
 
-pant_nextto_pantscurve(pd::PantsDecomposition, curveindex::Integer, side::Side=LEFT) = 
-    pd.pantscurve_to_pantindex[Int(curveindex > 0 ? side : otherside(side)), abs(curveindex)]
+separator_to_bdyindex(m::TriMarking, separator::Integer, side::Side=LEFT) = 
+    m.separator_to_bdyindex[Int(separator > 0 ? side : otherside(side)), abs(separator)]
 
-bdyindex_nextto_pantscurve(pd::PantsDecomposition, curveindex::Integer, side::Side=LEFT) = 
-    pd.pantscurve_to_bdyindex[Int(curveindex > 0 ? side : otherside(side)), abs(curveindex)]
-
-pantscurve_nextto_pant(pd::PantsDecomposition, pantindex::Integer, bdyindex::BdyIndex) = 
-    pantboundaries(pd, pantindex)[Int(bdyindex)]
-
+region_to_separator(m::TriMarking, region::Integer, bdyindex::BdyIndex) = 
+    m.region_to_separators[region][Int(bdyindex)]
 
 
 const BDYCURVE = 1
@@ -179,8 +186,8 @@ const TORUS_NBHOOD = 2
 const PUNCTURED_SPHERE_NBHOOD = 3
 
 function pantscurve_type(pd::PantsDecomposition, curveindex::Integer)
-    leftpant = pant_nextto_pantscurve(pd, curveindex, LEFT)
-    rightpant = pant_nextto_pantscurve(pd, curveindex, RIGHT)
+    leftpant = separator_to_region(pd, curveindex, LEFT)
+    rightpant = separator_to_region(pd, curveindex, RIGHT)
     if leftpant == 0 || rightpant == 0 
         return BDYCURVE
     end
@@ -201,18 +208,20 @@ isfirstmove_curve(pd::PantsDecomposition, curveindex::Integer) =
 issecondmove_curve(pd::PantsDecomposition, curveindex::Integer) = 
     pantscurve_type(pd, curveindex) == PUNCTURED_SPHERE_NBHOOD
 
-innercurveindices(pd::PantsDecomposition) = 1:pd.numinnerpantscurves
-# filter(x -> isinner_pantscurve(pd, x), curveindices(pd))
-boundarycurveindices(pd::PantsDecomposition) = pd.numinnerpantscurves+1:size(pd.pantscurve_to_pantindex)[2]
-numboundarycurves(pd::PantsDecomposition) = length(boundarycurveindices(pd))
+innercurves(pd::PantsDecomposition) = 1:pd.numinnerpantscurves
+# filter(x -> isinner_pantscurve(pd, x), separators(pd))
+boundarycurves(pd::PantsDecomposition) = pd.numinnerpantscurves+1:size(pd.separator_to_region)[2]
+numboundarycurves(pd::PantsDecomposition) = length(boundarycurves(pd))
 numpunctures(pd::PantsDecomposition) = numboundarycurves(pd)
 
 
 
+printed_text(pd::PantsDecomposition) = "PantsDecomposition with gluing list ["
+printed_text(t::Triangulation) = "Triangulation with gluing list ["
 
-function Base.show(io::IO, pd::PantsDecomposition)
-    print(io, "PantsDecomposition with gluing list [")
-    for ls in gluinglist(pd)
+function Base.show(io::IO, m::TriMarking)
+    print(io, printed_text(m))
+    for ls in gluinglist(m)
         print(io, "[$(ls[1]), $(ls[2]), $(ls[3])]")
     end
     print(io, "]")

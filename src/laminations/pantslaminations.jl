@@ -54,7 +54,7 @@ function coords_of_curve(pl::PantsLamination, curveindex::Int)
 end
 
 function lamination_to_dtcoords(pl::PantsLamination{T}) where {T}
-    [coords_of_curve(pl, c) for c in innercurveindices(pl.pd)]
+    [coords_of_curve(pl, c) for c in innercurves(pl.pd)]
 end
 
 function ==(pl1::PantsLamination, pl2::PantsLamination)
@@ -93,9 +93,9 @@ function construct_lamination(pd::PantsDecomposition, curveindex::Int, samplenum
     if !isinner_pantscurve(pd, curveindex)
         error("There is no inner pants curve of index $(curveindex).")
     end
-    dtcoords = [abs(curveindex) != abs(c) ? zero_coords_of_curve(pd, c, samplenumber) : coord_constructor(pd, c, samplenumber) for c in innercurveindices(pd)]
+    dtcoords = [abs(curveindex) != abs(c) ? zero_coords_of_curve(pd, c, samplenumber) : coord_constructor(pd, c, samplenumber) for c in innercurves(pd)]
     # println(pd)
-    # println(innercurveindices(pd))
+    # println(innercurves(pd))
     # println(dtcoords)
     PantsLamination{T}(pd, dtcoords)
 end

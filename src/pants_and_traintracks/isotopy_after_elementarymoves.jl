@@ -131,17 +131,17 @@ end
 
 
 get_pantindex(pd::PantsDecomposition, move::HalfTwist) = 
-    pant_nextto_pantscurve(pd, move.curveindex, move.side)
+    separator_to_region(pd, move.curveindex, move.side)
 get_pantindex(pd::PantsDecomposition, move::Twist) = 
-    pant_nextto_pantscurve(pd, move.curveindex, LEFT)
+    separator_to_region(pd, move.curveindex, LEFT)
 get_pantindex(pd::PantsDecomposition, move::FirstMove) = 
-    pant_nextto_pantscurve(pd, move.curveindex, LEFT)
+    separator_to_region(pd, move.curveindex, LEFT)
 get_bdyindex(pd::PantsDecomposition, move::HalfTwist) = 
-    bdyindex_nextto_pantscurve(pd, move.curveindex, move.side)
+    separator_to_bdyindex(pd, move.curveindex, move.side)
 get_bdyindex(pd::PantsDecomposition, move::Twist) = 
-    bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
+    separator_to_bdyindex(pd, move.curveindex, LEFT)
 get_bdyindex(pd::PantsDecomposition, move::FirstMove) = 
-    BdyIndex(findfirst(i->abs(pantscurve_nextto_pant(pd, get_pantindex(pd, move), BdyIndex(i))) !=
+    BdyIndex(findfirst(i->abs(region_to_separator(pd, get_pantindex(pd, move), BdyIndex(i))) !=
     abs(move.curveindex), 1:3))
 
 
@@ -170,10 +170,10 @@ end
 function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, 
         pd::PantsDecomposition, move::SecondMove, branchencodings::Vector{Path{ArcInPants}},
         branches_to_change::Vector{Int16}=Int16[])
-    upperpantindex = pant_nextto_pantscurve(pd, move.curveindex, LEFT)
-    upperbdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, LEFT)
-    lowerpantindex = pant_nextto_pantscurve(pd, move.curveindex, RIGHT)
-    lowerbdyindex = bdyindex_nextto_pantscurve(pd, move.curveindex, RIGHT)
+    upperpantindex = separator_to_region(pd, move.curveindex, LEFT)
+    upperbdyindex = separator_to_bdyindex(pd, move.curveindex, LEFT)
+    lowerpantindex = separator_to_region(pd, move.curveindex, RIGHT)
+    lowerbdyindex = separator_to_bdyindex(pd, move.curveindex, RIGHT)
     
     empty!(branches_to_change)
     rules = replacement_rules(move)
