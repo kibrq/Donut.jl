@@ -8,7 +8,6 @@ export PantsDecomposition, pants, numpants, numpunctures, numboundarycurves, eul
 
 using Donut: AbstractSurface
 using Donut.Constants
-import Base.copy
 
 
 
@@ -134,7 +133,7 @@ function isequal_strong(pd1::PantsDecomposition, pd2::PantsDecomposition)
 end
 
 
-copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.pantboundaries), 
+Base.copy(pd::PantsDecomposition) = PantsDecomposition(copy(pd.pantboundaries), 
     copy(pd.pantscurve_to_pantindex), copy(pd.pantscurve_to_bdyindex), pd.numinnerpantscurves)
 
 gluinglist(pd::PantsDecomposition) = pd.pantboundaries

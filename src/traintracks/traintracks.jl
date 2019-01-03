@@ -36,9 +36,9 @@ end
 # Extend the basic functionality of train tracks from base.jl
 # -------------------------------------------
 
-copy(a::Nothing) = nothing
+Base.copy(a::Nothing) = nothing
 
-function copy(tt::DecoratedTrainTrack)
+function Base.copy(tt::DecoratedTrainTrack)
     DecoratedTrainTrack(copy(tt.tt), copy(tt.cusphandler), copy(tt.measure))
 end
 

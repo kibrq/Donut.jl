@@ -1,7 +1,6 @@
 
 
 using Donut.Constants
-import Base.copy
 
 mutable struct TrainTrack
     branch_endpoints::Array{Int16, 2}
@@ -80,7 +79,7 @@ mutable struct TrainTrack
     end
 end
 
-function copy(tt::TrainTrack)
+function Base.copy(tt::TrainTrack)
     TrainTrack(copy(tt.branch_endpoints), copy(tt.istwisted), copy(tt.branch_neighbors), copy(tt.extremal_outgoing_branches))
 end
 

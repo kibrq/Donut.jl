@@ -1,8 +1,6 @@
 
 
-# export Measure, branchmeasure, zeromeasure, outgoingmeasure, copy, whichside_to_peel
 export Measure
-import Base.copy
 
 
 
@@ -48,7 +46,7 @@ struct Measure{T}
     end 
 end
 
-function copy(measure::Measure{T}) where {T} 
+function Base.copy(measure::Measure{T}) where {T} 
     Measure{T}(copy(measure.values))
 end
 

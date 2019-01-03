@@ -1,8 +1,4 @@
 
-# export CuspHandler, cusps, cusp_to_branch, branch_to_cusp, max_cusp_number, update_cusps_peel!, 
-    # update_cusps_fold!, cusp_to_switch, outgoing_cusps, update_cusps_pullout_branches!
-import Base.copy
-
 
 struct CuspHandler
     cusp_to_branch::Array{Int16, 2}
@@ -38,7 +34,7 @@ struct CuspHandler
     end
 end
 
-copy(ch::CuspHandler) = CuspHandler(copy(ch.cusp_to_branch), copy(ch.branch_to_cusp))
+Base.copy(ch::CuspHandler) = CuspHandler(copy(ch.cusp_to_branch), copy(ch.branch_to_cusp))
 
 
 function cusp_to_branch(ch::CuspHandler, cusp::Integer, side::Side)

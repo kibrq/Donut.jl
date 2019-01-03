@@ -12,9 +12,6 @@ using Donut.Constants: LEFT
 using Donut.PantsAndTrainTracks.Paths
 
 import Base.==
-import Base.copy
-import Donut    
-import Donut.TrainTracks.copy
 
 struct PantsLamination{T}
     pd::PantsDecomposition
@@ -32,8 +29,8 @@ struct PantsLamination{T}
     end
 end
 
-function copy(pl::PantsLamination{T}) where {T}
-    PantsLamination{T}(copy(pl.pd), Donut.TrainTracks.copy(pl.tt), 
+function Base.copy(pl::PantsLamination{T}) where {T}
+    PantsLamination{T}(copy(pl.pd), copy(pl.tt), 
         Path{ArcInPants}[copy(enc) for enc in pl.encodings])
 end
 

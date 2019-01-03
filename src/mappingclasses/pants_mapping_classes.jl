@@ -9,9 +9,6 @@ using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMo
 using Donut.Laminations: PantsLamination
 import Base.*, Base.==, Base.^
 import Donut.Pants.inverse
-import Donut
-import Donut.Pants.copy
-import Donut.Laminations.copy
 using Donut.Constants
 using Donut.Laminations
 using Donut.PantsAndTrainTracks.PeelFold
@@ -25,8 +22,8 @@ struct PantsMappingClass <: MappingClass
     change_of_markings::Vector{ChangeOfPantsMarking}  # applied from right to left
 end
 
-function copy(pmc::PantsMappingClass)
-    PantsMappingClass(Donut.Pants.copy(pmc.pd), Base.copy(pmc.change_of_markings))
+function Base.copy(pmc::PantsMappingClass)
+    PantsMappingClass(copy(pmc.pd), copy(pmc.change_of_markings))
 end
 
 function identity_mapping_class(pd::PantsDecomposition)
@@ -141,7 +138,7 @@ function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLami
 end
 
 function *(pmc::PantsMappingClass, pl::PantsLamination)
-    pl_copy = Donut.Laminations.copy(pl)
+    pl_copy = copy(pl)
     apply_mappingclass_to_lamination!(pmc, pl_copy)
     pl_copy
 end
