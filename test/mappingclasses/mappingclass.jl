@@ -1,12 +1,3 @@
-module MappingClassTest
-
-using Test
-using Donut.Laminations
-using Donut.Pants
-using Donut.Constants: LEFT, RIGHT
-# 
-using Donut.MappingClasses
-using Donut.MappingClasses.GeneratingSets
 
 @testset "Applying twists" begin
     pd = PantsDecomposition([(1, -1, 2), (-2, -3, 3)])
@@ -53,7 +44,3 @@ end
     @test B[2]*c*B[2] == c*B[2]*c
 end
 
-
-
-
-end

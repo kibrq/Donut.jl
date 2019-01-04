@@ -1,14 +1,9 @@
-module PathTightening
 
-using Donut.Constants
-using Donut.Pants
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.PantsAndTrainTracks.ArcsInPants: gatetoside
-using Donut.PantsAndTrainTracks.Paths
 
-export ispathtight, simplifypath!
 
-function ispathtight(arc1::ArcInPants, arc2::ArcInPants)
+
+
+function ispathtight(arc1::PantsArc, arc2::PantsArc)
     @assert endvertex(arc1) == startvertex(arc2)
     endgate(arc1) != startgate(arc2)
 end
@@ -17,7 +12,7 @@ end
 """
 Does not check subpaths of length 2.
 """
-function ispathtight(arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
+function ispathtight(arc1::PantsArc, arc2::PantsArc, arc3::PantsArc)
     @assert endvertex(arc1) == startvertex(arc2)
     @assert endvertex(arc2) == startvertex(arc3)
 
@@ -33,12 +28,13 @@ end
 Decide if a bridge goes from boundary i to i+1 (forward) or i+1 to i
 (backward).
 """
-function isbridgeforward(pd::PantsDecomposition, bridge::BridgeArc)
+function isbridgeforward(m::TriMarking, bridge::BridgeArc)
     startside = gatetoside(startgate(bridge))
     endside = gatetoside(endgate(bridge))
-    index1 = separator_to_bdyindex(pd, startvertex(bridge), startside)
-    index2 = separator_to_bdyindex(pd, endvertex(bridge), endside)
-    @assert separator_to_region(pd, startvertex(bridge), startside) == separator_to_region(pd, endvertex(bridge), endside)
+    index1 = separator_to_bdyindex(m, startvertex(bridge), startside)
+    index2 = separator_to_bdyindex(m, endvertex(bridge), endside)
+    @assert separator_to_region(m, startvertex(bridge), startside) == 
+        separator_to_region(m, endvertex(bridge), endside)
 
     if index2 == nextindex(index1)
         return true
@@ -59,14 +55,25 @@ function pantscurvearc_lookingfromgate(pd::PantsDecomposition, signed_vertex::In
 end
 
 # # this could return an iterator for better speed
-# reversedpath(path::Vector{ArcInPants}) = ArcInPants[reversed(arc) for arc in reverse(path)]
+# reversedpath(path::Vector{PantsArc}) = PantsArc[reversed(arc) for arc in reverse(path)]
 
 reverse_shortpath() = ()
 reverse_shortpath(a) = (reverse(a),)
 reverse_shortpath(a, b) = (reverse(b), reverse(a))
 reverse_shortpath(a, b, c) = (reverse(c), reverse(b), reverse(a))
 
-function simplifiedpath(pd::PantsDecomposition, arc1::ArcInPants, arc2::ArcInPants)
+function simplifiedpath(t::Triangulation, arc1::BridgeArc, arc2::BridgeArc)
+    @assert !ispathtight(arc1, arc2)
+    if arc1 == reverse(arc2)
+        return ()
+    end
+
+    v0 = signed_startvertex(arc1)
+    v1 = signed_endvertex(arc2)
+    return (BridgeArc(v0, v1),)
+end
+
+function simplifiedpath(pd::PantsDecomposition, arc1::PantsArc, arc2::PantsArc)
     @assert !ispathtight(arc1, arc2)
     v0 = signed_startvertex(arc1)
     v1 = signed_endvertex(arc2)
@@ -122,7 +129,7 @@ end
 
 
 function simplifiedpath(pd::PantsDecomposition, 
-        arc1::ArcInPants, arc2::ArcInPants, arc3::ArcInPants)
+        arc1::PantsArc, arc2::PantsArc, arc3::PantsArc)
     @assert !ispathtight(arc1, arc2, arc3)
 
     v0 = signed_startvertex(arc1)
@@ -138,7 +145,7 @@ function simplifiedpath(pd::PantsDecomposition,
         if v0 != v2
             # Figure 5: V-shape (same result as for Figure 3)
             # println([pantscurvearc_lookingfromgate(pd, v0, g0, LEFT),
-            # ArcInPants(v0, g0, v2, g2),
+            # PantsArc(v0, g0, v2, g2),
             # pantscurvearc_lookingfromgate(pd, v2, g2, LEFT)])
             # println(gluinglist(pd))
             # println(v0, g0)
@@ -187,27 +194,48 @@ function simplifiedpath(pd::PantsDecomposition,
 end
 
 
-function simplifypath!(pd::PantsDecomposition, path::Path{ArcInPants})
+
+function find_and_simplify_length2!(m::TriMarking, path)
+    for i in 1:length(path)-1
+        if !ispathtight(path[i], path[i+1])
+            replacement = simplifiedpath(m, path[i], path[i+1])
+            splice!(path, i:i+1, replacement)
+            return true
+        end
+    end
+    return false
+end
+
+function find_and_simplify_length3!(pd::PantsDecomposition, path)
+    for i in 1:length(path)-2
+        if !ispathtight(path[i], path[i+1], path[i+2])
+            replacement = simplifiedpath(pd, path[i], path[i+1], path[i+2])
+            splice!(path, i:i+2, replacement)
+            return true
+        end
+    end
+    return false
+end
+
+function find_and_simplify!(pd::PantsDecomposition, path)
+    illegalturn_found = find_and_simplify_length2!(pd, path)
+    if illegalturn_found
+        return true
+    end
+    illegalturn_found = find_and_simplify_length3!(pd, path)
+    return illegalturn_found
+end
+
+function find_and_simplify!(t::Triangulation, path)
+    illegalturn_found = find_and_simplify_length2!(pd, path)
+    return illegalturn_found
+end
+
+function simplifypath!(m::TriMarking, path)
     count = 0
     while count < 1000
         count += 1
-        illegalturn_found = false
-        for i in 1:length(path)-1
-            if !ispathtight(path[i], path[i+1])
-                illegalturn_found = true
-                replacement = simplifiedpath(pd, path[i], path[i+1])
-                splice!(path, i:i+1, replacement)
-                break
-            end
-        end
-        for i in 1:length(path)-2
-            if !ispathtight(path[i], path[i+1], path[i+2])
-                illegalturn_found = true
-                replacement = simplifiedpath(pd, path[i], path[i+1], path[i+2])
-                splice!(path, i:i+2, replacement)
-                break
-            end
-        end
+        illegalturn_found = find_and_simplify!(m, path)
         if !illegalturn_found
             break
         end
@@ -215,7 +243,4 @@ function simplifypath!(pd::PantsDecomposition, path::Path{ArcInPants})
     if count == 1000
         error("Infinite loop when pulling a path tight.")
     end
-end
-
-
 end

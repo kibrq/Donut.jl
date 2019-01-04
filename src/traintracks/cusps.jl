@@ -8,7 +8,7 @@ struct CuspHandler
         new(a, b)
     end
 
-    function CuspHandler(tt::TrainTrack)
+    function CuspHandler(tt::PlainTrainTrack)
         cusp = 1
         branch_to_cusp = zeros(Int16, 2, 2, numbranches_if_made_trivalent(tt))
         cusp_to_branch = zeros(Int16, 2, numcusps(tt))
@@ -45,12 +45,12 @@ function branch_to_cusp(ch::CuspHandler, br::Integer, side::Side)
     ch.branch_to_cusp[Int(side), Int(br > 0 ? FORWARD : BACKWARD), abs(br)]
 end
 
-# function outgoing_cusps(tt::TrainTrack, ch::CuspHandler, br::Integer, start_side::Side=LEFT)
+# function outgoing_cusps(tt::PlainTrainTrack, ch::CuspHandler, br::Integer, start_side::Side=LEFT)
 #     (branch_to_cusp(ch, br, otherside(side)) for br in outgoing_branches(tt, br, side) 
 #     if branch_to_cusp(ch, br, otherside(side)) != 0)
 # end
 
-function cusp_to_switch(tt::TrainTrack, ch::CuspHandler, cusp::Integer)
+function cusp_to_switch(tt::PlainTrainTrack, ch::CuspHandler, cusp::Integer)
     br = cusp_to_branch(ch, cusp, LEFT)
     branch_endpoint(tt, -br)
 end
@@ -76,7 +76,7 @@ function set_branch_to_cusp!(ch::CuspHandler, br::Integer, side::Side, cusp::Int
 end
 
 
-function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Peel,
+function updatecusps_afterop!(tt_after_op::PlainTrainTrack, ch::CuspHandler, op::Peel,
         _::Integer)
     tt = tt_after_op
     peel_off_branch = -extremal_branch(tt, -op.sw, otherside(op.side))
@@ -96,7 +96,7 @@ function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Peel
 end
 
 
-function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Fold,
+function updatecusps_afterop!(tt_after_op::PlainTrainTrack, ch::CuspHandler, op::Fold,
         _::Integer)
     tt = tt_after_op
     @assert !istwisted(tt, op.fold_onto_br)   # TODO: handle twisted branch
@@ -117,7 +117,7 @@ function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, op::Fold
 end
 
 
-function updatecusps_afterop!(tt_after_op::TrainTrack, ch::CuspHandler, 
+function updatecusps_afterop!(tt_after_op::PlainTrainTrack, ch::CuspHandler, 
         _::PulloutBranches, new_sw::Integer)
     tt = tt_after_op
     new_br = new_branch_after_pullout(tt_after_op, new_sw)

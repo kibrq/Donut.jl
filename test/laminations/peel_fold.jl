@@ -1,12 +1,4 @@
-module PeelFoldTest
-
-using Test
-using Donut.Pants
-using Donut.TrainTracks
-using Donut.Constants: LEFT, RIGHT
-using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
-using Donut.PantsAndTrainTracks.PeelFold
-
+using Donut: apply_change_of_marking_to_tt!
 
 @testset "Peel-fold Dehn twist" begin
     # Twisting in the good direction
@@ -120,6 +112,3 @@ end
 end
 
 
-
-
-end

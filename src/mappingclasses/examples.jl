@@ -1,9 +1,5 @@
-module Examples
 
-export hyperelliptic_involution
 
-using Donut.MappingClasses: postcompose!, copy
-using Donut.MappingClasses.GeneratingSets
 
 
 """Construct the hyperelliptic involution on a closed surface.
@@ -49,5 +45,3 @@ end
 #     f = f * B[g-i-1]
 # f *= A[0]
 # return f
-
-end

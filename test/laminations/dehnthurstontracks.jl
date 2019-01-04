@@ -1,13 +1,6 @@
-module DehnThurstonTracksTest
 
-using Test
-using Donut.Pants
-using Donut.Constants
-using Donut.TrainTracks
-using Donut.PantsAndTrainTracks.DehnThurstonTracks: dehnthurstontrack, pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch, arc_in_pantsdecomposition 
-
-using Donut.PantsAndTrainTracks.ArcsInPants
-
+using Donut: pantscurve_toswitch, switch_turning, branches_at_pantend, findbranch,
+    arc_in_pantsdecomposition
 
 pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
 turnings = [LEFT, RIGHT, LEFT]
@@ -122,6 +115,3 @@ end
 
 
 
-
-
-end

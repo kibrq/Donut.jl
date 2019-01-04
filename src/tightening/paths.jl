@@ -1,6 +1,4 @@
-module Paths
 
-export Path, subtract! #, length, getitem, reverse, splice!, empty!, push!, append!,
 
 
 struct Path{T}
@@ -75,4 +73,3 @@ function subtract!(subtract_from_path::Path{T}, subtracted_path::Path{T}) where 
     splice!(subtract_from_path, 1:length(subtracted_path), [])
 end
 
-end

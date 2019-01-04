@@ -1,4 +1,3 @@
-# export Surface, genus, numpunctures, isorientable, eulerchar, surface_from_eulerchar, homologydim, teichspacedim
 
 
 abstract type AbstractSurface end

@@ -1,7 +1,4 @@
 
-export CarryingMap, BRANCH, CUSP, INTERVAL, make_small_tt_trivalent!, 
-    trajectory_of_small_branch_or_cusp
-
 
 
 
@@ -15,8 +12,8 @@ of the path is the length of the cusp path is nonzero.
 
 """
 struct CarryingMap
-    large_tt::DecoratedTrainTrack
-    small_tt::DecoratedTrainTrack
+    large_tt::TrainTrack
+    small_tt::TrainTrack
     small_cusp_to_large_cusp::Vector{Int} # [small cusps] 
     large_cusp_to_small_cusp::Vector{Int} # [large cusps]
     extremal_intervals::Array{Int16, 2}  #  [LEFT,RIGHT] x [large switches]
@@ -44,7 +41,7 @@ struct CarryingMap
     The provided train track and cusphandler are used as the small train track
     without copying.
     """
-    function CarryingMap(dtt::DecoratedTrainTrack)
+    function CarryingMap(dtt::TrainTrack)
         if !hascusphandler(dtt)
             add_cusphandler!(dtt)
             # error("The train tracks in carrying maps have to keep track of cusps.")

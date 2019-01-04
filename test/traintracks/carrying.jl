@@ -1,11 +1,9 @@
-module CarryingTest
 
-using Test
-using Donut.TrainTracks
-using Donut.TrainTracks: are_trajectories_consistent, new_branch_after_pullout
-using Donut.Constants: LEFT, RIGHT
+using Donut: trajectory_of_small_branch_or_cusp, add_carryingmap_as_small_tt!,
+    are_trajectories_consistent, make_small_tt_trivalent!, TrainTrackNet,
+    BRANCH, CUSP, new_branch_after_pullout
 
-tt = DecoratedTrainTrack([[1, 2], [-1, -2]], keep_trackof_cusps=true)
+tt = TrainTrack([[1, 2], [-1, -2]], keep_trackof_cusps=true)
 cm = CarryingMap(tt)
 
 @test trajectory_of_small_branch_or_cusp(cm, BRANCH, 1) == [(1, 1), (-1, 1)]
@@ -20,7 +18,7 @@ cusp2 = branch_to_cusp(cm.large_tt, -1, RIGHT)
 @test are_trajectories_consistent(cm)
 
 @testset "Pullout small branches" begin
-    tt = DecoratedTrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]],
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]],
         measure=BigInt[1, 2, 6, 14, 100])
     ttnet = TrainTrackNet([tt])
     tt_index = 1
@@ -39,7 +37,7 @@ end
 
 
 @testset "Making the small switch trivalent" begin
-    tt = DecoratedTrainTrack([[1, 2], [-1, -2]], measure=BigInt[3, 8])
+    tt = TrainTrack([[1, 2], [-1, -2]], measure=BigInt[3, 8])
     ttnet = TrainTrackNet([tt])
     _, cm = add_carryingmap_as_small_tt!(ttnet, 1)    
     @test are_trajectories_consistent(cm, false)
@@ -47,7 +45,7 @@ end
     # println()
     @test are_trajectories_consistent(cm, false)
 
-    tt = DecoratedTrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]],
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]],
         measure=BigInt[1, 0, 6, 14, 100])
     ttnet = TrainTrackNet([tt])
     _, cm = add_carryingmap_as_small_tt!(ttnet, 1) 
@@ -59,7 +57,7 @@ end
 
 
 @testset "Pullout large branches" begin
-    tt = DecoratedTrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]])
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-5, -4, -3, -2, -1]])
     ttnet = TrainTrackNet([tt])
     large_index, cm = add_carryingmap_as_small_tt!(ttnet, 1)    
     new_sw = apply_tt_operation!(ttnet, large_index, PulloutBranches(1, 2, LEFT))
@@ -75,7 +73,7 @@ end
 
 
 @testset "Peeling the small train track" begin
-    tt = DecoratedTrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]], 
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]], 
         measure=BigInt[1, 2, 6, 14, 100])
     ttnet = TrainTrackNet([tt])
     tt_index = 1
@@ -106,7 +104,7 @@ end
 end
 
 @testset "Folding the large train track" begin
-    tt = DecoratedTrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]])
+    tt = TrainTrack([[1, 2, 3, 4, 5], [-1, -2, -3, -4, -5]])
     ttnet = TrainTrackNet([tt])
     tt_index = 1
     large_index, cm = add_carryingmap_as_small_tt!(ttnet, tt_index)
@@ -122,5 +120,3 @@ end
     @test are_trajectories_consistent(cm, false)
 end
 
-
-end

@@ -1,25 +1,12 @@
 
-module PeelFold
 
-export apply_change_of_marking_to_tt!
-
-
-using Donut.TrainTracks
-using Donut.TrainTracks: whichside_to_peel
-using Donut.Pants
-using Donut.PantsAndTrainTracks.PathTightening
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.PantsAndTrainTracks.IsotopyAfterElementaryMoves
-using Donut.Constants
-using Donut.PantsAndTrainTracks.Paths
-using Donut.PantsAndTrainTracks.DehnThurstonTracks: encoding_of_length1_branch
 
 
 
 debug = false
 
-function is_switchside_legal(tt::DecoratedTrainTrack, sw::Integer, side::Side, 
-        encodings::Vector{Path{ArcInPants}})
+function is_switchside_legal(tt::TrainTrack, sw::Integer, side::Side, 
+        encodings::Vector{Path{PantsArc}})
     debug = false
     frontbr = extremal_branch(tt, sw, side)
     backbr = extremal_branch(tt, -sw, otherside(side))
@@ -46,7 +33,7 @@ function is_switchside_legal(tt::DecoratedTrainTrack, sw::Integer, side::Side,
     true
 end
 
-function branch_to_path(encodings::Vector{Path{ArcInPants}}, br::Integer)
+function branch_to_path(encodings::Vector{Path{PantsArc}}, br::Integer)
     br > 0 ? encodings[br] : reverse(encodings[-br])
 end
 
@@ -76,7 +63,7 @@ function add!(branches_to_consider::Vector{Int16}, br::Integer)
 end
 
 function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
-        pd::PantsDecomposition, encodings::Vector{Path{ArcInPants}}, 
+        pd::PantsDecomposition, encodings::Vector{Path{PantsArc}}, 
         branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
 
@@ -95,7 +82,7 @@ function peel_to_remove_illegalturns!(ttnet::TrainTrackNet, tt_index::Integer,
     if debug
         println("Pants decomposition: ", pd)
         println(tt)
-        # println("TrainTrack: ", tt)
+        # println("PlainTrainTrack: ", tt)
         println("Encodings: ")
         printencoding(encodings)
         println("Branches to consider: ", branches_to_consider)
@@ -116,7 +103,7 @@ end
 
 
 function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
-    pd::PantsDecomposition, encodings::Vector{Path{ArcInPants}}, 
+    pd::PantsDecomposition, encodings::Vector{Path{PantsArc}}, 
     branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
 
@@ -147,7 +134,7 @@ function find_illegal_turn_and_peel!(ttnet::TrainTrackNet, tt_index::Integer,
                     end
                     if debug
                         println("Peeling $(peeledbr) off of $(otherbr)...")
-                        println("TrainTrack: ", tt)
+                        println("PlainTrainTrack: ", tt)
                         # println("Switch:", sw)
                         # println("Side:", side)
                         
@@ -195,7 +182,7 @@ end
 
 
 
-function issubpath(encodings::Vector{Path{ArcInPants}}, 
+function issubpath(encodings::Vector{Path{PantsArc}}, 
         br1::Integer, br2::Integer)
     path1 = branch_to_path(encodings, br1)
     path2 = branch_to_path(encodings, br2)
@@ -207,7 +194,7 @@ end
 
 
 function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer, 
-        encodings::Vector{Path{ArcInPants}}, 
+        encodings::Vector{Path{PantsArc}}, 
         branches_to_consider::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     # switches to consider for fixing the switch orientations.
@@ -230,7 +217,7 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
         count += 1
         if debug
             println(tt)
-            # println("TrainTrack: ", tt)
+            # println("PlainTrainTrack: ", tt)
             println("Encodings: ")
             printencoding(encodings)
             # printencoding_changes(encoding_changes)
@@ -269,7 +256,7 @@ function fold_peeledtt_back!(ttnet::TrainTrackNet, tt_index::Integer,
                         # println(longer_than1_branches)
                         if debug
                             println(tt)
-                            # println("TrainTrack: ", tt)
+                            # println("PlainTrainTrack: ", tt)
                             println("Encodings: ")
                             printencoding(encodings)
                             # printencoding_changes(encoding_changes)
@@ -301,7 +288,7 @@ end
 
 function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
         tt_index::Integer, pd::PantsDecomposition, move::ChangeOfPantsMarking, 
-        encodings::Vector{Path{ArcInPants}}, branches_to_change::Vector{Int16})
+        encodings::Vector{Path{PantsArc}}, branches_to_change::Vector{Int16})
     tt = get_tt(ttnet, tt_index)
     update_encodings_aftermove!(tt, pd, move, encodings, branches_to_change)
     peel_to_remove_illegalturns!(ttnet, tt_index, pd, encodings,
@@ -310,4 +297,3 @@ function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet,
 end
 
 
-end

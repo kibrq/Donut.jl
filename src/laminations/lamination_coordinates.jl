@@ -1,6 +1,5 @@
 
 
-export DehnThurstonCoordinates, intersection_number, twisting_number, TriangleCoordinates
 
 
 struct DehnThurstonCoordinates{T}

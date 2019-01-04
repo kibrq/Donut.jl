@@ -1,11 +1,5 @@
-module MeasuredDehnThurstonTest
 
-using Test
-
-using Donut.Pants
-using Donut.TrainTracks
-using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
-using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks: selfconn_and_bridge_measures
+using Donut: selfconn_and_bridge_measures, measured_dehnthurstontrack
 
 selfconn, pairs = selfconn_and_bridge_measures((1, 4, 7))
 @test selfconn == (0, 0, 1)
@@ -35,6 +29,4 @@ selfconn, pairs = selfconn_and_bridge_measures((1.0, 1.0, 1.0))
     # @test branchmeasure(measure, outgoing_branch(tt, 1, 1)) == 3
     # @test branchmeasure(measure, outgoing_branch(tt, 1, 2)) == 2
     # @test branchmeasure(measure, outgoing_branch(tt, -1, 2)) == 2
-end
-
 end

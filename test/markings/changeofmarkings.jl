@@ -1,9 +1,5 @@
-module ElementaryMovesTest
 
-using Test
-using Donut.Pants
-using Donut.Pants: gluinglist
-using Donut.Constants: LEFT, RIGHT
+using Donut: BdyIndex
 
 @testset "Move 2" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
@@ -59,7 +55,4 @@ end
     @test separator_to_bdyindex(pd, 1, LEFT) == BdyIndex(3)
     @test separator_to_bdyindex(pd, 2, LEFT) == BdyIndex(2)
     @test separator_to_bdyindex(pd, 3, LEFT) == BdyIndex(1)
-end
-
-
 end

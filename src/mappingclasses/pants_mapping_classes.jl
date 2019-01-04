@@ -1,20 +1,6 @@
 
 
 
-export pantstwist, transversaltwist, PantsMappingClass
-
-using Donut.TrainTracks
-using Donut.Pants
-using Donut.Pants: ChangeOfPantsMarking, PantsDecomposition, FirstMove, SecondMove, Twist, HalfTwist, separator_to_region, isequal_strong
-using Donut.Laminations: PantsLamination
-import Base.*, Base.==, Base.^
-import Donut.Pants.inverse
-using Donut.Constants
-using Donut.Laminations
-using Donut.PantsAndTrainTracks.PeelFold
-using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
-
-
 abstract type MappingClass end
 
 struct PantsMappingClass <: MappingClass
@@ -93,26 +79,6 @@ function ^(pmc::PantsMappingClass, exp::Integer)
 end
 
 
-
-# function apply_change_of_markings_to_lamination!(move::FirstMove, pl::PantsLamination)
-#     peel_fold_firstmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.is_inverse)
-# end
-
-# function apply_change_of_markings_to_lamination!(move::SecondMove, pl::PantsLamination)
-#     peel_fold_secondmove!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings)
-# end
-
-# function apply_change_of_marking_to_tt!(ttnet::TrainTrackNet, 
-#         tt_index::Integer, pd::PantsDecomposition, move::Union{HalfTwist, Twist}, 
-#         encodings::Vector{ArcInPants})
-#         peelfold_after_elementarymove!(ttnet, tt_index, pd, move, encodings)
-# end 
-
-# function apply_change_of_marking_to_tt!(move::Twist, pl::PantsLamination)
-#     for i in 1:abs(move.power)
-#         peel_fold_dehntwist!(pl.tt, pl.measure, pl.pd, move.curveindex, pl.encodings, move.power > 0 ? RIGHT : LEFT)
-#     end
-# end
 
 function apply_mappingclass_to_lamination!(pmc::PantsMappingClass, pl::PantsLamination)
     # println(pmc.change_of_markings)

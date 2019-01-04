@@ -1,14 +1,17 @@
-module PathTighteningTest
 
-using Test
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.PantsAndTrainTracks.PathTightening: ispathtight, 
-    simplifiedpath, simplifypath!
-using Donut.Pants
-using Donut.Constants: LEFT, RIGHT, FORWARD, BACKWARD
-using Donut.PantsAndTrainTracks.Paths
+using Donut: ispathtight, simplifiedpath, simplifypath!, Path, PantsArc, 
+    BridgeArc, PantsCurveArc, SelfConnArc, SELFCONN, BRIDGE, PANTSCURVE
 
-# @testset "IllegalPaths" begin
+@testset "Arcs" begin
+    arc = BridgeArc(1, -3)
+    @test reverse(arc) == BridgeArc(-3, 1)
+
+    arc = PantsCurveArc(4)
+    @test reverse(arc) == PantsCurveArc(-4)
+
+    arc = SelfConnArc(3, RIGHT)
+    @test reverse(arc) == SelfConnArc(3, LEFT)
+end
 
 @testset "Simple simplification" begin
     arc1 = BridgeArc(2, 3)
@@ -81,7 +84,7 @@ end
 
 @testset "Simplify long paths" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
-    path = Path{ArcInPants}([BridgeArc(1, 2),
+    path = Path{PantsArc}([BridgeArc(1, 2),
             BridgeArc(2, 3),
             PantsCurveArc(3),
             PantsCurveArc(-3),
@@ -95,7 +98,7 @@ end
         SelfConnArc(-3, RIGHT)
     ]
 
-    path = Path{ArcInPants}([BridgeArc(3, 2),
+    path = Path{PantsArc}([BridgeArc(3, 2),
             PantsCurveArc(2),
             SelfConnArc(-2, RIGHT),
             PantsCurveArc(-2),
@@ -112,8 +115,3 @@ end
     ]
 end
 
-
-
-# end
-
-end

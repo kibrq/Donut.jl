@@ -1,8 +1,3 @@
-module PantsTest
-
-using Test
-using Donut.Pants
-using Donut.Constants: LEFT, RIGHT
 
 # PantsDecomposition([(1, 2, 3), (-2, -2, -1)])
 @test_throws ErrorException PantsDecomposition([(1, 2, 3), (-2, -2, -1)])
@@ -43,6 +38,4 @@ end
     @test isboundary_pantscurve(pd, -5)
     @test isinner_pantscurve(pd, -1)
     @test isinner_pantscurve(pd ,2)
-end
-
 end

@@ -1,5 +1,187 @@
 
 
+
+
+
+
+
+abstract type TTOperation end
+abstract type ElementaryTTOperation <: TTOperation end
+
+struct Peel <: ElementaryTTOperation
+    sw::Int16
+    side::Side
+end
+
+struct Fold <: ElementaryTTOperation
+    fold_onto_br::Int16
+    folded_br_side::Side
+end
+
+struct PulloutBranches <: ElementaryTTOperation
+    start_br::Int16
+    end_br::Int16
+    start_side::Side
+end
+
+PulloutBranches(a, b) = PulloutBranches(a, b, LEFT)
+
+struct CollapseBranch <: ElementaryTTOperation
+    br::Int16
+end
+
+struct RenameBranch <: ElementaryTTOperation
+    oldlabel::Int16
+    newlabel::Int16
+end
+
+struct RenameSwitch <: ElementaryTTOperation
+    oldlabel::Int16
+    newlabel::Int16
+end    
+
+struct DeleteBranch <: ElementaryTTOperation
+    br::Int16
+end
+
+
+
+
+
+
+
+# ------------------------------------
+# Composite Operations
+# ------------------------------------
+
+"""
+Delete a two-valent switch.
+
+The branch behind the switch is collapsed.
+If the switch is not two-valent, an error is thrown.
+
+"""
+struct DeleteTwoValentSwitch <: TTOperation
+    sw::Int16
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::DeleteTwoValentSwitch)
+    @assert switchvalence(tt, op.sw) == 2
+    br_removed = extremal_branch(tt, -op.sw, LEFT)
+    return (CollapseBranch(-br_removed),)
+end
+
+
+"""
+Create a switch on a branch.
+
+The orientation of the new switch is the same as the orientation of the branch. The new branch is
+added before the switch. The new branch is always untwisted.
+"""
+struct AddSwitchOnBranch <: TTOperation
+    br::Int16
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::AddSwitchOnBranch)
+    return (PulloutBranches(op.br, op.br),)
+end
+
+
+@enum TrivalentSplitType::Int8 LEFT_SPLIT RIGHT_SPLIT CENTRAL_SPLIT
+
+
+"""
+Left split: central branch is turning left after the splitting.
+"""
+struct SplitTrivalent <: TTOperation
+    br::Int16
+    split_type::TrivalentSplitType
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::SplitTrivalent)
+    if !is_branch_large(tt, op.br)
+        error("The split branch should be a large branch.")
+    end
+    start_sw = branch_endpoint(tt, -op.br)
+    end_sw = branch_endpoint(tt, op.br)
+    if switchvalence(tt, start_sw) != 3 && switchvalence(tt, end_sw) != 3
+        error("The endpoints of the split branch should be trivalent.")
+    end
+
+    side = op.split_type == RIGHT_SPLIT ? RIGHT : LEFT
+
+    return (
+        Peel(-start_sw, otherside(side)),
+        Peel(-end_sw, istwisted(tt, op.br) ? side : otherside(side))
+    )
+end
+
+
+struct FoldTrivalent <: TTOperation
+    br::Int16
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::FoldTrivalent)
+    # if !is_branch_small_foldable(tt, branch)
+    #     error("Branch $(branch) is not small foldable.")
+    # end
+    fold_side = -100
+    for side in (LEFT, RIGHT)
+        is_side_good = true
+        for sgn in (1, -1)
+            br1 = next_branch(tt, sgn*op.br, side)
+            if br1 != 0
+                is_side_good = false
+                break
+            end
+            br2 = next_branch(tt, op.br, otherside(side))
+            if br2 == 0
+                is_side_good = false
+                break
+            end
+            br3 = next_branch(tt, br2, otherside(side))
+            if br3 != 0
+                is_side_good = false
+                break
+            end
+        end
+        if !is_side_good
+            continue
+        else
+            fold_side = otherside(side)
+            break
+        end
+    end
+    if fold_side == -100
+        error("Branch $(op.br) is not small foldable.")
+    end
+
+    return (
+        Fold(op.br, fold_side),
+        Fold(-op.br, fold_side)
+    )
+end
+
+    
+struct ReverseSwitch <: TTOperation
+    sw::Int16
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::ReverseSwitch)
+    (RenameSwitch(op.sw, -op.sw),)
+end
+
+
+struct ReverseBranch <: TTOperation
+    br::Int16
+end
+
+function convert_to_elementaryops(tt::PlainTrainTrack, op::ReverseBranch)
+    (RenameBranch(op.br, -op.br),)
+end
+
+
+
 # ------------------------------------
 # Utility methods
 # ------------------------------------
@@ -87,7 +269,7 @@ end
 # Renaming switches, branches
 # ------------------------------------
 
-function apply_tt_operation!(tt::TrainTrack, op::RenameBranch)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::RenameBranch)::Integer
     @assert 1 <= abs(op.newlabel) <= size(tt.branch_endpoints)[2]
     @assert !isbranch(tt, op.newlabel) || abs(op.newlabel) == abs(op.oldlabel)
 
@@ -127,7 +309,7 @@ end
 
 
 
-function apply_tt_operation!(tt::TrainTrack, op::RenameSwitch)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::RenameSwitch)::Integer
     @assert 1 <= abs(op.newlabel) <= size(tt.extremal_outgoing_branches)[3]
     @assert !isswitch(tt, op.newlabel) || abs(op.newlabel) == abs(op.oldlabel)
 
@@ -183,7 +365,7 @@ end
 # Peeling and folding
 # ------------------------------------
 
-function apply_tt_operation!(tt::TrainTrack, op::Peel)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::Peel)::Integer
     if numoutgoing_branches(tt, op.sw) == 1
         error("Cannot peel at $(op.sw), because there is only one branch going forward.")
     end
@@ -201,7 +383,7 @@ function apply_tt_operation!(tt::TrainTrack, op::Peel)::Integer
 end
 
 
-function apply_tt_operation!(tt::TrainTrack, op::Fold)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::Fold)::Integer
     folded_br = next_branch(tt, op.fold_onto_br, op.folded_br_side)
     if folded_br == 0
         error("There is no branch on the $(op.folded_br_side==LEFT ? 
@@ -234,7 +416,7 @@ end
 
 
 
-function apply_tt_operation!(tt::TrainTrack, op::DeleteBranch)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::DeleteBranch)::Integer
     start_sw = branch_endpoint(tt, -op.br)
     end_sw = branch_endpoint(tt, op.br)
 
@@ -262,7 +444,7 @@ After the collapse, the two endpoints of `b` merge together and, as a result, on
 Return: switch_removed::Integer in absolute value.
 
 """
-function apply_tt_operation!(tt::TrainTrack, op::CollapseBranch)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::CollapseBranch)::Integer
     start_sw = branch_endpoint(tt, -op.br)
     end_sw = branch_endpoint(tt, op.br)
     if numoutgoing_branches(tt, start_sw) != 1 || numoutgoing_branches(tt, end_sw) != 1
@@ -303,7 +485,7 @@ The new switch is the endpoint of the newly created branch and the moved branche
 
 RETURN: (new_switch, new_branch)
 """
-function apply_tt_operation!(tt::TrainTrack, op::PulloutBranches)::Integer
+function apply_tt_operation!(tt::PlainTrainTrack, op::PulloutBranches)::Integer
     new_sw = _find_new_switch_number!(tt)
     new_br = _find_new_branch_number!(tt)
 
@@ -335,11 +517,11 @@ function apply_tt_operation!(tt::TrainTrack, op::PulloutBranches)::Integer
     return new_sw
 end
 
-function new_branch_after_pullout(tt_afterop::TrainTrack, new_sw::Integer)
+function new_branch_after_pullout(tt_afterop::PlainTrainTrack, new_sw::Integer)
     return -extremal_branch(tt_afterop, -new_sw, LEFT)
 end
 
-function remains_recurrent_after_peel(tt::TrainTrack, switch::Integer, peelside::Side)
+function remains_recurrent_after_peel(tt::PlainTrainTrack, switch::Integer, peelside::Side)
     # TODO: We allocate memory here.
     peeledbr = extremal_branch(tt, switch, peelside)
     peeloffbr = extremal_branch(tt, -switch, otherside(peelside))

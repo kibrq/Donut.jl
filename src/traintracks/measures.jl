@@ -1,6 +1,5 @@
 
 
-export Measure
 
 
 
@@ -15,7 +14,7 @@ struct Measure{T}
         new(values)
     end
 
-    function Measure{T}(tt::TrainTrack, valuearray::Array{T, 1}, allownegatives::Bool=false) where {T}
+    function Measure{T}(tt::PlainTrainTrack, valuearray::Array{T, 1}, allownegatives::Bool=false) where {T}
         if length(valuearray) != numbranches(tt)
             error("The length of the values array ($(valuearray)) should equal the number of branches ($(numbranches(tt))")
         end
@@ -50,7 +49,7 @@ function Base.copy(measure::Measure{T}) where {T}
     Measure{T}(copy(measure.values))
 end
 
-function zeromeasure(tt::TrainTrack, type)
+function zeromeasure(tt::PlainTrainTrack, type)
     Measure{type}(tt, zeros(type, numbranches(tt)))
 end
 
@@ -59,7 +58,7 @@ function branchmeasure(measure::Measure, branchindex::Integer)
     measure.values[abs(branchindex)]
 end
 
-function outgoingmeasure(tt::TrainTrack, measure::Measure, switch::Integer)
+function outgoingmeasure(tt::PlainTrainTrack, measure::Measure, switch::Integer)
     sum(branchmeasure(measure, br) for br in outgoing_branches(tt, switch))
 end
 
@@ -83,7 +82,7 @@ end
 
 
 
-function updatemeasure_afterop!(tt_afterop::TrainTrack,
+function updatemeasure_afterop!(tt_afterop::PlainTrainTrack,
     measure::Measure, op::PulloutBranches, new_sw::Integer)
     new_br = new_branch_after_pullout(tt_afterop, new_sw)
     if abs(new_br) > length(measure.values)
@@ -96,26 +95,26 @@ function updatemeasure_afterop!(tt_afterop::TrainTrack,
 end
 
 
-function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::CollapseBranch,
+function updatemeasure_afterop!(_::PlainTrainTrack, measure::Measure, op::CollapseBranch,
         _::Integer)
     _setmeasure!(measure, op.br, 0)
 end
 
-function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::DeleteBranch,
+function updatemeasure_afterop!(_::PlainTrainTrack, measure::Measure, op::DeleteBranch,
         _::Integer)
     if branchmeasure(measure, op.br) != 0
         error("Cannot delete branch $(op.br), because its measure is not zero.")
     end
 end
 
-function updatemeasure_afterop!(_::TrainTrack, measure::Measure, op::RenameBranch,
+function updatemeasure_afterop!(_::PlainTrainTrack, measure::Measure, op::RenameBranch,
         _::Integer)
     value = branchmeasure(measure, op.oldlabel)
     _setmeasure!(measure, op.oldlabel, 0)
     _setmeasure!(measure, op.newlabel, value)
 end
 
-function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Peel,
+function updatemeasure_afterop!(tt::PlainTrainTrack, measure::Measure, op::Peel,
         _::Integer)        
     peel_off_branch = extremal_branch(tt, -op.sw, otherside(op.side))
     peeled_branch = next_branch(tt, -peel_off_branch, istwisted(tt, peel_off_branch) ? 
@@ -125,7 +124,7 @@ function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Peel,
 end
 
 
-function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Fold,
+function updatemeasure_afterop!(tt::PlainTrainTrack, measure::Measure, op::Fold,
         _::Integer)
     sw = branch_endpoint(tt, op.fold_onto_br)
     folded_br = extremal_branch(tt, -sw, istwisted(tt, op.fold_onto_br) ? 
@@ -134,7 +133,7 @@ function updatemeasure_afterop!(tt::TrainTrack, measure::Measure, op::Fold,
     _setmeasure!(measure, op.fold_onto_br, newvalue)
 end
 
-function updatemeasure_afterop!(_::TrainTrack, _::Measure, _::RenameSwitch, _::Integer)
+function updatemeasure_afterop!(_::PlainTrainTrack, _::Measure, _::RenameSwitch, _::Integer)
 end
 
 
@@ -145,7 +144,7 @@ Consider standing at a switch, looking forward. On each side (LEFT, RIGHT), we c
 
 If the measures are equal, then we need to make sure that we are not peeling from the side where there is only one outgoing branch
 """
-function whichside_to_peel(tt::TrainTrack, measure::Measure, switch::Integer, side::Side)
+function whichside_to_peel(tt::PlainTrainTrack, measure::Measure, switch::Integer, side::Side)
     br1 = extremal_branch(tt, switch, side)
     br2 = extremal_branch(tt, -switch, otherside(side))
     m1 = branchmeasure(measure, br1)

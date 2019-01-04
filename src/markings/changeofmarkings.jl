@@ -1,5 +1,4 @@
 
-export FirstMove, SecondMove, HalfTwist, Twist, ChangeOfPantsMarking, apply_move!
 
 
 struct Flip

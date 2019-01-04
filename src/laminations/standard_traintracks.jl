@@ -1,14 +1,5 @@
 
-module DehnThurstonTracks
 
-export dehnthurstontrack, switch_turning, pantscurve_toswitch, pantscurve_to_branch, branches_at_pantend, findbranch, arc_in_pantsdecomposition
-
-using Donut.Pants
-using Donut.TrainTracks
-using Donut.Constants
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.TrainTracks: BranchIterator
-using Donut.PantsAndTrainTracks.Paths
 
 
 doubledindex(x) = x > 0 ? 2*x-1 : -2*x
@@ -36,13 +27,13 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
     end
     
     gluinglist = [Int[] for i in 1:2*length(ipc)]
-    branchencodings = Path{ArcInPants}[]
+    branchencodings = Path{PantsArc}[]
 
     # creating pants branches
     for i in eachindex(ipc)
         push!(gluinglist[2*i-1], i)
         push!(gluinglist[2*i], -i)
-        push!(branchencodings, Path{ArcInPants}([PantsCurveArc(ipc[i])]))
+        push!(branchencodings, Path{PantsArc}([PantsCurveArc(ipc[i])]))
     end
 
     nextlabel = length(ipc) + 1
@@ -90,7 +81,7 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
             end
             nextlabel += 1
             push!(addedbranches, idx1)
-            push!(branchencodings, Path{ArcInPants}([BridgeArc(curves[Int(idx2)], curves[Int(idx3)])]))
+            push!(branchencodings, Path{PantsArc}([BridgeArc(curves[Int(idx2)], curves[Int(idx3)])]))
         end
 
 
@@ -129,9 +120,9 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
         end
         splice!(x, length(x)+insertpos+1:length(x)+insertpos, nextlabel)
         nextlabel += 1
-        push!(branchencodings, Path{ArcInPants}([SelfConnArc(curve, LEFT)]))
+        push!(branchencodings, Path{PantsArc}([SelfConnArc(curve, LEFT)]))
     end
-    tt = DecoratedTrainTrack(gluinglist)
+    tt = TrainTrack(gluinglist)
     # println("constructor --------------------")
     # println(pd)
     # println(tt)
@@ -142,7 +133,7 @@ function dehnthurstontrack(pd::PantsDecomposition, pantstypes, turnings)
     tt, branchencodings
 end
 
-function encoding_of_length1_branch(branchencodings::Vector{Path{ArcInPants}}, br::Integer)
+function encoding_of_length1_branch(branchencodings::Vector{Path{PantsArc}}, br::Integer)
     @assert length(branchencodings[abs(br)]) == 1
     # println("Br: ", br, " Encoding: ", br > 0 ? branchencodings[br][1] : reverse(branchencodings[-br][1]))
     return br > 0 ? branchencodings[br][1] : reverse(branchencodings[-br][1])
@@ -156,8 +147,8 @@ The direction of the switch is assumed to be same as the direction of the pants 
 
 # TODO: This method is now linear in the nunber of inner pants curves. It could be constant with more bookkeeping.
 """
-function pantscurve_toswitch(pd::PantsDecomposition, tt::DecoratedTrainTrack, 
-    branchencodings::Vector{Path{ArcInPants}}, pantscurveindex::Integer)
+function pantscurve_toswitch(pd::PantsDecomposition, tt::TrainTrack, 
+    branchencodings::Vector{Path{PantsArc}}, pantscurveindex::Integer)
     sw = pantscurveindex
     for side in (LEFT, RIGHT)
         br = extremal_branch(tt, sw, side)
@@ -170,8 +161,8 @@ function pantscurve_toswitch(pd::PantsDecomposition, tt::DecoratedTrainTrack,
 end
 
 
-function switch_turning(dttraintrack::DecoratedTrainTrack, sw::Integer, 
-        branchencodings::Vector{Path{ArcInPants}})
+function switch_turning(dttraintrack::TrainTrack, sw::Integer, 
+        branchencodings::Vector{Path{PantsArc}})
     for side in (LEFT, RIGHT)
         br = extremal_branch(dttraintrack, sw, side)
         if encoding_of_length1_branch(branchencodings, br) isa PantsCurveArc
@@ -185,7 +176,7 @@ function switch_turning(dttraintrack::DecoratedTrainTrack, sw::Integer,
 end
 
 function pantscurve_to_branch(pd::PantsDecomposition, pantscurveindex::Integer, 
-        dttraintrack::DecoratedTrainTrack, branchencodings::Vector{Path{ArcInPants}})
+        dttraintrack::TrainTrack, branchencodings::Vector{Path{PantsArc}})
     sw = pantscurve_toswitch(pd, dttraintrack, branchencodings, pantscurveindex)
     for side in (LEFT, RIGHT)
         br = extremal_branch(dttraintrack, sw, side)
@@ -199,8 +190,8 @@ end
 """
 The branches are always returned left to right. So for a self-connecting branch the beginning of the branch would come before the end of the branch.
 """
-function branches_at_pantend(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-        pantindex::Integer, bdyindex::BdyIndex, branchencodings::Vector{Path{ArcInPants}})
+function branches_at_pantend(dttraintrack::TrainTrack, pd::PantsDecomposition, 
+        pantindex::Integer, bdyindex::BdyIndex, branchencodings::Vector{Path{PantsArc}})
     pantscurveindex = region_to_separator(pd, pantindex, bdyindex)
     # println("Pantscurve: ", pantscurveindex)
     sw = pantscurve_toswitch(pd, dttraintrack, branchencodings, pantscurveindex)
@@ -222,9 +213,9 @@ end
 
 
 
-function findbranch(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
+function findbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, 
     pantindex::Integer, bdyindex::BdyIndex, branchtype::PantsArcType, 
-    branchencodings::Vector{Path{ArcInPants}})
+    branchencodings::Vector{Path{PantsArc}})
     # println("++++++++++++++++++++++++++++")
     # println(dttraintrack)
     # println(pd)
@@ -294,7 +285,6 @@ end
 
 
 
-end
 
 
 

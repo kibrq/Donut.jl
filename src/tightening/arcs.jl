@@ -1,12 +1,6 @@
 
 
-module ArcsInPants
 
-export ArcInPants, BridgeArc, PantsCurveArc, SelfConnArc, signed_startvertex, 
-    signed_endvertex, startvertex, endvertex, startgate, endgate,  
-    reverse, PantsArcType, PANTSCURVE, SELFCONN, BRIDGE, direction_of_pantscurvearc
-
-using Donut.Constants
 
 
 # Gates for Pantscurves are FORWARDGATE (2) or BACKWARDGATE (-2).
@@ -20,7 +14,7 @@ using Donut.Constants
     For a self-connecting arc, the direction is LEFT is the arc starts on the left and returns on the right (i.e. the arc goes around in the clockwise direction)
 """
 
-# abstract type ArcInPants end
+# abstract type PantsArc end
 
 struct BridgeArc
     startgate::Int16
@@ -67,10 +61,11 @@ signed_endvertex(arc::SelfConnArc) = arc.gate
 startgate(arc::SelfConnArc) = arc.gate > 0 ? LEFTGATE : RIGHTGATE
 endgate(arc::SelfConnArc) = arc.gate > 0 ? LEFTGATE : RIGHTGATE
 
-ArcInPants = Union{BridgeArc, SelfConnArc, PantsCurveArc}
+PantsArc = Union{BridgeArc, SelfConnArc, PantsCurveArc}
+TriangleArc = BridgeArc
 
-startvertex(arc::ArcInPants) = abs(signed_startvertex(arc))
-endvertex(arc::ArcInPants) = abs(signed_endvertex(arc))
+startvertex(arc::PantsArc) = abs(signed_startvertex(arc))
+endvertex(arc::PantsArc) = abs(signed_endvertex(arc))
 
 
 function gatetoside(gate::PantsGate)::Side
@@ -81,7 +76,4 @@ function gatetoside(gate::PantsGate)::Side
     else
         @assert false
     end
-end
-
-
 end

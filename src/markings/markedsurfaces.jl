@@ -1,14 +1,4 @@
 
-export PantsDecomposition, regions, numregions, numpunctures, numboundarycurves, eulerchar, 
-    boundarycurves, innercurves, separators,isboundary_pantscurve, 
-    isinner_pantscurve, separator_to_region, separator_to_bdyindex, 
-    region_to_separator, region_to_separators, gluinglist, isfirstmove_curve, 
-    issecondmove_curve, nextindex, previndex, BdyIndex
-
-
-using Donut: AbstractSurface
-using ..Constants
-
 
 abstract type MarkedSurface <: AbstractSurface end
 

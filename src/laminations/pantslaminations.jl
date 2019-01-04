@@ -1,25 +1,14 @@
 
 
-export PantsLamination, lamination_from_pantscurve, lamination_from_transversal, lamination_to_dtcoords
 
-using Donut.Pants
-using Donut.TrainTracks
-using Donut.PantsAndTrainTracks.DehnThurstonTracks
-using Donut.PantsAndTrainTracks.MeasuredDehnThurstonTracks
-using Donut.PantsAndTrainTracks.ArcsInPants: ArcInPants
-using Donut.PantsAndTrainTracks.PeelFold
-using Donut.Constants: LEFT
-using Donut.PantsAndTrainTracks.Paths
-
-import Base.==
 
 struct PantsLamination{T}
     pd::PantsDecomposition
-    tt::DecoratedTrainTrack
-    encodings::Vector{Path{ArcInPants}}
+    tt::TrainTrack
+    encodings::Vector{Path{PantsArc}}
 
-    function PantsLamination{T}(pd::PantsDecomposition, tt::DecoratedTrainTrack, 
-            encodings::Vector{Path{ArcInPants}}) where {T}
+    function PantsLamination{T}(pd::PantsDecomposition, tt::TrainTrack, 
+            encodings::Vector{Path{PantsArc}}) where {T}
         new(pd, tt, encodings)
     end
 
@@ -31,7 +20,7 @@ end
 
 function Base.copy(pl::PantsLamination{T}) where {T}
     PantsLamination{T}(copy(pl.pd), copy(pl.tt), 
-        Path{ArcInPants}[copy(enc) for enc in pl.encodings])
+        Path{PantsArc}[copy(enc) for enc in pl.encodings])
 end
 
 function Base.show(io::IO, pl::PantsLamination)

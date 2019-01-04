@@ -1,8 +1,5 @@
 
 
-export TrainTrackNet, get_tt, add_traintrack!, add_carryingmap_as_small_tt!,
-    apply_tt_operation!
-
 
 
 
@@ -12,15 +9,15 @@ export TrainTrackNet, get_tt, add_traintrack!, add_carryingmap_as_small_tt!,
 
 
 struct TrainTrackNet
-    tts::Vector{DecoratedTrainTrack}
+    tts::Vector{TrainTrack}
     carrying_maps::Vector{Tuple{Int8, Int8, CarryingMap}} # (small_tt_index, large_tt_index, carryingmap)
 end
 
-TrainTrackNet() = TrainTrackNet(DecoratedTrainTrack[], 
+TrainTrackNet() = TrainTrackNet(TrainTrack[], 
                         Tuple{Int, Int, CarryingMap}[])
 TrainTrackNet(a) = TrainTrackNet(a, Tuple{Int, Int, CarryingMap}[]) 
 
-function add_traintrack!(ttnet::TrainTrackNet, dtt::DecoratedTrainTrack)
+function add_traintrack!(ttnet::TrainTrackNet, dtt::TrainTrack)
     push!(ttnet.tts, dtt)
     return length(ttnet.tts)
 end
@@ -41,7 +38,7 @@ function add_carryingmap_as_small_tt!(ttnet::TrainTrackNet, small_tt_index::Inte
     #     ch = add_cusphandler!(dtt, small_tt_index)
     # end
     cm = CarryingMap(dtt)
-    # large_dtt = DecoratedTrainTrack(ch.large_tt, cusphandler=ch.large_cusphandler)
+    # large_dtt = TrainTrack(ch.large_tt, cusphandler=ch.large_cusphandler)
     large_tt_index = add_traintrack!(ttnet, cm.large_tt)
     push!(ttnet.carrying_maps, (small_tt_index, large_tt_index, cm))
     return large_tt_index, cm

@@ -1,18 +1,17 @@
 
 
-using ..Constants
 
-mutable struct TrainTrack
+mutable struct PlainTrainTrack
     branch_endpoints::Array{Int16, 2}
     istwisted::Array{Bool, 1}
     branch_neighbors::Array{Int16, 3}
     extremal_outgoing_branches::Array{Int16, 3}
 
-    function TrainTrack(a, b, c, d)
+    function PlainTrainTrack(a, b, c, d)
         new(a, b, c, d)
     end
 
-    function TrainTrack(gluinglist::Vector{<:Vector{<:Integer}},
+    function PlainTrainTrack(gluinglist::Vector{<:Vector{<:Integer}},
                         twisted_branches::Vector{<:Integer}=Int[])
         if length(gluinglist) % 2 == 1
             error("The length of the gluing list must be even.")
@@ -79,28 +78,28 @@ mutable struct TrainTrack
     end
 end
 
-function Base.copy(tt::TrainTrack)
-    TrainTrack(copy(tt.branch_endpoints), copy(tt.istwisted), copy(tt.branch_neighbors), copy(tt.extremal_outgoing_branches))
+function Base.copy(tt::PlainTrainTrack)
+    PlainTrainTrack(copy(tt.branch_endpoints), copy(tt.istwisted), copy(tt.branch_neighbors), copy(tt.extremal_outgoing_branches))
 end
 
-function extremal_branch(tt::TrainTrack, sw::Integer, side::Side=LEFT)
+function extremal_branch(tt::PlainTrainTrack, sw::Integer, side::Side=LEFT)
     return tt.extremal_outgoing_branches[Int(sw > 0 ? FORWARD : BACKWARD), Int(side), abs(sw)]
 end
 
-function _set_extremal_branch!(tt::TrainTrack, sw::Integer, side::Side, br::Integer)
+function _set_extremal_branch!(tt::PlainTrainTrack, sw::Integer, side::Side, br::Integer)
     tt.extremal_outgoing_branches[Int(sw > 0 ? FORWARD : BACKWARD), Int(side), abs(sw)] = br
 end
 
-function next_branch(tt::TrainTrack, br::Integer, side::Side=LEFT)
+function next_branch(tt::PlainTrainTrack, br::Integer, side::Side=LEFT)
     return tt.branch_neighbors[Int(br > 0 ? FORWARD : BACKWARD), Int(side), abs(br)]
 end
 
-function _set_next_branch!(tt::TrainTrack, br::Integer, side::Side, br2::Integer)
+function _set_next_branch!(tt::PlainTrainTrack, br::Integer, side::Side, br2::Integer)
     tt.branch_neighbors[Int(br > 0 ? FORWARD : BACKWARD), Int(side), abs(br)] = br2
 end
 
 struct BranchIterator
-    tt::TrainTrack
+    tt::PlainTrainTrack
     start_br::Int16
     end_br::Int16
     start_side::Side
@@ -144,38 +143,38 @@ function verify(iter::BranchIterator)
     # if the iterator is not valid, then an assertion will fail during the iteration.
 end
 
-branch_endpoint(tt::TrainTrack, branch::Integer) = 
+branch_endpoint(tt::PlainTrainTrack, branch::Integer) = 
     tt.branch_endpoints[Int(branch > 0 ? FORWARD : BACKWARD), abs(branch)]
 
 """
-WARNING: It leaves the TrainTrack object in an inconsistent state.
+WARNING: It leaves the PlainTrainTrack object in an inconsistent state.
 """
-_setendpoint!(tt::TrainTrack, branch::Integer, switch::Integer) =
+_setendpoint!(tt::PlainTrainTrack, branch::Integer, switch::Integer) =
     tt.branch_endpoints[Int(branch > 0 ? FORWARD : BACKWARD), abs(branch)] = switch
 
 
-function outgoing_branches(tt::TrainTrack, switch::Integer, start_side::Side=LEFT)
+function outgoing_branches(tt::PlainTrainTrack, switch::Integer, start_side::Side=LEFT)
     return BranchIterator(tt, extremal_branch(tt, switch, start_side),
     extremal_branch(tt, switch, otherside(start_side)), start_side)
 end
 
-numoutgoing_branches(tt::TrainTrack, switch::Integer) = length(outgoing_branches(tt, switch))
+numoutgoing_branches(tt::PlainTrainTrack, switch::Integer) = length(outgoing_branches(tt, switch))
 
 
-istwisted(tt::TrainTrack, branch::Integer) = tt.istwisted[abs(branch)]
+istwisted(tt::PlainTrainTrack, branch::Integer) = tt.istwisted[abs(branch)]
 
-_set_twisted!(tt::TrainTrack, branch::Integer, istwisted::Bool) = 
+_set_twisted!(tt::PlainTrainTrack, branch::Integer, istwisted::Bool) = 
     (tt.istwisted[abs(branch)] = istwisted)
 
-twist_branch!(tt::TrainTrack, branch::Integer) = 
+twist_branch!(tt::PlainTrainTrack, branch::Integer) = 
     (tt.istwisted[abs(branch)] = !tt.istwisted[abs(branch)])
 
 
 
-isswitch(tt::TrainTrack, sw::Integer) = 1 <= abs(sw) <= size(tt.extremal_outgoing_branches)[3] && 
+isswitch(tt::PlainTrainTrack, sw::Integer) = 1 <= abs(sw) <= size(tt.extremal_outgoing_branches)[3] && 
     tt.extremal_outgoing_branches[Int(FORWARD), Int(LEFT), abs(sw)] != 0
 
-switches(tt::TrainTrack) = (i for i in 1:size(tt.extremal_outgoing_branches)[3] 
+switches(tt::PlainTrainTrack) = (i for i in 1:size(tt.extremal_outgoing_branches)[3] 
     if tt.extremal_outgoing_branches[Int(FORWARD), Int(LEFT), i] != 0)
 
 """ Return a switch number with is suitable as a new switch.
@@ -183,7 +182,7 @@ switches(tt::TrainTrack) = (i for i in 1:size(tt.extremal_outgoing_branches)[3]
 The new switch won't be connected to any branches just yet.
 If necessary, new space is allocated.
 """
-function _find_new_switch_number!(tt::TrainTrack)
+function _find_new_switch_number!(tt::PlainTrainTrack)
     for i in eachindex(size(tt.extremal_outgoing_branches)[3])  
         if tt.extremal_outgoing_branches[Int(FORWARD), Int(LEFT), i] == 0 && 
             tt.extremal_outgoing_branches[Int(FORWARD), Int(RIGHT), i] == 0
@@ -194,12 +193,12 @@ function _find_new_switch_number!(tt::TrainTrack)
     return size(tt.extremal_outgoing_branches)[3]
 end
 
-isbranch(tt::TrainTrack, br::Integer) = 1 <= abs(br) <= size(tt.branch_endpoints)[2] && 
+isbranch(tt::PlainTrainTrack, br::Integer) = 1 <= abs(br) <= size(tt.branch_endpoints)[2] && 
     tt.branch_endpoints[Int(BACKWARD), abs(br)] != 0
 
-branches(tt::TrainTrack) = (i for i in 1:size(tt.branch_endpoints)[2] if tt.branch_endpoints[Int(BACKWARD), i] != 0)
+branches(tt::PlainTrainTrack) = (i for i in 1:size(tt.branch_endpoints)[2] if tt.branch_endpoints[Int(BACKWARD), i] != 0)
 
-function numbranches(tt::TrainTrack)
+function numbranches(tt::PlainTrainTrack)
     count = 0
     for br in branches(tt)
         count += 1
@@ -207,7 +206,7 @@ function numbranches(tt::TrainTrack)
     return count
 end
 
-function numswitches(tt::TrainTrack)
+function numswitches(tt::PlainTrainTrack)
     count = 0
     for br in switches(tt)
         count += 1
@@ -215,7 +214,7 @@ function numswitches(tt::TrainTrack)
     return count
 end
 
-function numcusps(tt::TrainTrack)
+function numcusps(tt::PlainTrainTrack)
     count = 0
     for br in branches(tt)
         for sgn in (-1, 1)
@@ -233,7 +232,7 @@ Return a positive integer suitable for an additional branch.
 The new branch won't be connected to any switches just yet. If
 necessary, new space is allocated.
 """
-function _find_new_branch_number!(tt::TrainTrack)
+function _find_new_branch_number!(tt::PlainTrainTrack)
     for i in eachindex(size(tt.branch_endpoints)[2])    
         if tt.branch_endpoints[Integer(BACKWARD), i] == 0
             return i
@@ -245,25 +244,25 @@ function _find_new_branch_number!(tt::TrainTrack)
     return length(tt.istwisted)
 end
 
-switchvalence(tt::TrainTrack, switch::Integer) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
+switchvalence(tt::PlainTrainTrack, switch::Integer) = numoutgoing_branches(tt, switch) + numoutgoing_branches(tt, -switch)
 
-twisted_branches(tt::TrainTrack) = (br for br in branches(tt) if istwisted(tt, br))
+twisted_branches(tt::PlainTrainTrack) = (br for br in branches(tt) if istwisted(tt, br))
 
-istrivalent(tt::TrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
+istrivalent(tt::PlainTrainTrack) = all(switchvalence(tt, sw) == 3 for sw in switches(tt))
 
 
-function is_branch_large(tt::TrainTrack, branch::Integer)
+function is_branch_large(tt::PlainTrainTrack, branch::Integer)
     start_sw = branch_endpoint(tt, -branch)
     end_sw = branch_endpoint(tt, branch)
     numoutgoing_branches(tt, end_sw) == 1 && numoutgoing_branches(tt, start_sw) == 1
 end
 
 
-function tt_gluinglist(tt::TrainTrack)
+function tt_gluinglist(tt::PlainTrainTrack)
     [collect(collect(outgoing_branches(tt, sg*sw))) for sw in switches(tt) for sg in (1, -1)]
 end
 
-function Base.show(io::IO, tt::TrainTrack)
+function Base.show(io::IO, tt::PlainTrainTrack)
     print(io, "Traintrack with gluing list ", tt_gluinglist(tt))
     twbr = collect(twisted_branches(tt))
     if length(twbr) > 0
@@ -274,14 +273,14 @@ end
 
 
 """Return the total extra valence (above 3) of the switches."""
-function _extra_valence(tt::TrainTrack)
+function _extra_valence(tt::PlainTrainTrack)
     return sum(max(switchvalence(tt, sw)-3,0) for sw in switches(tt))
 end
 
 """Return the number of switches the train track can have if made
 trivalent."""
-numswitches_if_made_trivalent(tt::TrainTrack) = numswitches(tt) + _extra_valence(tt)
+numswitches_if_made_trivalent(tt::PlainTrainTrack) = numswitches(tt) + _extra_valence(tt)
 
 """Return the number of branches the train track can have if made
 trivalent."""
-numbranches_if_made_trivalent(tt::TrainTrack) = numbranches(tt) + _extra_valence(tt)
+numbranches_if_made_trivalent(tt::PlainTrainTrack) = numbranches(tt) + _extra_valence(tt)

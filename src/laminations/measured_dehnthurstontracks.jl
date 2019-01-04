@@ -1,15 +1,4 @@
-module MeasuredDehnThurstonTracks
 
-export measured_dehnthurstontrack, intersecting_measure, pantscurve_measure
-
-using Donut.Pants
-using Donut.TrainTracks
-using Donut.PantsAndTrainTracks.DehnThurstonTracks
-using Donut.PantsAndTrainTracks.DehnThurstonTracks: encoding_of_length1_branch
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.PantsAndTrainTracks.Paths
-
-using Donut.Constants
 
 function divide_by_2(x::Integer)
     if x % 2 == 1
@@ -45,9 +34,9 @@ end
 
 
 
-function determine_measure(dttraintrack::DecoratedTrainTrack, 
+function determine_measure(dttraintrack::TrainTrack, 
         pd::PantsDecomposition, twisting_numbers, 
-        selfconn_and_bridge_measures, branchencodings::Vector{Path{ArcInPants}})
+        selfconn_and_bridge_measures, branchencodings::Vector{Path{PantsArc}})
     T = typeof(twisting_numbers[1])
     measure_vector = T[]
     for br in eachindex(twisting_numbers)
@@ -132,8 +121,8 @@ function measured_dehnthurstontrack(pd::PantsDecomposition,
 end
 
 
-function intersecting_measure(tt::DecoratedTrainTrack, 
-        branchencodings::Vector{Path{ArcInPants}}, sw::Int)
+function intersecting_measure(tt::TrainTrack, 
+        branchencodings::Vector{Path{PantsArc}}, sw::Int)
     x = 0
     for br in outgoing_branches(tt, sw)
         if !(encoding_of_length1_branch(branchencodings, br) isa PantsCurveArc)
@@ -144,8 +133,8 @@ function intersecting_measure(tt::DecoratedTrainTrack,
 end
 
 
-function pantscurve_measure(tt::DecoratedTrainTrack, 
-        branchencodings::Vector{Path{ArcInPants}}, sw::Int)
+function pantscurve_measure(tt::TrainTrack, 
+        branchencodings::Vector{Path{PantsArc}}, sw::Int)
     for br in outgoing_branches(tt, sw)
         if encoding_of_length1_branch(branchencodings, br) isa PantsCurveArc
             return branchmeasure(tt, br)
@@ -154,5 +143,3 @@ function pantscurve_measure(tt::DecoratedTrainTrack,
 end
 
 
-
-end

@@ -1,15 +1,6 @@
 
-module IsotopyAfterElementaryMoves
 
-export update_encodings_aftermove!
 
-using ...Constants
-using ...TrainTracks
-using ...Pants
-using ..ArcsInPants
-using ..DehnThurstonTracks: findbranch, arc_in_pantsdecomposition
-using ..PathTightening
-using ..Paths
 
 
 
@@ -79,15 +70,15 @@ function replacement_rules(move::SecondMove)
     REPLACEMENT_RULES_SECONDMOVE
 end
 
-function compile_oldbranch(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-    branchencodings::Vector{Path{ArcInPants}}, branchtype::PantsArcType, bdyindex::BdyIndex, 
+function compile_oldbranch(dttraintrack::TrainTrack, pd::PantsDecomposition, 
+    branchencodings::Vector{Path{PantsArc}}, branchtype::PantsArcType, bdyindex::BdyIndex, 
     pantindex::Integer, marking_bdyindex::BdyIndex)
     indices = marking_bdyindex, nextindex(marking_bdyindex), previndex(marking_bdyindex)
     findbranch(dttraintrack, pd, pantindex, indices[Int(bdyindex)], branchtype, branchencodings)
 end
 
-function compile_oldbranches(dttraintrack::DecoratedTrainTrack, 
-    pd::PantsDecomposition, branchencodings::Vector{Path{ArcInPants}}, 
+function compile_oldbranches(dttraintrack::TrainTrack, 
+    pd::PantsDecomposition, branchencodings::Vector{Path{PantsArc}}, 
     rules, pantindex::Integer, marking_bdyindex::BdyIndex, 
     branches_to_change::Vector{Int16})
     for i in 1:length(rules)
@@ -107,7 +98,7 @@ end
 
 
 
-function update_branchencodings!(branchencodings::Vector{Path{ArcInPants}},
+function update_branchencodings!(branchencodings::Vector{Path{PantsArc}},
         rules, old_branches::AbstractArray{Int16}, compile_fn::Function)
     for (i, br) in enumerate(old_branches)
         if br != 0
@@ -147,8 +138,8 @@ get_bdyindex(pd::PantsDecomposition, move::FirstMove) =
 
 
 # TODO: implement an inverse half twist. For now a half-twist plus and inverse Dehn twist does the job.
-function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, pd::PantsDecomposition, 
-        move::Union{HalfTwist, Twist, FirstMove}, branchencodings::Vector{Path{ArcInPants}},
+function update_encodings_aftermove!(dttraintrack::TrainTrack, pd::PantsDecomposition, 
+        move::Union{HalfTwist, Twist, FirstMove}, branchencodings::Vector{Path{PantsArc}},
         branches_to_change::Vector{Int16}=Int16[])
     pantindex = get_pantindex(pd, move)
     marking_bdyindex = get_bdyindex(pd, move)
@@ -166,8 +157,8 @@ function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, pd::Pant
 end
 
 
-function update_encodings_aftermove!(dttraintrack::DecoratedTrainTrack, 
-        pd::PantsDecomposition, move::SecondMove, branchencodings::Vector{Path{ArcInPants}},
+function update_encodings_aftermove!(dttraintrack::TrainTrack, 
+        pd::PantsDecomposition, move::SecondMove, branchencodings::Vector{Path{PantsArc}},
         branches_to_change::Vector{Int16}=Int16[])
     upperpantindex = separator_to_region(pd, move.curveindex, LEFT)
     upperbdyindex = separator_to_bdyindex(pd, move.curveindex, LEFT)
@@ -204,4 +195,3 @@ function deletezeros!(v::Vector{Int16})
     end
 end
 
-end

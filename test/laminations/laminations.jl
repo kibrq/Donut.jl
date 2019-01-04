@@ -1,13 +1,5 @@
 
 
-module LaminationsTest
-
-using Test
-using Donut.Laminations
-using Donut.Pants
-using Donut.Constants: LEFT, RIGHT
-
-
 
 @testset "Lamination from pantscurve" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
@@ -33,6 +25,3 @@ end
     @test lamination_from_transversal(pd, -3, 0) == PantsLamination{Int}(pd, [(0, 0), (0, 0), (1, 0)])
 end
 
-
-
-end

@@ -1,8 +1,4 @@
-module Algorithm
 
-using Donut.TrainTracks.Carrying
-using Donut.MappingClasses
-using Donut.TrainTracks.TrainTrackNets
 
 function invariant_tt(mc::MappingClass)
     # We pick a curve.
@@ -24,7 +20,7 @@ function invariant_tt(mc::MappingClass)
         # train track. We create a CarryingMap from this.
 
         ttnet = TrainTrackNet()
-        small_dtt = DecoratedTrainTrack(lam.tt, measure=lam.measure)
+        small_dtt = TrainTrack(lam.tt, measure=lam.measure)
         small_tt_index = add_traintrack!(ttnet, small_dtt)
         large_tt_index1 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
         large_tt_index2 = add_carryingmap_as_small_tt!(ttnet, small_tt_index)
@@ -35,5 +31,3 @@ function invariant_tt(mc::MappingClass)
 end
 
 
-
-end

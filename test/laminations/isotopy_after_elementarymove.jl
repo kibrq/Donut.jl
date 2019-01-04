@@ -1,12 +1,5 @@
-module IsotopyAfterElementaryMovesTest
 
-using Test
-
-using Donut.PantsAndTrainTracks.DehnThurstonTracks
-using Donut.PantsAndTrainTracks.IsotopyAfterElementaryMoves
-using Donut.PantsAndTrainTracks.ArcsInPants
-using Donut.Constants: LEFT, RIGHT
-using Donut.Pants
+using Donut: update_encodings_aftermove!
 
 @testset "Dehn twists" begin
     pd = PantsDecomposition([(1, 2, 3), (-3, -2, -1)])
@@ -64,6 +57,4 @@ end
     update_encodings_aftermove!(tt, pd, SecondMove(2), encodings)
     @test gluinglist(pd) == [(2, 1, -1), (-2, -3, 3)]
     # @test sum(length(item[2]) for item in encoding_changes) == 15
-end
-
 end

@@ -1,11 +1,6 @@
 
-module GeneratingSets
 
-export humphries_generators
 
-using Donut.Pants: pantsdecomposition_humphries, FirstMove, SecondMove, Twist
-import Donut.Pants.inverse
-using Donut.MappingClasses
 
 function humphries_generators(genus::Int, rightmost_included::Bool=false)
     pd = pantsdecomposition_humphries(genus)
@@ -27,5 +22,3 @@ function humphries_generators(genus::Int, rightmost_included::Bool=false)
     A, B, c
 end
 
-
-end
