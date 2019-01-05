@@ -30,9 +30,9 @@ function Base.iterate(path::Path, state::Int=0)
 end
 
 Base.getindex(path::Path, i::Integer) = !path.isreversed ? path.elements[i] : 
-    reverse(path.elements[length(path)+1-i])
+    reversed_arc(path.elements[length(path)+1-i])
 
-Base.reverse(path::Path{T}) where T = Path{T}(path.elements, !path.isreversed)
+reversed_path(path::Path{T}) where T = Path{T}(path.elements, !path.isreversed)
 
 function Base.splice!(path::Path{T}, range::UnitRange{Int}, replacement::Path{T}) where T
     if !path.isreversed
@@ -41,7 +41,7 @@ function Base.splice!(path::Path{T}, range::UnitRange{Int}, replacement::Path{T}
         # splice!(path.elements, length(path)+1-range.stop:length(path)+1-range.start,
         # (reverse(x) for x in Iterators.reverse(replacement)))
         splice!(path.elements, length(path)+1-range.stop:length(path)+1-range.start,
-        reverse(replacement))
+        reversed_path(replacement))
     end
 end
 
@@ -50,7 +50,7 @@ function Base.splice!(path::Path, range::UnitRange{Int}, replacement)
         splice!(path.elements, range, replacement)
     else
         splice!(path.elements, length(path)+1-range.stop:length(path)+1-range.start,
-        (reverse(x) for x in Iterators.reverse(replacement)))
+        (reversed_arc(x) for x in Iterators.reverse(replacement)))
     end
 end
 
@@ -60,7 +60,7 @@ function Base.push!(path::Path{T}, element::T) where T
     if !path.isreversed
         push!(path.elements, element)
     else
-        pushfirst!(path.elements, reverse(element))
+        pushfirst!(path.elements, reversed_arc(element))
     end
 end
 

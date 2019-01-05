@@ -23,18 +23,18 @@ function is_switchside_legal(tt::TrainTrack, sw::Integer, side::Side,
         println("------------------ END: is_switchside_legal")
     end
 
-    if !ispathtight(reverse(frontenc[1]), backenc[1])
+    if !ispathtight(reversed_arc(frontenc[1]), backenc[1])
         return false
-    elseif length(frontenc) > 1 && !ispathtight(reverse(backenc[1]), frontenc[1], frontenc[2])
+    elseif length(frontenc) > 1 && !ispathtight(reversed_arc(backenc[1]), frontenc[1], frontenc[2])
         return false
-    elseif length(backenc) > 1 && !ispathtight(reverse(frontenc[1]), backenc[1], backenc[2])
+    elseif length(backenc) > 1 && !ispathtight(reversed_arc(frontenc[1]), backenc[1], backenc[2])
         return false
     end
     true
 end
 
 function branch_to_path(encodings::Vector{Path{PantsArc}}, br::Integer)
-    br > 0 ? encodings[br] : reverse(encodings[-br])
+    br > 0 ? encodings[br] : reversed_path(encodings[-br])
 end
 
 

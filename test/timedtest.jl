@@ -1,5 +1,5 @@
 
-using Donut.MappingClasses.GeneratingSets
+using Donut
 
 A, B, c = humphries_generators(2)
 

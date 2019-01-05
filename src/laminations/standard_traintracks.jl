@@ -135,8 +135,8 @@ end
 
 function encoding_of_length1_branch(branchencodings::Vector{Path{PantsArc}}, br::Integer)
     @assert length(branchencodings[abs(br)]) == 1
-    # println("Br: ", br, " Encoding: ", br > 0 ? branchencodings[br][1] : reverse(branchencodings[-br][1]))
-    return br > 0 ? branchencodings[br][1] : reverse(branchencodings[-br][1])
+    # println("Br: ", br, " Encoding: ", br > 0 ? branchencodings[br][1] : reversed_arc(branchencodings[-br][1]))
+    return br > 0 ? branchencodings[br][1] : reversed_arc(branchencodings[-br][1])
 end
 
 
@@ -272,7 +272,7 @@ function arc_in_pantsdecomposition(pd::PantsDecomposition, pantindex::Integer,
         curve2 = region_to_separator(pd, pantindex, idx2)
         newarc = BridgeArc(curve1, curve2)
         if is_reversed
-            newarc = reverse(newarc)
+            newarc = reversed_arc(newarc)
         end
         return newarc
     else

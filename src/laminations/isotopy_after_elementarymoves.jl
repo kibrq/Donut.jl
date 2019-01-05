@@ -111,7 +111,7 @@ function update_branchencodings!(branchencodings::Vector{Path{PantsArc}},
                 if br > 0
                     push!(path, newencoding)
                 else
-                    push!(reverse(path), newencoding)
+                    push!(reversed_path(path), newencoding)
                 end
             end
         end

@@ -58,13 +58,13 @@ end
 # reversedpath(path::Vector{PantsArc}) = PantsArc[reversed(arc) for arc in reverse(path)]
 
 reverse_shortpath() = ()
-reverse_shortpath(a) = (reverse(a),)
-reverse_shortpath(a, b) = (reverse(b), reverse(a))
-reverse_shortpath(a, b, c) = (reverse(c), reverse(b), reverse(a))
+reverse_shortpath(a) = (reversed_arc(a),)
+reverse_shortpath(a, b) = (reversed_arc(b), reversed_arc(a))
+reverse_shortpath(a, b, c) = (reversed_arc(c), reversed_arc(b), reversed_arc(a))
 
 function simplifiedpath(t::Triangulation, arc1::BridgeArc, arc2::BridgeArc)
     @assert !ispathtight(arc1, arc2)
-    if arc1 == reverse(arc2)
+    if arc1 == reversed_arc(arc2)
         return ()
     end
 
@@ -82,7 +82,7 @@ function simplifiedpath(pd::PantsDecomposition, arc1::PantsArc, arc2::PantsArc)
     # println(arc2)
 
     # Backtracking
-    if arc1 == reverse(arc2)
+    if arc1 == reversed_arc(arc2)
         return ()
     end
 
@@ -109,7 +109,7 @@ function simplifiedpath(pd::PantsDecomposition, arc1::PantsArc, arc2::PantsArc)
             end
         end
     elseif arc2 isa SelfConnArc && arc1 isa BridgeArc
-        return reverse_shortpath(simplifiedpath(pd, reverse(arc2), reverse(arc1))...)
+        return reverse_shortpath(simplifiedpath(pd, reversed_arc(arc2), reversed_arc(arc1))...)
     else
         @assert false
     end
@@ -138,7 +138,7 @@ function simplifiedpath(pd::PantsDecomposition,
 
     if !(arc1 isa BridgeArc)
         return reverse_shortpath(
-            simplifiedpath(pd, reverse(arc3), reverse(arc2), reverse(arc1))...)
+            simplifiedpath(pd, reversed_arc(arc3), reversed_arc(arc2), reversed_arc(arc1))...)
     end
 
     if arc3 isa BridgeArc
