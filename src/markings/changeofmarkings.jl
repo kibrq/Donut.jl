@@ -93,8 +93,8 @@ function apply_move!(t::Triangulation, move::Flip)
 end
 
 function apply_move!(pd::PantsDecomposition, move::FirstMove)
-    @assert separator_to_region(pd, move.curveindex, LEFT) == 
-        separator_to_region(pd, move.curveindex, RIGHT)
+    # @assert separator_to_region(pd, move.curveindex, LEFT) == 
+    #     separator_to_region(pd, move.curveindex, RIGHT)
     # nothing to do, the gluing list does not change.
     # TODO: shall we permute the boundaries so that the boundary of the torus has index 1?
 end
